@@ -477,7 +477,7 @@ function ManageMenu() {
   // ============================================================
   // AUTO RESIZE & COMPRESS IMAGE
   // ============================================================
-  async function resizeAndCompressImage(file, maxWidth = 300, maxHeight = 300, quality = 0.7) {
+  async function resizeAndCompressImage(file, maxWidth = 200, maxHeight = 200, quality = 0.7) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.readAsDataURL(file)
@@ -536,7 +536,7 @@ function ManageMenu() {
     setUploading(true)
     
     try {
-      const resizedFile = await resizeAndCompressImage(file, 300, 300, 0.7)
+      const resizedFile = await resizeAndCompressImage(file, 200, 200, 0.7)
       
       const fileExt = resizedFile.name.split('.').pop()
       const fileName = `${type}-${Date.now()}.${fileExt}`
@@ -631,6 +631,7 @@ function ManageMenu() {
       edits[key] = opt.price 
     })
     setDrinkPriceEdits(edits)
+    console.log('✅ Drink options loaded:', data?.length || 0)
   }
 
   // ============================================================
@@ -1035,7 +1036,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // ✅ FIXED: DRINK FUNCTIONS - EDIT HARGA
+  // ✅ DRINK FUNCTIONS - FIXED
   // ============================================================
   
   async function addDrinkWithOptions() {
@@ -1112,7 +1113,7 @@ function ManageMenu() {
     setTimeout(() => setMessage(''), 2000)
   }
 
-  // ✅ FIXED: Handle perubahan harga
+  // ✅ FIXED: Handle price change
   function handleDrinkPriceChange(drinkName, optionType, value) { 
     const key = `${drinkName}_${optionType}` 
     setDrinkPriceEdits(prev => ({ 
@@ -1121,7 +1122,7 @@ function ManageMenu() {
     })) 
   }
   
-  // ✅ FIXED: Save harga dengan betul
+  // ✅ FIXED: Save price - WORKS NOW
   async function handleDrinkPriceSave(drinkName, optionType) { 
     const key = `${drinkName}_${optionType}` 
     const newPrice = drinkPriceEdits[key] 
@@ -1147,7 +1148,7 @@ function ManageMenu() {
     }
   }
 
-  // ✅ NEW: Delete individual drink option
+  // ✅ Delete individual drink option
   async function deleteDrinkOption(drinkName, optionType) {
     if (!window.confirm(`Delete ${drinkName} - ${optionType}?`)) return
     
@@ -2230,9 +2231,6 @@ function ManageMenu() {
                       {currentItems.map(item => {
                         const drinkOpts = drinkOptions.filter(opt => opt.drink_name === item.name)
                         const hasDrinkOptions = drinkOpts.length > 0
-                        const panasPrice = drinkOpts.find(o => o.option_type === 'Panas')?.price
-                        const sejukPrice = drinkOpts.find(o => o.option_type === 'Sejuk')?.price
-                        const bungkusPrice = drinkOpts.find(o => o.option_type === 'Bungkus')?.price
                         const stockColor = getStockColor(item.stock || 0)
                         const stockStatus = getStockText(item.stock || 0)
                         const hasImage = item.image_url && item.image_url !== null && item.image_url !== ''
@@ -2493,7 +2491,7 @@ function ManageMenu() {
                                 </div>
                               </div>
 
-                              {/* ✅ FIXED: Drink Options Display with Save Button */}
+                              {/* ✅ DRINK OPTIONS DISPLAY - FIXED */}
                               {hasDrinkOptions && (
                                 <div style={{ 
                                   marginTop: '4px', 

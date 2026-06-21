@@ -107,7 +107,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // LOAD DATA
+  // ✅ LOAD DATA - FIXED
   // ============================================================
   useEffect(() => {
     loadAllData()
@@ -124,7 +124,10 @@ function StaffApp() {
       .channel('staff_drink')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'drink_options' },
-        () => { loadDrinkOptions() }
+        () => { 
+          console.log('🔄 Drink options changed, reloading...')
+          loadDrinkOptions() 
+        }
       )
       .subscribe()
     
@@ -152,6 +155,7 @@ function StaffApp() {
       loadDrinkOptions()
     ])
     setLoading(false)
+    console.log('✅ All data loaded! Drink options:', drinkOptions.length)
   }
 
   async function loadCategories() {
@@ -193,6 +197,7 @@ function StaffApp() {
     }
   }
 
+  // ✅ DRINK OPTIONS - FIXED
   async function loadDrinkOptions() {
     try {
       const { data } = await supabase
@@ -200,6 +205,7 @@ function StaffApp() {
         .select('*')
       setDrinkOptions(data || [])
       console.log('🍹 Drink options loaded:', data?.length || 0, 'options')
+      console.log('📋 Data:', data)
     } catch (err) {
       console.error('Error loading drink options:', err)
       setDrinkOptions([])
@@ -265,12 +271,12 @@ function StaffApp() {
   }
 
   // ============================================================
-  // GET ITEM PRICE - WITH DRINK OPTIONS
+  // ✅ GET ITEM PRICE - FIXED
   // ============================================================
   function getItemPrice(item, option, size) {
     let basePrice = item?.price || 0
     
-    // Check drink option price
+    // Check drink option price FIRST
     if (option && item) {
       const drinkOpt = drinkOptions.find(d => 
         d.drink_name === item.name && 
@@ -301,14 +307,20 @@ function StaffApp() {
     return parseFloat(basePrice) || 0
   }
 
+  // ============================================================
+  // ✅ DRINK OPTIONS HELPERS - FIXED
+  // ============================================================
   function getDrinkOptionsForItem(item) {
     if (!item) return []
-    return drinkOptions.filter(opt => opt.drink_name === item.name)
+    const options = drinkOptions.filter(opt => opt.drink_name === item.name)
+    console.log(`🔍 Getting options for ${item.name}:`, options.length, 'options')
+    return options
   }
 
   function hasDrinkOptions(item) {
     if (!item) return false
-    return getDrinkOptionsForItem(item).length > 0
+    const options = getDrinkOptionsForItem(item)
+    return options.length > 0
   }
 
   function getOptionLabel(option) {
@@ -586,16 +598,21 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RENDER ITEM MODAL - WITH DRINK OPTIONS & FIXED IMAGE
+  // ✅ RENDER ITEM MODAL - FIXED
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
     
     const isDrink = isDrinkCategory(selectedItem.category)
     const hasSize = isSizeCategory(selectedItem)
+    
+    // ✅ GET DRINK OPTIONS - PASTIKAN GUNA FUNCTION
     const availableDrinkOptions = getDrinkOptionsForItem(selectedItem)
     const hasAvailableOptions = availableDrinkOptions.length > 0
     const sizes = menuOptions
+    
+    console.log(`📱 Modal opened for: ${selectedItem.name}`)
+    console.log(`🍹 Available options:`, availableDrinkOptions)
     
     return (
       <div style={{
@@ -690,7 +707,7 @@ function StaffApp() {
             </p>
           )}
           
-          {/* ✅ DRINK OPTIONS - SHOW FROM DATABASE */}
+          {/* ✅ DRINK OPTIONS - FIXED */}
           {isDrink && (
             <div style={{ marginBottom: '16px' }}>
               <label style={{

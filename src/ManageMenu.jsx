@@ -3,6 +3,7 @@ import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
 import Sidebar from './components/Sidebar'
 import { supabase } from './lib/supabase'
+import toast from 'react-hot-toast'
 import {
   DndContext,
   closestCenter,
@@ -529,7 +530,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // LOAD DATA
+  // LOAD DATA - SIMPLIFIED & FIXED
   // ============================================================
   useEffect(() => {
     console.log('🔄 Initializing ManageMenu...')
@@ -596,10 +597,9 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // SPECIAL MENU FUNCTIONS - WITH SYNC
+  // SPECIAL MENU FUNCTIONS
   // ============================================================
   
-  // ✅ Load Special Menu with price sync from menu table
   async function loadSpecialMenu() {
     try {
       const { data: enabledData } = await supabase
@@ -629,7 +629,6 @@ function ManageMenu() {
           
           for (const item of items) {
             if (item.menu_id) {
-              // 🔥 Sync price from menu table
               const { data: menuItem } = await supabase
                 .from('menu')
                 .select('price, image_url, description, name, stock')
@@ -640,25 +639,22 @@ function ManageMenu() {
                 syncedItems.push({
                   ...item,
                   name: menuItem.name || item.name,
-                  price: menuItem.price,  // 👈 Auto sync price
+                  price: menuItem.price,
                   image_url: menuItem.image_url || item.image_url,
                   description: menuItem.description || item.description,
                   stock: menuItem.stock || item.stock
                 })
               } else {
-                // Menu item deleted - keep old data but warn
                 console.warn('Menu item not found for special item:', item.name)
                 syncedItems.push(item)
               }
             } else {
-              // No menu_id - keep as is (legacy)
               syncedItems.push(item)
             }
           }
           
           setSpecialItems(syncedItems)
           
-          // Save synced prices back to settings (so it persists)
           await supabase
             .from('settings')
             .upsert({ 
@@ -678,7 +674,6 @@ function ManageMenu() {
     }
   }
 
-  // ✅ Sync Special Prices (Manual button)
   async function syncSpecialPrices() {
     if (specialItems.length === 0) {
       setMessage('⚠️ No special items to sync')
@@ -708,18 +703,15 @@ function ManageMenu() {
           })
           syncCount++
         } else {
-          // Menu item deleted - keep as is
           updatedItems.push(item)
         }
       } else {
-        // No menu_id - keep as is
         updatedItems.push(item)
       }
     }
     
     setSpecialItems(updatedItems)
     
-    // Save to settings
     await supabase
       .from('settings')
       .upsert({ 
@@ -732,7 +724,6 @@ function ManageMenu() {
     await loadSpecialMenu()
   }
 
-  // ✅ Add Special Item - WITH menu_id
   async function addSpecialItem() {
     if (!specialFormData.name || !specialFormData.price) { 
       setMessage(`⚠️ ${translate('name')} ${translate('and')} ${translate('price')} ${translate('required')}`)
@@ -745,7 +736,6 @@ function ManageMenu() {
       if (uploadedUrl) imageUrl = uploadedUrl
     }
     
-    // 1. Check if item exists in menu
     const { data: existingMenu } = await supabase
       .from('menu')
       .select('id, name, price, image_url, description, stock')
@@ -755,9 +745,7 @@ function ManageMenu() {
     let menuItemId
     
     if (existingMenu) {
-      // Use existing menu item
       menuItemId = existingMenu.id
-      // Update price if changed
       if (existingMenu.price !== parseFloat(specialFormData.price)) {
         await supabase
           .from('menu')
@@ -769,7 +757,6 @@ function ManageMenu() {
           .eq('id', menuItemId)
       }
     } else {
-      // Create new menu item
       const { data: newMenu, error: menuError } = await supabase
         .from('menu')
         .insert([{ 
@@ -791,7 +778,6 @@ function ManageMenu() {
       menuItemId = newMenu[0].id
     }
     
-    // 2. Save special item with menu_id
     const newItem = { 
       id: Date.now(), 
       name: specialFormData.name, 
@@ -799,7 +785,7 @@ function ManageMenu() {
       stock: parseInt(specialFormData.stock) || 0, 
       image_url: imageUrl || null, 
       description: specialFormData.description || '',
-      menu_id: menuItemId  // 👈 KEY: Link to menu
+      menu_id: menuItemId
     }
     
     const updatedItems = [...specialItems, newItem]
@@ -822,7 +808,6 @@ function ManageMenu() {
     setTimeout(() => setMessage(''), 2000)
   }
 
-  // ✅ Update Special Item - WITH menu_id sync
   async function updateSpecialItem() {
     if (!specialFormData.name || !specialFormData.price) { 
       setMessage(`⚠️ ${translate('name')} ${translate('and')} ${translate('price')} ${translate('required')}`)
@@ -851,7 +836,6 @@ function ManageMenu() {
     
     const specialItem = updatedItems.find(item => item.id === selectedSpecialItem.id)
     if (specialItem && specialItem.menu_id) {
-      // ✅ Update menu table too
       await supabase
         .from('menu')
         .update({ 
@@ -882,14 +866,11 @@ function ManageMenu() {
     setTimeout(() => setMessage(''), 2000)
   }
 
-  // ✅ Delete Special Item
   async function deleteSpecialItem(id, name) {
     if (window.confirm(`${translate('confirm_delete')} "${name}"?`)) {
-      const itemToDelete = specialItems.find(item => item.id === id)
       const updatedItems = specialItems.filter(item => item.id !== id)
       setSpecialItems(updatedItems)
       
-      // Delete from settings
       const { error } = await supabase
         .from('settings')
         .upsert({ key: 'special_menu_items', value: JSON.stringify(updatedItems) }, { onConflict: 'key' })
@@ -898,7 +879,6 @@ function ManageMenu() {
         setMessage(`❌ ${translate('error')}: ${error.message}`) 
       } else { 
         setMessage(`🗑️ "${name}" ${translate('deleted')}`)
-        // Optionally delete from menu too? (We'll keep it)
         loadSpecialMenu() 
       }
       setTimeout(() => setMessage(''), 2000)
@@ -906,10 +886,9 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // OTHER FUNCTIONS (Regular Menu, Promotions, etc.)
+  // OTHER FUNCTIONS
   // ============================================================
   
-  // Load promotions
   async function loadPromotions() {
     const { data } = await supabase.from('promotions').select('*').order('id', { ascending: false })
     setPromotions(data || [])
@@ -937,17 +916,22 @@ function ManageMenu() {
     }
   }
 
-  // Regular menu functions
+  // ============================================================
+  // REGULAR MENU FUNCTIONS - FIXED
+  // ============================================================
+  
   async function addRegularMenuItem() {
     if (!formData.name || !formData.price) { 
       setMessage(`⚠️ ${translate('name')} ${translate('and')} ${translate('price')} ${translate('required')}`)
       return 
     }
+    
     const existing = menu.find(m => m.name.toLowerCase() === formData.name.toLowerCase())
     if (existing) {
       setMessage(`⚠️ "${formData.name}" ${translate('already_exists')}`)
       return
     }
+    
     let imageUrl = formData.image_url
     if (formData.image_file) {
       const uploadedUrl = await uploadImage(formData.image_file, 'menu')
@@ -968,6 +952,7 @@ function ManageMenu() {
       description: formData.description || null,
       sort_order: maxSortOrder
     }])
+    
     if (error) { 
       setMessage(`❌ ${translate('error')}: ${error.message}`) 
     } else { 
@@ -976,6 +961,8 @@ function ManageMenu() {
       setFormData({ name: '', price: '', category: '', stock: 0, image_url: '', image_file: null, description: '' })
       loadMenu()
       loadAvailableMenu() 
+      // ✅ Reload categories too
+      loadCategories()
     }
     setTimeout(() => setMessage(''), 2000)
   }
@@ -985,6 +972,7 @@ function ManageMenu() {
       setMessage(`⚠️ ${translate('name')} ${translate('and')} ${translate('price')} ${translate('required')}`)
       return 
     }
+    
     let imageUrl = formData.image_url
     if (formData.image_file) {
       const uploadedUrl = await uploadImage(formData.image_file, 'menu')
@@ -1015,13 +1003,12 @@ function ManageMenu() {
       setFormData({ name: '', price: '', category: '', stock: 0, image_url: '', image_file: null, description: '' })
       loadMenu()
       loadAvailableMenu()
-      // ✅ Also sync special menu prices
       syncSpecialPrices()
+      loadCategories()
     }
     setTimeout(() => setMessage(''), 2000)
   }
 
-  // Delete menu item
   async function deleteMenuItem(id, name) {
     if (window.confirm(`${translate('confirm_delete')} "${name}"?`)) {
       await supabase.from('drink_options').delete().eq('drink_name', name)
@@ -1034,7 +1021,8 @@ function ManageMenu() {
         await loadMenu()
         await loadDrinkOptions()
         await loadAvailableMenu()
-        // ✅ Remove from special menu if exists
+        loadCategories()
+        
         const specialItem = specialItems.find(item => item.menu_id === id)
         if (specialItem) {
           await deleteSpecialItem(specialItem.id, specialItem.name)
@@ -1044,17 +1032,18 @@ function ManageMenu() {
     }
   }
 
-  // Drink functions
   async function addDrinkWithOptions() {
     if (!newDrinkName) { 
       setMessage(`⚠️ ${translate('drink_name')} ${translate('required')}`)
       return 
     }
+    
     const existing = menu.find(m => m.name.toLowerCase() === newDrinkName.toLowerCase())
     if (existing) {
       setMessage(`⚠️ "${newDrinkName}" ${translate('already_exists')}`)
       return
     }
+    
     const { data: menuData, error: menuError } = await supabase
       .from('menu')
       .insert([{ 
@@ -1064,10 +1053,12 @@ function ManageMenu() {
         sort_order: menu.length
       }])
       .select()
+      
     if (menuError) { 
       setMessage(`❌ ${translate('error')}: ${menuError.message}`)
       return 
     }
+    
     const newMenuId = menuData[0].id
     
     if (newDrinkPanas && parseFloat(newDrinkPanas) > 0) {
@@ -1107,10 +1098,10 @@ function ManageMenu() {
     loadMenu()
     loadDrinkOptions()
     loadAvailableMenu()
+    loadCategories()
     setTimeout(() => setMessage(''), 2000)
   }
 
-  // Drink price update
   async function updateDrinkPrice(drinkName, optionType, newPrice) {
     const { error } = await supabase
       .from('drink_options')
@@ -1147,7 +1138,9 @@ function ManageMenu() {
     }
   }
 
-  // Menu options (size)
+  // ============================================================
+  // MENU OPTIONS (SIZE)
+  // ============================================================
   async function loadMenuOptions(menuId) {
     const { data } = await supabase
       .from('menu_options')
@@ -1246,9 +1239,11 @@ function ManageMenu() {
   // CATEGORY HELPERS
   // ============================================================
   const getCategoriesForFilter = () => {
-    return categories
+    const catList = categories
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
       .map(cat => cat.name)
+    
+    return catList
   }
 
   const getCategoryIcon = (catName) => {
@@ -1589,9 +1584,12 @@ function ManageMenu() {
   // ============================================================
   const categoriesForFilter = getCategoriesForFilter()
   
-  const filteredMenu = activeCategory === 'all' 
-    ? menu.filter(item => item.name.toLowerCase().includes(searchMenuTerm.toLowerCase()))
-    : menu.filter(item => item.category === activeCategory && item.name.toLowerCase().includes(searchMenuTerm.toLowerCase()))
+  // ✅ FIXED: Always show menu items
+  const filteredMenu = menu.filter(item => {
+    const matchCategory = activeCategory === 'all' || item.category === activeCategory
+    const matchSearch = item.name.toLowerCase().includes(searchMenuTerm.toLowerCase())
+    return matchCategory && matchSearch
+  })
   
   const totalItems = filteredMenu.length
   const totalPages = Math.ceil(totalItems / itemsPerPage)
@@ -1852,7 +1850,611 @@ function ManageMenu() {
         </div>
 
         {/* ========================================================== */}
-        {/* SPECIAL TAB - With Sync Button */}
+        {/* REGULAR TAB - FIXED */}
+        {/* ========================================================== */}
+        {activeTab === 'regular' && (
+          <>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'flex-end', 
+              gap: '10px', 
+              marginBottom: '20px', 
+              flexWrap: 'wrap' 
+            }}>
+              <button 
+                onClick={() => setShowAddModal(true)} 
+                style={{ 
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
+                  color: 'white', 
+                  padding: isMobile ? '10px 18px' : '12px 24px', 
+                  border: 'none', 
+                  borderRadius: '40px', 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold', 
+                  fontSize: isMobile ? '13px' : '14px', 
+                  boxShadow: '0 4px 15px rgba(34,197,94,0.3)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {translate('add_menu')}
+              </button>
+              <button 
+                onClick={() => setShowDrinkModal(true)} 
+                style={{ 
+                  background: 'linear-gradient(135deg, #06b6d4, #0891b2)', 
+                  color: 'white', 
+                  padding: isMobile ? '10px 18px' : '12px 24px', 
+                  border: 'none', 
+                  borderRadius: '40px', 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold', 
+                  fontSize: isMobile ? '13px' : '14px', 
+                  boxShadow: '0 4px 15px rgba(6,182,212,0.3)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                {translate('add_drink')}
+              </button>
+            </div>
+
+            {message && (
+              <div style={{ 
+                background: message.includes('✅') || message.includes('✔') 
+                  ? (darkMode ? 'rgba(34,197,94,0.15)' : '#dcfce7') 
+                  : (darkMode ? 'rgba(239,68,68,0.15)' : '#fee2e2'), 
+                color: message.includes('✅') || message.includes('✔') 
+                  ? (darkMode ? '#4ade80' : '#166534') 
+                  : (darkMode ? '#f87171' : '#991b1b'), 
+                padding: '12px 20px', 
+                borderRadius: '40px', 
+                marginBottom: '20px', 
+                textAlign: 'center', 
+                fontSize: isMobile ? '13px' : '14px', 
+                border: `1px solid ${message.includes('✅') || message.includes('✔') ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
+                fontWeight: '500'
+              }}>
+                {message}
+              </div>
+            )}
+
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ 
+                ...glassEffect, 
+                borderRadius: '50px', 
+                padding: '4px 20px', 
+                display: 'flex', 
+                alignItems: 'center',
+                background: darkMode ? 'rgba(25,25,45,0.6)' : 'rgba(255,255,255,0.8)'
+              }}>
+                <span style={{ fontSize: isMobile ? '16px' : '20px', marginRight: '12px', color: textMuted }}>🔍</span>
+                <input 
+                  type="text" 
+                  placeholder={translate('search_menu')} 
+                  value={searchMenuTerm} 
+                  onChange={(e) => setSearchMenuTerm(e.target.value)} 
+                  style={{ 
+                    width: '100%', 
+                    padding: isMobile ? '12px 0' : '14px 0', 
+                    border: 'none', 
+                    background: 'transparent', 
+                    color: textColor, 
+                    fontSize: isMobile ? '14px' : '15px', 
+                    outline: 'none',
+                    fontWeight: '500'
+                  }} 
+                />
+                {searchMenuTerm && (
+                  <button 
+                    onClick={() => setSearchMenuTerm('')} 
+                    style={{ 
+                      background: 'transparent', 
+                      border: 'none', 
+                      color: textMuted, 
+                      cursor: 'pointer',
+                      fontSize: '18px',
+                      padding: '4px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* CATEGORY FILTERS - SHOW ALL CATEGORIES */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '8px', 
+              flexWrap: 'wrap', 
+              marginBottom: '20px',
+              padding: '4px',
+              alignItems: 'center'
+            }}>
+              <button 
+                onClick={() => setActiveCategory('all')} 
+                style={{ 
+                  padding: isMobile ? '8px 18px' : '10px 24px', 
+                  background: activeCategory === 'all' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', 
+                  color: activeCategory === 'all' ? 'white' : textColor, 
+                  border: activeCategory === 'all' ? 'none' : `1px solid ${borderColor}`, 
+                  borderRadius: '50px', 
+                  cursor: 'pointer', 
+                  fontSize: isMobile ? '12px' : '14px',
+                  fontWeight: activeCategory === 'all' ? 'bold' : '500',
+                  transition: 'all 0.2s'
+                }}
+              >
+                🍽️ {translate('all')}
+              </button>
+              
+              <DndContext
+                sensors={categorySensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleCategoryDragEnd}
+              >
+                <SortableContext
+                  items={categoriesForFilter}
+                  strategy={horizontalListSortingStrategy}
+                >
+                  {categoriesForFilter.map(catName => {
+                    const icon = getCategoryIcon(catName)
+                    return (
+                      <SortableCategoryButton
+                        key={catName}
+                        category={catName}
+                        icon={icon}
+                        isActive={activeCategory === catName}
+                        onClick={() => setActiveCategory(catName)}
+                        isMobile={isMobile}
+                        textColor={textColor}
+                        borderColor={borderColor}
+                      >
+                        {catName}
+                      </SortableCategoryButton>
+                    )
+                  })}
+                </SortableContext>
+              </DndContext>
+            </div>
+
+            {/* ✅ FIXED: Show menu items */}
+            {filteredMenu.length === 0 ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: isMobile ? '40px 20px' : '80px 20px', 
+                ...glassEffect, 
+                borderRadius: '28px' 
+              }}>
+                <span style={{ fontSize: isMobile ? '48px' : '64px', opacity: 0.5 }}>🍽️</span>
+                <p style={{ color: textMuted, marginTop: '12px', fontSize: isMobile ? '14px' : '16px' }}>
+                  {translate('no_menu')}
+                </p>
+              </div>
+            ) : (
+              <>
+                <DndContext
+                  sensors={menuSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleMenuDragEnd}
+                >
+                  <SortableContext
+                    items={currentItems.map(item => item.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: menuGridCols, 
+                      gap: isMobile ? '14px' : '20px' 
+                    }}>
+                      {currentItems.map(item => {
+                        const drinkOpts = drinkOptions.filter(opt => opt.drink_name === item.name)
+                        const hasDrinkOptions = drinkOpts.length > 0
+                        const panasPrice = drinkOpts.find(o => o.option_type === 'Panas')?.price
+                        const sejukPrice = drinkOpts.find(o => o.option_type === 'Sejuk')?.price
+                        const bungkusPrice = drinkOpts.find(o => o.option_type === 'Bungkus')?.price
+                        const stockColor = getStockColor(item.stock || 0)
+                        const stockStatus = getStockText(item.stock || 0)
+                        const hasImage = item.image_url && item.image_url !== null && item.image_url !== ''
+                        const hasDescription = item.description && item.description.trim() !== ''
+                        
+                        return (
+                          <SortableMenuItem key={item.id} item={item}>
+                            <div 
+                              className="card-hover"
+                              style={{ 
+                                ...glassEffect, 
+                                borderRadius: '16px', 
+                                padding: isMobile ? '14px' : '20px',
+                                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                cursor: 'default',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '10px',
+                                position: 'relative'
+                              }}
+                            >
+                              <div style={{ 
+                                display: 'flex', 
+                                gap: '14px', 
+                                alignItems: 'center',
+                                flexDirection: isMobile ? 'column' : 'row'
+                              }}>
+                                <div style={{ flexShrink: 0 }}>
+                                  {hasImage ? (
+                                    <div style={{ position: 'relative' }}>
+                                      <img 
+                                        src={item.image_url} 
+                                        alt={item.name} 
+                                        style={{ 
+                                          width: isMobile ? '64px' : '72px', 
+                                          height: isMobile ? '64px' : '72px', 
+                                          objectFit: 'cover', 
+                                          borderRadius: '12px',
+                                          border: `1px solid ${borderColor}`
+                                        }} 
+                                      />
+                                      <button 
+                                        onClick={() => deleteImage(item.image_url, item.id)} 
+                                        style={{ 
+                                          position: 'absolute', 
+                                          top: '-6px', 
+                                          right: '-6px', 
+                                          background: '#ef4444', 
+                                          color: 'white', 
+                                          borderRadius: '50%', 
+                                          width: '20px', 
+                                          height: '20px', 
+                                          fontSize: '10px', 
+                                          cursor: 'pointer', 
+                                          border: 'none',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          transition: 'all 0.2s'
+                                        }}
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <div style={{ 
+                                      width: isMobile ? '64px' : '72px', 
+                                      height: isMobile ? '64px' : '72px', 
+                                      background: secondaryBg, 
+                                      borderRadius: '12px', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      justifyContent: 'center', 
+                                      fontSize: isMobile ? '30px' : '34px',
+                                      border: `1px solid ${borderColor}`
+                                    }}>
+                                      {item.category === 'Makanan' ? '🍚' : '🥤'}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ 
+                                    fontWeight: 'bold', 
+                                    fontSize: isMobile ? '15px' : '17px', 
+                                    color: textColor,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                  }}>
+                                    {item.name}
+                                  </div>
+                                  <div style={{ 
+                                    color: '#22c55e', 
+                                    fontWeight: 'bold', 
+                                    fontSize: isMobile ? '15px' : '17px' 
+                                  }}>
+                                    RM {item.price}
+                                  </div>
+                                  <div style={{ 
+                                    fontSize: isMobile ? '11px' : '12px', 
+                                    color: textMuted,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    flexWrap: 'wrap'
+                                  }}>
+                                    <span>{item.category}</span>
+                                    {item.has_options && (
+                                      <span style={{ 
+                                        background: '#8b5cf6', 
+                                        color: 'white', 
+                                        padding: '2px 10px', 
+                                        borderRadius: '12px', 
+                                        fontSize: '9px',
+                                        fontWeight: 'bold'
+                                      }}>
+                                        ⚙️ Size
+                                      </span>
+                                    )}
+                                  </div>
+                                  {hasDescription && (
+                                    <div style={{ 
+                                      fontSize: isMobile ? '11px' : '12px', 
+                                      color: textMuted,
+                                      marginTop: '4px',
+                                      fontStyle: 'italic',
+                                      background: secondaryBg,
+                                      padding: '4px 10px',
+                                      borderRadius: '8px',
+                                      border: `1px solid ${borderColor}`
+                                    }}>
+                                      📝 {item.description}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div style={{ 
+                                  display: 'flex', 
+                                  flexDirection: 'column', 
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  flexShrink: 0
+                                }}>
+                                  <div style={{ 
+                                    background: stockColor, 
+                                    color: 'white', 
+                                    padding: '4px 10px', 
+                                    borderRadius: '20px', 
+                                    fontSize: isMobile ? '10px' : '11px',
+                                    textAlign: 'center',
+                                    fontWeight: 'bold',
+                                    minWidth: '60px'
+                                  }}>
+                                    {translate('stock')}: {item.stock || 0}
+                                    <span style={{ 
+                                      background: 'rgba(255,255,255,0.25)', 
+                                      padding: '1px 6px', 
+                                      borderRadius: '12px', 
+                                      marginLeft: '4px',
+                                      fontSize: '8px'
+                                    }}>
+                                      {stockStatus}
+                                    </span>
+                                  </div>
+                                  
+                                  <div style={{ 
+                                    display: 'flex', 
+                                    gap: '4px', 
+                                    flexWrap: 'wrap',
+                                    justifyContent: 'center'
+                                  }}>
+                                    <button 
+                                      onClick={() => quickEditStock(item)} 
+                                      style={{ 
+                                        background: '#06b6d4', 
+                                        color: 'white', 
+                                        padding: '4px 8px', 
+                                        border: 'none', 
+                                        borderRadius: '16px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={translate('stock')}
+                                    >
+                                      📦
+                                    </button>
+                                    <button 
+                                      onClick={(e) => { 
+                                        e.stopPropagation()
+                                        console.log('🖱️ EDIT BUTTON CLICKED - Item:', item.name) 
+                                        openEditModal(item)
+                                      }} 
+                                      style={{  
+                                        background: '#f59e0b',   
+                                        color: 'white', 
+                                        padding: '4px 8px',  
+                                        border: 'none',  
+                                        borderRadius: '16px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={translate('edit')}
+                                    >
+                                      ✏️
+                                    </button>
+                                    <button 
+                                      onClick={() => { 
+                                        setSelectedMenuForOptions(item); 
+                                        loadMenuOptions(item.id); 
+                                        setShowOptionsModal(true); 
+                                      }} 
+                                      style={{ 
+                                        background: '#8b5cf6', 
+                                        color: 'white', 
+                                        padding: '4px 8px', 
+                                        border: 'none', 
+                                        borderRadius: '16px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={translate('size_options')}
+                                    >
+                                      ⚙️
+                                    </button>
+                                    <button 
+                                      onClick={() => deleteMenuItem(item.id, item.name)} 
+                                      style={{ 
+                                        background: '#ef4444', 
+                                        color: 'white', 
+                                        padding: '4px 8px', 
+                                        border: 'none', 
+                                        borderRadius: '16px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={translate('delete')}
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {hasDrinkOptions && (
+                                <div style={{ 
+                                  marginTop: '4px', 
+                                  paddingTop: '12px', 
+                                  borderTop: `1px solid ${borderColor}`,
+                                  display: 'flex',
+                                  justifyContent: 'center',
+                                  gap: isMobile ? '10px' : '16px',
+                                  flexWrap: 'wrap',
+                                  background: secondaryBg,
+                                  borderRadius: '12px',
+                                  padding: '10px'
+                                }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: isMobile ? '11px' : '12px', color: '#f97316', fontWeight: 'bold' }}>🔥</span>
+                                    <input 
+                                      type="number" 
+                                      step="0.01" 
+                                      value={drinkPriceEdits[`${item.name}_Panas`] !== undefined ? drinkPriceEdits[`${item.name}_Panas`] : (panasPrice || '')} 
+                                      onChange={(e) => handleDrinkPriceChange(item.name, 'Panas', e.target.value)} 
+                                      style={{ 
+                                        width: isMobile ? '55px' : '65px', 
+                                        padding: '4px 6px', 
+                                        borderRadius: '8px', 
+                                        border: `1px solid ${borderColor}`, 
+                                        background: inputBg, 
+                                        color: inputText, 
+                                        fontSize: isMobile ? '11px' : '12px',
+                                        textAlign: 'center'
+                                      }} 
+                                    />
+                                    <button 
+                                      onClick={() => handleDrinkPriceSave(item.name, 'Panas')} 
+                                      style={{ 
+                                        background: '#22c55e', 
+                                        color: 'white', 
+                                        padding: '2px 8px', 
+                                        border: 'none', 
+                                        borderRadius: '12px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={translate('save')}
+                                    >
+                                      ✓
+                                    </button>
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: isMobile ? '11px' : '12px', color: '#06b6d4', fontWeight: 'bold' }}>🧊</span>
+                                    <input 
+                                      type="number" 
+                                      step="0.01" 
+                                      value={drinkPriceEdits[`${item.name}_Sejuk`] !== undefined ? drinkPriceEdits[`${item.name}_Sejuk`] : (sejukPrice || '')} 
+                                      onChange={(e) => handleDrinkPriceChange(item.name, 'Sejuk', e.target.value)} 
+                                      style={{ 
+                                        width: isMobile ? '55px' : '65px', 
+                                        padding: '4px 6px', 
+                                        borderRadius: '8px', 
+                                        border: `1px solid ${borderColor}`, 
+                                        background: inputBg, 
+                                        color: inputText, 
+                                        fontSize: isMobile ? '11px' : '12px',
+                                        textAlign: 'center'
+                                      }} 
+                                    />
+                                    <button 
+                                      onClick={() => handleDrinkPriceSave(item.name, 'Sejuk')} 
+                                      style={{ 
+                                        background: '#22c55e', 
+                                        color: 'white', 
+                                        padding: '2px 8px', 
+                                        border: 'none', 
+                                        borderRadius: '12px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={translate('save')}
+                                    >
+                                      ✓
+                                    </button>
+                                  </div>
+
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <span style={{ fontSize: isMobile ? '11px' : '12px', color: '#8b5cf6', fontWeight: 'bold' }}>📦</span>
+                                    <input 
+                                      type="number" 
+                                      step="0.01" 
+                                      value={drinkPriceEdits[`${item.name}_Bungkus`] !== undefined ? drinkPriceEdits[`${item.name}_Bungkus`] : (bungkusPrice || '')} 
+                                      onChange={(e) => handleDrinkPriceChange(item.name, 'Bungkus', e.target.value)} 
+                                      style={{ 
+                                        width: isMobile ? '55px' : '65px', 
+                                        padding: '4px 6px', 
+                                        borderRadius: '8px', 
+                                        border: `1px solid ${borderColor}`, 
+                                        background: inputBg, 
+                                        color: inputText, 
+                                        fontSize: isMobile ? '11px' : '12px',
+                                        textAlign: 'center'
+                                      }} 
+                                    />
+                                    <button 
+                                      onClick={() => handleDrinkPriceSave(item.name, 'Bungkus')} 
+                                      style={{ 
+                                        background: '#22c55e', 
+                                        color: 'white', 
+                                        padding: '2px 8px', 
+                                        border: 'none', 
+                                        borderRadius: '12px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={translate('save')}
+                                    >
+                                      ✓
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </SortableMenuItem>
+                        )
+                      })}
+                    </div>
+                  </SortableContext>
+                </DndContext>
+                
+                <PaginationComponent />
+                
+                <div style={{ 
+                  textAlign: 'center', 
+                  marginTop: '16px', 
+                  fontSize: isMobile ? '12px' : '13px', 
+                  color: textMuted 
+                }}>
+                  {translate('showing')} {startIndex + 1}-{Math.min(endIndex, totalItems)} {translate('of')} {totalItems} {translate('items')}
+                </div>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ========================================================== */}
+        {/* SPECIAL TAB */}
         {/* ========================================================== */}
         {activeTab === 'special' && (
           <div>
@@ -2093,222 +2695,6 @@ function ManageMenu() {
         )}
 
         {/* ========================================================== */}
-        {/* REGULAR TAB - Simplified for brevity */}
-        {/* ========================================================== */}
-        {activeTab === 'regular' && (
-          <>
-            <div style={{ 
-              display: 'flex', 
-              justifyContent: 'flex-end', 
-              gap: '10px', 
-              marginBottom: '20px', 
-              flexWrap: 'wrap' 
-            }}>
-              <button 
-                onClick={() => setShowAddModal(true)} 
-                style={{ 
-                  background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
-                  color: 'white', 
-                  padding: isMobile ? '10px 18px' : '12px 24px', 
-                  border: 'none', 
-                  borderRadius: '40px', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold', 
-                  fontSize: isMobile ? '13px' : '14px', 
-                  boxShadow: '0 4px 15px rgba(34,197,94,0.3)',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {translate('add_menu')}
-              </button>
-              <button 
-                onClick={() => setShowDrinkModal(true)} 
-                style={{ 
-                  background: 'linear-gradient(135deg, #06b6d4, #0891b2)', 
-                  color: 'white', 
-                  padding: isMobile ? '10px 18px' : '12px 24px', 
-                  border: 'none', 
-                  borderRadius: '40px', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold', 
-                  fontSize: isMobile ? '13px' : '14px', 
-                  boxShadow: '0 4px 15px rgba(6,182,212,0.3)',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {translate('add_drink')}
-              </button>
-            </div>
-
-            {message && (
-              <div style={{ 
-                background: message.includes('✅') || message.includes('✔') 
-                  ? (darkMode ? 'rgba(34,197,94,0.15)' : '#dcfce7') 
-                  : (darkMode ? 'rgba(239,68,68,0.15)' : '#fee2e2'), 
-                color: message.includes('✅') || message.includes('✔') 
-                  ? (darkMode ? '#4ade80' : '#166534') 
-                  : (darkMode ? '#f87171' : '#991b1b'), 
-                padding: '12px 20px', 
-                borderRadius: '40px', 
-                marginBottom: '20px', 
-                textAlign: 'center', 
-                fontSize: isMobile ? '13px' : '14px', 
-                border: `1px solid ${message.includes('✅') || message.includes('✔') ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`,
-                fontWeight: '500'
-              }}>
-                {message}
-              </div>
-            )}
-
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ 
-                ...glassEffect, 
-                borderRadius: '50px', 
-                padding: '4px 20px', 
-                display: 'flex', 
-                alignItems: 'center',
-                background: darkMode ? 'rgba(25,25,45,0.6)' : 'rgba(255,255,255,0.8)'
-              }}>
-                <span style={{ fontSize: isMobile ? '16px' : '20px', marginRight: '12px', color: textMuted }}>🔍</span>
-                <input 
-                  type="text" 
-                  placeholder={translate('search_menu')} 
-                  value={searchMenuTerm} 
-                  onChange={(e) => setSearchMenuTerm(e.target.value)} 
-                  style={{ 
-                    width: '100%', 
-                    padding: isMobile ? '12px 0' : '14px 0', 
-                    border: 'none', 
-                    background: 'transparent', 
-                    color: textColor, 
-                    fontSize: isMobile ? '14px' : '15px', 
-                    outline: 'none',
-                    fontWeight: '500'
-                  }} 
-                />
-                {searchMenuTerm && (
-                  <button 
-                    onClick={() => setSearchMenuTerm('')} 
-                    style={{ 
-                      background: 'transparent', 
-                      border: 'none', 
-                      color: textMuted, 
-                      cursor: 'pointer',
-                      fontSize: '18px',
-                      padding: '4px',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* CATEGORY FILTERS */}
-            <div style={{ 
-              display: 'flex', 
-              gap: '8px', 
-              flexWrap: 'wrap', 
-              marginBottom: '20px',
-              padding: '4px',
-              alignItems: 'center'
-            }}>
-              <button 
-                onClick={() => setActiveCategory('all')} 
-                style={{ 
-                  padding: isMobile ? '8px 18px' : '10px 24px', 
-                  background: activeCategory === 'all' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', 
-                  color: activeCategory === 'all' ? 'white' : textColor, 
-                  border: activeCategory === 'all' ? 'none' : `1px solid ${borderColor}`, 
-                  borderRadius: '50px', 
-                  cursor: 'pointer', 
-                  fontSize: isMobile ? '12px' : '14px',
-                  fontWeight: activeCategory === 'all' ? 'bold' : '500',
-                  transition: 'all 0.2s'
-                }}
-              >
-                🍽️ {translate('all')}
-              </button>
-              
-              <DndContext
-                sensors={categorySensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleCategoryDragEnd}
-              >
-                <SortableContext
-                  items={categoriesForFilter}
-                  strategy={horizontalListSortingStrategy}
-                >
-                  {categoriesForFilter.map(catName => {
-                    const icon = getCategoryIcon(catName)
-                    return (
-                      <SortableCategoryButton
-                        key={catName}
-                        category={catName}
-                        icon={icon}
-                        isActive={activeCategory === catName}
-                        onClick={() => setActiveCategory(catName)}
-                        isMobile={isMobile}
-                        textColor={textColor}
-                        borderColor={borderColor}
-                      >
-                        {catName}
-                      </SortableCategoryButton>
-                    )
-                  })}
-                </SortableContext>
-              </DndContext>
-            </div>
-
-            {filteredMenu.length === 0 ? (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: isMobile ? '40px 20px' : '80px 20px', 
-                ...glassEffect, 
-                borderRadius: '28px' 
-              }}>
-                <span style={{ fontSize: isMobile ? '48px' : '64px', opacity: 0.5 }}>🍽️</span>
-                <p style={{ color: textMuted, marginTop: '12px', fontSize: isMobile ? '14px' : '16px' }}>
-                  {translate('no_menu')}
-                </p>
-              </div>
-            ) : (
-              <>
-                <DndContext
-                  sensors={menuSensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleMenuDragEnd}
-                >
-                  <SortableContext
-                    items={currentItems.map(item => item.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    <div style={{ 
-                      display: 'grid', 
-                      gridTemplateColumns: menuGridCols, 
-                      gap: isMobile ? '14px' : '20px' 
-                    }}>
-                      {currentItems.map(item => {
-                        // ... (menu item rendering - same as before)
-                        // For brevity, keep your existing code here
-                        return (
-                          <div key={item.id}>
-                            {/* Your existing menu item JSX */}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </SortableContext>
-                </DndContext>
-                
-                <PaginationComponent />
-              </>
-            )}
-          </>
-        )}
-
-        {/* ========================================================== */}
         {/* PROMOTIONS TAB - Same as before */}
         {/* ========================================================== */}
         {activeTab === 'promotions' && (
@@ -2482,7 +2868,7 @@ function ManageMenu() {
         )}
 
         {/* ========================================================== */}
-        {/* MODALS - Keep your existing modals */}
+        {/* MODALS */}
         {/* ========================================================== */}
 
         {/* ADD SPECIAL MODAL - Updated with note about menu sync */}
@@ -2941,7 +3327,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* PROMOTION MODALS - Keep your existing */}
+        {/* PROMOTION MODALS */}
         {showAddPromoModal && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>

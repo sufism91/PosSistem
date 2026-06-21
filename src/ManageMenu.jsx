@@ -1034,6 +1034,10 @@ function ManageMenu() {
     }
   }
 
+  // ============================================================
+  // ✅ FIXED: DRINK FUNCTIONS - EDIT HARGA
+  // ============================================================
+  
   async function addDrinkWithOptions() {
     if (!newDrinkName) { 
       setMessage(`⚠️ ${translate('drink_name')} ${translate('required')}`)
@@ -1049,8 +1053,12 @@ function ManageMenu() {
     const { data: menuData, error: menuError } = await supabase
       .from('menu')
       .insert([{ 
-        name: newDrinkName, price: 0, category: 'Minuman',
-        stock: parseInt(newDrinkStock) || 0, image_url: null, has_options: false,
+        name: newDrinkName, 
+        price: 0, 
+        category: 'Minuman',
+        stock: parseInt(newDrinkStock) || 0, 
+        image_url: null, 
+        has_options: false,
         description: null,
         sort_order: menu.length
       }])
@@ -1063,30 +1071,31 @@ function ManageMenu() {
     
     const newMenuId = menuData[0].id
     
-    if (newDrinkPanas && parseFloat(newDrinkPanas) > 0) {
+    // Insert drink options
+    if (newDrinkPanas && parseFloat(newDrinkPanas) >= 0) {
       await supabase.from('drink_options').insert([{ 
         menu_id: newMenuId, 
         drink_name: newDrinkName, 
         option_type: 'Panas', 
-        price: parseFloat(newDrinkPanas) 
+        price: parseFloat(newDrinkPanas) || 0
       }])
     }
     
-    if (newDrinkSejuk && parseFloat(newDrinkSejuk) > 0) {
+    if (newDrinkSejuk && parseFloat(newDrinkSejuk) >= 0) {
       await supabase.from('drink_options').insert([{ 
         menu_id: newMenuId, 
         drink_name: newDrinkName, 
         option_type: 'Sejuk', 
-        price: parseFloat(newDrinkSejuk) 
+        price: parseFloat(newDrinkSejuk) || 0
       }])
     }
     
-    if (newDrinkBungkus && parseFloat(newDrinkBungkus) > 0) {
+    if (newDrinkBungkus && parseFloat(newDrinkBungkus) >= 0) {
       await supabase.from('drink_options').insert([{ 
         menu_id: newMenuId, 
         drink_name: newDrinkName, 
         option_type: 'Bungkus', 
-        price: parseFloat(newDrinkBungkus) 
+        price: parseFloat(newDrinkBungkus) || 0
       }])
     }
     
@@ -1103,22 +1112,7 @@ function ManageMenu() {
     setTimeout(() => setMessage(''), 2000)
   }
 
-  async function updateDrinkPrice(drinkName, optionType, newPrice) {
-    const { error } = await supabase
-      .from('drink_options')
-      .update({ price: parseFloat(newPrice) })
-      .eq('drink_name', drinkName)
-      .eq('option_type', optionType)
-      
-    if (error) { 
-      setMessage(`❌ ${translate('error')}: ${error.message}`) 
-    } else { 
-      await loadDrinkOptions()
-      setMessage(`✅ ${drinkName} (${optionType}) ${translate('price_updated')}`) 
-    }
-    setTimeout(() => setMessage(''), 2000)
-  }
-
+  // ✅ FIXED: Handle perubahan harga
   function handleDrinkPriceChange(drinkName, optionType, value) { 
     const key = `${drinkName}_${optionType}` 
     setDrinkPriceEdits(prev => ({ 
@@ -1127,16 +1121,49 @@ function ManageMenu() {
     })) 
   }
   
-  function handleDrinkPriceSave(drinkName, optionType) { 
+  // ✅ FIXED: Save harga dengan betul
+  async function handleDrinkPriceSave(drinkName, optionType) { 
     const key = `${drinkName}_${optionType}` 
     const newPrice = drinkPriceEdits[key] 
     
     if (newPrice !== undefined && newPrice !== '' && !isNaN(newPrice) && parseFloat(newPrice) >= 0) {
-      updateDrinkPrice(drinkName, optionType, newPrice) 
+      const { error } = await supabase
+        .from('drink_options')
+        .update({ price: parseFloat(newPrice) })
+        .eq('drink_name', drinkName)
+        .eq('option_type', optionType)
+        
+      if (error) { 
+        setMessage(`❌ ${translate('error')}: ${error.message}`) 
+      } else { 
+        await loadDrinkOptions()
+        setMessage(`✅ ${drinkName} (${optionType}) ${translate('price_updated')}`)
+        loadAvailableMenu()
+      }
+      setTimeout(() => setMessage(''), 2000)
     } else {
       setMessage(translate('invalid_price'))
       setTimeout(() => setMessage(''), 2000)
     }
+  }
+
+  // ✅ NEW: Delete individual drink option
+  async function deleteDrinkOption(drinkName, optionType) {
+    if (!window.confirm(`Delete ${drinkName} - ${optionType}?`)) return
+    
+    const { error } = await supabase
+      .from('drink_options')
+      .delete()
+      .eq('drink_name', drinkName)
+      .eq('option_type', optionType)
+      
+    if (error) {
+      setMessage(`❌ ${translate('error')}: ${error.message}`)
+    } else {
+      setMessage(`🗑️ ${drinkName} (${optionType}) deleted!`)
+      await loadDrinkOptions()
+    }
+    setTimeout(() => setMessage(''), 2000)
   }
 
   // ============================================================
@@ -1899,7 +1926,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // RENDER - Complete (Saya ringkaskan sebab panjang)
+  // RENDER
   // ============================================================
   return (
     <Sidebar>
@@ -2003,7 +2030,7 @@ function ManageMenu() {
           </button>
         </div>
 
-        {/* === REGULAR TAB === */}
+        {/* REGULAR TAB */}
         {activeTab === 'regular' && (
           <>
             <div style={{ 
@@ -2466,7 +2493,7 @@ function ManageMenu() {
                                 </div>
                               </div>
 
-                              {/* Drink Options Display */}
+                              {/* ✅ FIXED: Drink Options Display with Save Button */}
                               {hasDrinkOptions && (
                                 <div style={{ 
                                   marginTop: '4px', 
@@ -2474,7 +2501,7 @@ function ManageMenu() {
                                   borderTop: `1px solid ${borderColor}`,
                                   display: 'flex',
                                   justifyContent: 'center',
-                                  gap: isMobile ? '10px' : '16px',
+                                  gap: isMobile ? '8px' : '12px',
                                   flexWrap: 'wrap',
                                   background: secondaryBg,
                                   borderRadius: '12px',
@@ -2487,11 +2514,19 @@ function ManageMenu() {
                                     const label = opt.option_type === 'Panas' ? translate('hot') : opt.option_type === 'Sejuk' ? translate('cold') : translate('takeaway')
                                     
                                     return (
-                                      <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                      <div key={opt.id} style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '4px',
+                                        background: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
+                                        padding: '4px 8px',
+                                        borderRadius: '10px',
+                                        border: `1px solid ${borderColor}`
+                                      }}>
                                         <span style={{ fontSize: isMobile ? '11px' : '12px', fontWeight: 'bold' }}>
                                           {emoji}
                                         </span>
-                                        <span style={{ fontSize: isMobile ? '9px' : '10px', color: textMuted }}>
+                                        <span style={{ fontSize: isMobile ? '8px' : '9px', color: textMuted, minWidth: '30px' }}>
                                           {label}
                                         </span>
                                         <input 
@@ -2500,13 +2535,13 @@ function ManageMenu() {
                                           value={currentPrice} 
                                           onChange={(e) => handleDrinkPriceChange(item.name, opt.option_type, e.target.value)} 
                                           style={{ 
-                                            width: isMobile ? '55px' : '65px', 
-                                            padding: '4px 6px', 
-                                            borderRadius: '8px', 
-                                            border: `1px solid ${borderColor}`, 
+                                            width: isMobile ? '50px' : '60px', 
+                                            padding: '3px 4px', 
+                                            borderRadius: '6px', 
+                                            border: `1px solid ${inputBorder}`, 
                                             background: inputBg, 
                                             color: inputText, 
-                                            fontSize: isMobile ? '11px' : '12px',
+                                            fontSize: isMobile ? '10px' : '11px',
                                             textAlign: 'center'
                                           }} 
                                         />
@@ -2521,11 +2556,29 @@ function ManageMenu() {
                                             cursor: 'pointer', 
                                             fontSize: isMobile ? '9px' : '10px',
                                             fontWeight: 'bold',
-                                            transition: 'all 0.2s'
+                                            transition: 'all 0.2s',
+                                            minWidth: '24px'
                                           }}
                                           title={translate('save')}
                                         >
                                           ✓
+                                        </button>
+                                        <button 
+                                          onClick={() => deleteDrinkOption(item.name, opt.option_type)} 
+                                          style={{ 
+                                            background: '#ef4444', 
+                                            color: 'white', 
+                                            padding: '2px 6px', 
+                                            border: 'none', 
+                                            borderRadius: '12px', 
+                                            cursor: 'pointer', 
+                                            fontSize: isMobile ? '9px' : '10px',
+                                            fontWeight: 'bold',
+                                            transition: 'all 0.2s'
+                                          }}
+                                          title="Delete option"
+                                        >
+                                          ✕
                                         </button>
                                       </div>
                                     )
@@ -2555,7 +2608,7 @@ function ManageMenu() {
           </>
         )}
 
-        {/* === SPECIAL TAB === */}
+        {/* SPECIAL TAB */}
         {activeTab === 'special' && (
           <div>
             <div style={{ 
@@ -2789,7 +2842,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* === PROMOTIONS TAB === */}
+        {/* PROMOTIONS TAB */}
         {activeTab === 'promotions' && (
           <div>
             <div style={{ 
@@ -2960,10 +3013,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* ========================================================== */}
-        {/* MODALS */}
-        {/* ========================================================== */}
-
+        {/* ===== MODALS ===== */}
         {/* ADD SPECIAL MODAL */}
         {showAddSpecialModal && (
           <div style={modalOverlayStyle}>

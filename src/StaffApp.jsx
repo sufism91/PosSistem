@@ -59,7 +59,7 @@ function StaffApp() {
   const [menu, setMenu] = useState([])
   const [categories, setCategories] = useState([])
   const [promotions, setPromotions] = useState([])
-  const [drinkOptions, setDrinkOptions] = useState([]) // ✅ IMPORTANT
+  const [drinkOptions, setDrinkOptions] = useState([])
   const [cart, setCart] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedItem, setSelectedItem] = useState(null)
@@ -107,12 +107,11 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ✅ LOAD DATA - COMPLETE
+  // LOAD DATA
   // ============================================================
   useEffect(() => {
     loadAllData()
     
-    // ✅ Real-time subscriptions
     const menuSub = supabase
       .channel('staff_menu')
       .on('postgres_changes', 
@@ -150,7 +149,7 @@ function StaffApp() {
       loadCategories(),
       loadMenu(),
       loadPromotions(),
-      loadDrinkOptions() // ✅ IMPORTANT
+      loadDrinkOptions()
     ])
     setLoading(false)
   }
@@ -194,7 +193,6 @@ function StaffApp() {
     }
   }
 
-  // ✅ DRINK OPTIONS - FIXED
   async function loadDrinkOptions() {
     try {
       const { data } = await supabase
@@ -267,12 +265,12 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ✅ FIXED: getItemPrice - PRIORITIZE DRINK OPTIONS
+  // GET ITEM PRICE - WITH DRINK OPTIONS
   // ============================================================
   function getItemPrice(item, option, size) {
     let basePrice = item?.price || 0
     
-    // 🔥 STEP 1: Check drink option price (MOST IMPORTANT)
+    // Check drink option price
     if (option && item) {
       const drinkOpt = drinkOptions.find(d => 
         d.drink_name === item.name && 
@@ -281,19 +279,17 @@ function StaffApp() {
       
       if (drinkOpt && drinkOpt.price !== undefined && drinkOpt.price !== null) {
         basePrice = parseFloat(drinkOpt.price)
-        console.log(`🍹 ${item.name} - ${option}: RM ${basePrice}`)
-        // ✅ Don't check promo if using drink option price
         return parseFloat(basePrice) || 0
       }
     }
     
-    // STEP 2: Check promotion (only if no drink option)
+    // Check promotion
     const promoPrice = getPromoPrice(item)
     if (promoPrice !== null && promoPrice !== undefined) {
       basePrice = promoPrice
     }
     
-    // STEP 3: Add size price adjustment
+    // Add size price adjustment
     if (size && size.price_adjustment !== undefined && size.price_adjustment !== null) {
       if (size.is_absolute_price) {
         basePrice = parseFloat(size.price_adjustment)
@@ -305,9 +301,6 @@ function StaffApp() {
     return parseFloat(basePrice) || 0
   }
 
-  // ============================================================
-  // ✅ getDrinkOptionsForItem - FIXED
-  // ============================================================
   function getDrinkOptionsForItem(item) {
     if (!item) return []
     return drinkOptions.filter(opt => opt.drink_name === item.name)
@@ -366,7 +359,6 @@ function StaffApp() {
       return
     }
 
-    // ✅ Check if drink needs option
     if (isDrinkCategory(selectedItem.category)) {
       const availableOptions = getDrinkOptionsForItem(selectedItem)
       if (availableOptions.length > 0 && !selectedOption) {
@@ -375,7 +367,6 @@ function StaffApp() {
       }
     }
 
-    // Check if item has size options
     if (isSizeCategory(selectedItem) && !selectedSize) {
       toast.error(t('select_size'))
       return
@@ -403,7 +394,6 @@ function StaffApp() {
       sizeData: selectedSize || null
     }
 
-    // Check if item already in cart with same option and size
     const existingIndex = cart.findIndex(c => 
       c.id === cartItem.id && 
       c.option === cartItem.option && 
@@ -596,7 +586,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ✅ RENDER ITEM MODAL - WITH DRINK OPTIONS
+  // RENDER ITEM MODAL - WITH DRINK OPTIONS & FIXED IMAGE
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
@@ -635,7 +625,7 @@ function StaffApp() {
           overflowY: 'auto'
         }}>
           
-          {/* Item Image */}
+          {/* ✅ FIXED: Image with objectFit: cover */}
           {selectedItem.image_url ? (
             <img 
               src={selectedItem.image_url} 
@@ -647,6 +637,7 @@ function StaffApp() {
                 borderRadius: '16px',
                 marginBottom: '16px'
               }}
+              onError={(e) => { e.currentTarget.style.display = 'none' }}
             />
           ) : (
             <div style={{
@@ -773,7 +764,7 @@ function StaffApp() {
           )}
           
           {/* Size Options */}
-          {hasSize && (
+          {hasSize && sizes.length > 0 && (
             <div style={{ marginBottom: '16px' }}>
               <label style={{
                 display: 'block',
@@ -1031,7 +1022,7 @@ function StaffApp() {
         minHeight: '100vh'
       }}>
         
-        {/* ===== HEADER ===== */}
+        {/* HEADER */}
         <div style={{
           ...glassEffect,
           borderRadius: '24px',
@@ -1101,7 +1092,7 @@ function StaffApp() {
           </div>
         </div>
         
-        {/* ===== ORDER TYPE DETAILS ===== */}
+        {/* ORDER TYPE DETAILS */}
         <div style={{
           ...glassEffect,
           borderRadius: '16px',
@@ -1171,7 +1162,7 @@ function StaffApp() {
           )}
         </div>
         
-        {/* ===== SEARCH ===== */}
+        {/* SEARCH */}
         <div style={{
           ...glassEffect,
           borderRadius: '60px',
@@ -1213,7 +1204,7 @@ function StaffApp() {
           )}
         </div>
         
-        {/* ===== CATEGORIES TABS ===== */}
+        {/* CATEGORIES TABS */}
         <div style={{
           display: 'flex',
           gap: '8px',
@@ -1255,8 +1246,6 @@ function StaffApp() {
             const promo = getItemPromotion(item)
             const promoPrice = getPromoPrice(item)
             const isBOGO = isItemInBOGO(item)
-            
-            // ✅ Check drink options
             const drinkOpts = getDrinkOptionsForItem(item)
             const hasDrinkOpts = drinkOpts.length > 0
             
@@ -1316,7 +1305,7 @@ function StaffApp() {
                   </div>
                 )}
                 
-                {/* ✅ Drink Options Indicator */}
+                {/* Drink Options Indicator */}
                 {hasDrinkOpts && (
                   <div style={{
                     position: 'absolute',
@@ -1338,6 +1327,7 @@ function StaffApp() {
                   </div>
                 )}
                 
+                {/* ✅ FIXED: Image with objectFit cover */}
                 {item.image_url ? (
                   <img
                     src={item.image_url}
@@ -1524,10 +1514,10 @@ function StaffApp() {
           </div>
         </div>
         
-        {/* ===== ITEM MODAL ===== */}
+        {/* ITEM MODAL */}
         {showItemModal && renderItemModal()}
         
-        {/* ===== STYLES ===== */}
+        {/* STYLES */}
         <style>
           {`
             .spinner {

@@ -118,7 +118,7 @@ function CustomerDisplay() {
     thank_you: { en: 'Thank you for dining with us!', ms: 'Terima kasih kerana makan di sini!' },
     error_updating: { en: 'Error updating order', ms: 'Ralat kemaskini pesanan' },
     all: { en: 'All', ms: 'Semua' },
-    special_today: { en: 'Today\'s Special Menu', ms: 'Menu Istimewa Hari Ini' },
+    special_today: { en: "Today's Special Menu", ms: 'Menu Istimewa Hari Ini' },
     display_settings: { en: 'Display Settings', ms: 'Tetapan Paparan' },
     show_food: { en: '🍳 Food', ms: '🍳 Makanan' },
     show_drinks: { en: '🥤 Drinks', ms: '🥤 Minuman' },
@@ -132,7 +132,7 @@ function CustomerDisplay() {
     bogo: { en: 'BUY 1 FREE 1', ms: 'BELI 1 PERCUMA 1' },
     bundle: { en: 'BUNDLE DEAL', ms: 'TAWARAN BUNDLE' },
     set_menu: { en: 'SET MENU', ms: 'SET MENU' },
-    // ✅ Tambah translations untuk drink options
+    // Drink options translations
     hot: { en: 'Hot', ms: 'Panas' },
     cold: { en: 'Cold', ms: 'Sejuk' },
     packed: { en: 'Packed', ms: 'Bungkus' },
@@ -210,39 +210,6 @@ function CustomerDisplay() {
   }, [businessHoursStart, businessHoursEnd])
 
   // ============================================================
-  // LOAD DATA
-  // ============================================================
-  useEffect(() => {
-    loadAllData()
-    
-    const orderSubscription = supabase
-      .channel('customer_orders_display')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'customer_orders' },
-        () => {
-          if (selectedTable) {
-            loadTableOrders(selectedTable)
-          }
-        }
-      )
-      .subscribe()
-    
-    return () => {
-      orderSubscription.unsubscribe()
-    }
-  }, [selectedTable])
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      loadMenu()
-      loadSpecialMenu()
-      loadPromotions()
-      loadDrinkOptions() // ✅ Tambah
-    }, 10000)
-    return () => clearInterval(interval)
-  }, [])
-
-  // ============================================================
   // ✅ LOAD DRINK OPTIONS - TAMBAH
   // ============================================================
   async function loadDrinkOptions() {
@@ -251,7 +218,7 @@ function CustomerDisplay() {
         .from('drink_options')
         .select('*')
       setDrinkOptions(data || [])
-      console.log('🍹 Drink options loaded:', data?.length || 0, 'options')
+      console.log('🍹 CustomerDisplay - Drink options loaded:', data?.length || 0, 'options')
     } catch (err) {
       console.error('Error loading drink options:', err)
       setDrinkOptions([])
@@ -284,6 +251,39 @@ function CustomerDisplay() {
     if (option === 'Bungkus') return '📦'
     return '☕'
   }
+
+  // ============================================================
+  // LOAD DATA
+  // ============================================================
+  useEffect(() => {
+    loadAllData()
+    
+    const orderSubscription = supabase
+      .channel('customer_orders_display')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'customer_orders' },
+        () => {
+          if (selectedTable) {
+            loadTableOrders(selectedTable)
+          }
+        }
+      )
+      .subscribe()
+    
+    return () => {
+      orderSubscription.unsubscribe()
+    }
+  }, [selectedTable])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadMenu()
+      loadSpecialMenu()
+      loadPromotions()
+      loadDrinkOptions() // ✅ Tambah
+    }, 10000)
+    return () => clearInterval(interval)
+  }, [])
 
   async function loadAllData() {
     setLoading(true)
@@ -1155,7 +1155,7 @@ function CustomerDisplay() {
               backdropFilter: 'blur(4px)',
               border: '1px solid rgba(255,255,255,0.2)'
             }}>
-              🎉 {language === 'bm' ? 'JANGAN LEPASKAN!' : 'DON\'T MISS OUT!'}
+              🎉 {language === 'bm' ? 'JANGAN LEPASKAN!' : "DON'T MISS OUT!"}
             </div>
           </div>
           
@@ -1614,7 +1614,7 @@ function CustomerDisplay() {
           ))}
         </div>
 
-        {/* Menu Grid - Scrollable */}
+        {/* ===== MENU GRID ===== */}
         <div style={{ 
           flex: 1,
           overflowY: 'auto',
@@ -1714,6 +1714,7 @@ function CustomerDisplay() {
                       </div>
                     )}
                     
+                    {/* Image with objectFit cover */}
                     {hasImage ? (
                       <img 
                         src={item.image_url} 
@@ -1731,6 +1732,7 @@ function CustomerDisplay() {
                     ) : (
                       <div style={{ fontSize: '40px', marginBottom: '6px' }}>{getDefaultIcon(item.category)}</div>
                     )}
+                    
                     <div style={{ 
                       fontWeight: 'bold', 
                       fontSize: '14px', 
@@ -1762,7 +1764,7 @@ function CustomerDisplay() {
                       )}
                     </div>
                     
-                    {/* ✅ Show Drink Options */}
+                    {/* ✅ Show Drink Options - FIXED */}
                     {hasDrinkOpts && (
                       <div style={{
                         marginTop: '8px',
@@ -1782,12 +1784,13 @@ function CustomerDisplay() {
                             color: textMuted,
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '3px'
+                            gap: '3px',
+                            border: `1px solid ${borderColor}`
                           }}>
                             {getOptionEmoji(opt.option_type)}
                             {getOptionLabel(opt.option_type)}
                             <span style={{ color: priceColor, fontWeight: 'bold' }}>
-                              RM {opt.price}
+                              RM {parseFloat(opt.price).toFixed(2)}
                             </span>
                           </span>
                         ))}

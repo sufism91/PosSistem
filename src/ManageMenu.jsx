@@ -1013,10 +1013,15 @@ function ManageMenu() {
     setTimeout(() => setMessage(''), 2000)
   }
 
+  // ============================================================
+  // ✅ FIXED: DELETE MENU ITEM
+  // ============================================================
   async function deleteMenuItem(id, name) {
     if (window.confirm(`${translate('confirm_delete')} "${name}"?`)) {
+      // Delete from drink_options by drink_name (no menu_id)
       await supabase.from('drink_options').delete().eq('drink_name', name)
       await supabase.from('menu_options').delete().eq('menu_id', id)
+      
       const { error } = await supabase.from('menu').delete().eq('id', id)
       if (error) { 
         setMessage(`❌ ${translate('error')}: ${error.message}`) 
@@ -1036,9 +1041,8 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // ✅ DRINK FUNCTIONS - FIXED
+  // ✅ FIXED: ADD DRINK - Tanpa menu_id
   // ============================================================
-  
   async function addDrinkWithOptions() {
     if (!newDrinkName) { 
       setMessage(`⚠️ ${translate('drink_name')} ${translate('required')}`)
@@ -1051,6 +1055,7 @@ function ManageMenu() {
       return
     }
     
+    // Insert menu item
     const { data: menuData, error: menuError } = await supabase
       .from('menu')
       .insert([{ 
@@ -1070,33 +1075,31 @@ function ManageMenu() {
       return 
     }
     
-    const newMenuId = menuData[0].id
-    
-    // Insert drink options
+    // Insert drink options WITHOUT menu_id
     if (newDrinkPanas && parseFloat(newDrinkPanas) >= 0) {
       await supabase.from('drink_options').insert([{ 
-        menu_id: newMenuId, 
         drink_name: newDrinkName, 
         option_type: 'Panas', 
-        price: parseFloat(newDrinkPanas) || 0
+        price: parseFloat(newDrinkPanas) || 0,
+        stock: 100
       }])
     }
     
     if (newDrinkSejuk && parseFloat(newDrinkSejuk) >= 0) {
       await supabase.from('drink_options').insert([{ 
-        menu_id: newMenuId, 
         drink_name: newDrinkName, 
         option_type: 'Sejuk', 
-        price: parseFloat(newDrinkSejuk) || 0
+        price: parseFloat(newDrinkSejuk) || 0,
+        stock: 100
       }])
     }
     
     if (newDrinkBungkus && parseFloat(newDrinkBungkus) >= 0) {
       await supabase.from('drink_options').insert([{ 
-        menu_id: newMenuId, 
         drink_name: newDrinkName, 
         option_type: 'Bungkus', 
-        price: parseFloat(newDrinkBungkus) || 0
+        price: parseFloat(newDrinkBungkus) || 0,
+        stock: 100
       }])
     }
     
@@ -1113,7 +1116,7 @@ function ManageMenu() {
     setTimeout(() => setMessage(''), 2000)
   }
 
-  // ✅ FIXED: Handle price change
+  // Handle price change
   function handleDrinkPriceChange(drinkName, optionType, value) { 
     const key = `${drinkName}_${optionType}` 
     setDrinkPriceEdits(prev => ({ 
@@ -1122,7 +1125,7 @@ function ManageMenu() {
     })) 
   }
   
-  // ✅ FIXED: Save price - WORKS NOW
+  // Save price
   async function handleDrinkPriceSave(drinkName, optionType) { 
     const key = `${drinkName}_${optionType}` 
     const newPrice = drinkPriceEdits[key] 
@@ -1148,7 +1151,7 @@ function ManageMenu() {
     }
   }
 
-  // ✅ Delete individual drink option
+  // Delete individual drink option
   async function deleteDrinkOption(drinkName, optionType) {
     if (!window.confirm(`Delete ${drinkName} - ${optionType}?`)) return
     
@@ -1927,7 +1930,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // RENDER
+  // RENDER - Continue in next reply (too long)
   // ============================================================
   return (
     <Sidebar>
@@ -2491,7 +2494,7 @@ function ManageMenu() {
                                 </div>
                               </div>
 
-                              {/* ✅ DRINK OPTIONS DISPLAY - FIXED */}
+                              {/* DRINK OPTIONS DISPLAY */}
                               {hasDrinkOptions && (
                                 <div style={{ 
                                   marginTop: '4px', 

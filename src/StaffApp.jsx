@@ -107,7 +107,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ✅ LOAD DATA - FIXED
+  // LOAD DATA
   // ============================================================
   useEffect(() => {
     loadAllData()
@@ -197,7 +197,6 @@ function StaffApp() {
     }
   }
 
-  // ✅ DRINK OPTIONS - FIXED
   async function loadDrinkOptions() {
     try {
       const { data } = await supabase
@@ -271,7 +270,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ✅ GET ITEM PRICE - FIXED
+  // GET ITEM PRICE
   // ============================================================
   function getItemPrice(item, option, size) {
     let basePrice = item?.price || 0
@@ -308,19 +307,17 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ✅ DRINK OPTIONS HELPERS - FIXED
+  // DRINK OPTIONS HELPERS
   // ============================================================
   function getDrinkOptionsForItem(item) {
     if (!item) return []
     const options = drinkOptions.filter(opt => opt.drink_name === item.name)
-    console.log(`🔍 Getting options for ${item.name}:`, options.length, 'options')
     return options
   }
 
   function hasDrinkOptions(item) {
     if (!item) return false
-    const options = getDrinkOptionsForItem(item)
-    return options.length > 0
+    return getDrinkOptionsForItem(item).length > 0
   }
 
   function getOptionLabel(option) {
@@ -598,21 +595,16 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ✅ RENDER ITEM MODAL - FIXED
+  // RENDER ITEM MODAL
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
     
     const isDrink = isDrinkCategory(selectedItem.category)
     const hasSize = isSizeCategory(selectedItem)
-    
-    // ✅ GET DRINK OPTIONS - PASTIKAN GUNA FUNCTION
     const availableDrinkOptions = getDrinkOptionsForItem(selectedItem)
     const hasAvailableOptions = availableDrinkOptions.length > 0
     const sizes = menuOptions
-    
-    console.log(`📱 Modal opened for: ${selectedItem.name}`)
-    console.log(`🍹 Available options:`, availableDrinkOptions)
     
     return (
       <div style={{
@@ -642,7 +634,7 @@ function StaffApp() {
           overflowY: 'auto'
         }}>
           
-          {/* ✅ FIXED: Image with objectFit: cover */}
+          {/* Image with objectFit cover */}
           {selectedItem.image_url ? (
             <img 
               src={selectedItem.image_url} 
@@ -707,7 +699,7 @@ function StaffApp() {
             </p>
           )}
           
-          {/* ✅ DRINK OPTIONS - FIXED */}
+          {/* DRINK OPTIONS */}
           {isDrink && (
             <div style={{ marginBottom: '16px' }}>
               <label style={{
@@ -1344,7 +1336,7 @@ function StaffApp() {
                   </div>
                 )}
                 
-                {/* ✅ FIXED: Image with objectFit cover */}
+                {/* Image with objectFit cover */}
                 {item.image_url ? (
                   <img
                     src={item.image_url}

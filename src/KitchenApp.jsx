@@ -11,7 +11,7 @@ function KitchenApp() {
   const { language } = useLanguage()
   
   // ============================================================
-  // COMPLETE TRANSLATIONS
+  // COMPLETE TRANSLATIONS (EMOJI REMOVED FROM TEXT)
   // ============================================================
   const translations = {
     // Header
@@ -39,12 +39,12 @@ function KitchenApp() {
     order_ready_alert: { en: 'Order Ready!', ms: 'Pesanan Sedia!' },
     order_ready_desc: { en: 'Order is ready for pickup', ms: 'Pesanan sedia untuk diambil' },
     
-    // Tabs
-    food_kitchen: { en: '🍳 Food', ms: '🍳 Makanan' },
-    drink_kitchen: { en: '🥤 Drinks', ms: '🥤 Minuman' },
-    preparing_orders: { en: '🔪 Cooking', ms: '🔪 Sedang Masak' },
-    ready_orders: { en: '✅ Ready', ms: '✅ Sedia' },
-    completed_orders: { en: '📜 Done', ms: '📜 Selesai' },
+    // Tabs (NO EMOJI HERE)
+    food_kitchen: { en: 'Food', ms: 'Makanan' },
+    drink_kitchen: { en: 'Drinks', ms: 'Minuman' },
+    preparing_orders: { en: 'Cooking', ms: 'Sedang Masak' },
+    ready_orders: { en: 'Ready', ms: 'Sedia' },
+    completed_orders: { en: 'Done', ms: 'Selesai' },
     
     // Empty states
     no_food_orders: { en: 'No food orders waiting', ms: 'Tiada pesanan makanan menunggu' },
@@ -842,6 +842,7 @@ function KitchenApp() {
   // ============================================================
   const totalNew = foodOrders.length + drinkOrders.length
 
+  // TABS WITH EMOJI ICONS (ONLY HERE, NOT IN TRANSLATIONS)
   const tabs = [
     { id: 'food', label: t('food_kitchen'), icon: '🍳', color: '#ef4444', count: foodOrders.length },
     { id: 'drink', label: t('drink_kitchen'), icon: '🥤', color: '#06b6d4', count: drinkOrders.length },

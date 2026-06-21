@@ -1,14 +1,9 @@
 import { useState, useEffect } from 'react'
-import { createClient } from '@supabase/supabase-js'
 import { useLanguage } from './context/LanguageContext'
 import { useTheme } from './context/ThemeContext'
 import Sidebar from './components/Sidebar'
+import { supabase } from './lib/supabase'
 import toast from 'react-hot-toast'
-
-const supabaseUrl = 'https://thtumfwamkkchuousgio.supabase.co'
-const supabaseKey = 'sb_publishable_Gom-p3BXr5F7gAuVoTvp8g_SWL1-5IE'
-
-const supabase = createClient(supabaseUrl, supabaseKey)
 
 function ManageSettings() {
   const { language, setLanguage, t } = useLanguage()
@@ -16,6 +11,18 @@ function ManageSettings() {
   
   const [activeTab, setActiveTab] = useState('settings')
   const [showConfirmModal, setShowConfirmModal] = useState(null)
+  
+  // ✅ Mobile detection
+  const [isMobile, setIsMobile] = useState(false)
+  
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
   
   const [settings, setSettings] = useState({
     restaurant_name: 'KedaiPOS',
@@ -378,7 +385,7 @@ function ManageSettings() {
           }} />
         </div>
 
-        {/* ===== TAB NAVIGATION - HANYA 2 TABS ===== */}
+        {/* ===== TAB NAVIGATION ===== */}
         <div style={{ 
           display: 'flex', 
           gap: '8px', 

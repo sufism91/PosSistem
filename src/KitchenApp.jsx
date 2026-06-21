@@ -536,10 +536,6 @@ function KitchenApp() {
     const waitingColor = getWaitingColor(order.created_at)
     const waitingBg = getWaitingBg(order.created_at)
     
-    // Show both badges if order has both food and drink
-    const showFoodBadge = hasFoodItems
-    const showDrinkBadge = hasDrinkItems
-    
     return (
       <div 
         key={order.id} 
@@ -585,34 +581,6 @@ function KitchenApp() {
             }}>
               {getOrderTypeIcon(order)}
             </span>
-            
-            {/* Food Badge */}
-            {showFoodBadge && (
-              <span style={{ 
-                background: 'rgba(239, 68, 68, 0.15)', 
-                color: '#ef4444',
-                padding: isMobile ? '2px 10px' : '4px 12px', 
-                borderRadius: '40px',
-                fontSize: isMobile ? '9px' : '11px',
-                fontWeight: 'bold'
-              }}>
-                🍳 {t('food_kitchen')}
-              </span>
-            )}
-            
-            {/* Drink Badge */}
-            {showDrinkBadge && (
-              <span style={{ 
-                background: 'rgba(6, 182, 212, 0.15)', 
-                color: '#06b6d4',
-                padding: isMobile ? '2px 10px' : '4px 12px', 
-                borderRadius: '40px',
-                fontSize: isMobile ? '9px' : '11px',
-                fontWeight: 'bold'
-              }}>
-                🥤 {t('drink_kitchen')}
-              </span>
-            )}
             
             <span style={{ 
               background: waitingBg,
@@ -690,30 +658,6 @@ function KitchenApp() {
                        item.option_type === 'Sejuk' ? '🧊' : 
                        item.option_type === 'Bungkus' ? '📦' : ''}
                       {item.option_type}
-                    </span>
-                  )}
-                  {isDrink && (
-                    <span style={{ 
-                      fontSize: '8px', 
-                      color: '#06b6d4',
-                      background: 'rgba(6,182,212,0.1)',
-                      padding: '1px 6px',
-                      borderRadius: '10px',
-                      fontWeight: 'bold'
-                    }}>
-                      Minuman
-                    </span>
-                  )}
-                  {!isDrink && (
-                    <span style={{ 
-                      fontSize: '8px', 
-                      color: '#ef4444',
-                      background: 'rgba(239,68,68,0.1)',
-                      padding: '1px 6px',
-                      borderRadius: '10px',
-                      fontWeight: 'bold'
-                    }}>
-                      Makanan
                     </span>
                   )}
                 </div>

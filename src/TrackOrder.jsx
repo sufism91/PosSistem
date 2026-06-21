@@ -29,15 +29,15 @@ function TrackOrder() {
     // Header
     track_title: { en: '🔍 Track Your Order', ms: '🔍 Jejak Pesanan Anda' },
     track_subtitle: { en: 'Enter your order number to check status', ms: 'Masukkan nombor pesanan untuk semak status' },
-    enter_order: { en: 'Enter order number', ms: 'Masukkan nombor pesanan' },
+    enter_order: { en: 'Enter order ID or number', ms: 'Masukkan ID atau nombor pesanan' },
     searching: { en: 'Searching...', ms: 'Mencari...' },
     track: { en: '🔍 Track', ms: '🔍 Jejak' },
     
     // Messages
     order_not_found: { en: 'Order not found', ms: 'Pesanan tidak dijumpai' },
-    check_order: { en: 'Please check your order number', ms: 'Sila semak nombor pesanan anda' },
+    check_order: { en: 'Please check your order ID or number', ms: 'Sila semak ID atau nombor pesanan anda' },
     order_found: { en: 'Order found!', ms: 'Pesanan dijumpai!' },
-    enter_order_error: { en: 'Please enter an order number', ms: 'Sila masukkan nombor pesanan' },
+    enter_order_error: { en: 'Please enter an order ID or number', ms: 'Sila masukkan ID atau nombor pesanan' },
     error_loading: { en: 'Error loading order. Please try again.', ms: 'Ralat memuat pesanan. Sila cuba lagi.' },
     
     // Labels
@@ -184,28 +184,62 @@ function TrackOrder() {
     }
   }
 
-  async function loadOrder(orderNum, isAutoRefresh = false) {
-    if (!orderNum) return
+  // ✅ FIXED: Search by both ID and order_number
+  async function loadOrder(searchValue, isAutoRefresh = false) {
+    if (!searchValue) return
     
     setLoading(true)
     if (!isAutoRefresh) setError('')
     
     try {
-      const { data, error } = await supabase
+      // Try by ID first (UUID)
+      let query = supabase
         .from('customer_orders')
         .select('*')
-        .eq('order_number', orderNum)
-        .single()
+        
+      // Check if it's a UUID or order_number
+      const isUUID = searchValue.includes('-') && searchValue.length > 20
+      
+      if (isUUID) {
+        query = query.eq('id', searchValue)
+      } else {
+        // Try by order_number
+        query = query.eq('order_number', searchValue)
+      }
+      
+      const { data, error } = await query.single()
 
       if (error || !data) {
-        setError(`${t('order_not_found')}. ${t('check_order')}`)
-        setOrder(null)
+        // If not found, try the other way
+        let fallbackQuery = supabase
+          .from('customer_orders')
+          .select('*')
+        
+        if (isUUID) {
+          fallbackQuery = fallbackQuery.eq('order_number', searchValue)
+        } else {
+          fallbackQuery = fallbackQuery.eq('id', searchValue)
+        }
+        
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery.single()
+        
+        if (fallbackError || !fallbackData) {
+          setError(`${t('order_not_found')}. ${t('check_order')}`)
+          setOrder(null)
+          if (!isAutoRefresh) {
+            toast.error(t('order_not_found'))
+          }
+          setLoading(false)
+          return
+        }
+        
+        setOrder(fallbackData)
         if (!isAutoRefresh) {
-          toast.error(t('order_not_found'))
+          toast.success(t('order_found'))
         }
       } else {
         setOrder(data)
-        if (!isAutoRefresh && data) {
+        if (!isAutoRefresh) {
           toast.success(t('order_found'))
         }
       }
@@ -226,7 +260,7 @@ function TrackOrder() {
       setError(t('enter_order_error'))
       return
     }
-    loadOrder(orderNumber)
+    loadOrder(orderNumber.trim())
   }
 
   // ============================================================
@@ -524,7 +558,7 @@ function TrackOrder() {
                 type="text"
                 value={orderNumber}
                 onChange={(e) => setOrderNumber(e.target.value)}
-                placeholder={`${t('enter_order')} (e.g., ORD-1234567890)`}
+                placeholder={`${t('enter_order')}`}
                 style={{
                   flex: 2,
                   padding: isMobile ? '12px 16px' : '14px 16px',
@@ -657,7 +691,7 @@ function TrackOrder() {
                 fontSize: isMobile ? '16px' : '18px', 
                 fontWeight: 'bold' 
               }}>
-                {t('order')} #{order.order_number}
+                {t('order')} #{order.order_number || order.id}
               </h3>
               <p style={{ 
                 color: textMuted, 

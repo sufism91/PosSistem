@@ -9,9 +9,7 @@ function StaffApp() {
   const { darkMode } = useTheme()
   const { language } = useLanguage()
   
-  // ============================================================
-  // COMPLETE TRANSLATIONS
-  // ============================================================
+  // ===== TRANSLATIONS =====
   const translations = {
     pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
     pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
@@ -57,12 +55,11 @@ function StaffApp() {
     return language === 'en' ? translations[key].en : translations[key].ms
   }
 
-  // ============================================================
-  // STATE
-  // ============================================================
+  // ===== STATE =====
   const [menu, setMenu] = useState([])
   const [categories, setCategories] = useState([])
   const [promotions, setPromotions] = useState([])
+  const [drinkOptions, setDrinkOptions] = useState([]) // ✅ IMPORTANT
   const [cart, setCart] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedItem, setSelectedItem] = useState(null)
@@ -77,12 +74,8 @@ function StaffApp() {
   const [isMobile, setIsMobile] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [menuOptions, setMenuOptions] = useState([])
-  const [drinkOptions, setDrinkOptions] = useState([])
-  const [showSizeModal, setShowSizeModal] = useState(false)
 
-  // ============================================================
-  // CHECK MOBILE
-  // ============================================================
+  // ===== CHECK MOBILE =====
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768)
@@ -92,9 +85,7 @@ function StaffApp() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // ============================================================
-  // THEME COLORS
-  // ============================================================
+  // ===== THEME COLORS =====
   const bgColor = darkMode ? '#0a0a16' : '#f1f5f9'
   const cardBg = darkMode ? 'rgba(20, 20, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)'
   const textColor = darkMode ? '#e8edf5' : '#1e293b'
@@ -116,14 +107,53 @@ function StaffApp() {
   }
 
   // ============================================================
-  // LOAD DATA
+  // ✅ LOAD DATA - COMPLETE
   // ============================================================
   useEffect(() => {
-    loadCategories()
-    loadMenu()
-    loadPromotions()
-    loadDrinkOptions()
+    loadAllData()
+    
+    // ✅ Real-time subscriptions
+    const menuSub = supabase
+      .channel('staff_menu')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'menu' },
+        () => { loadMenu() }
+      )
+      .subscribe()
+    
+    const drinkSub = supabase
+      .channel('staff_drink')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'drink_options' },
+        () => { loadDrinkOptions() }
+      )
+      .subscribe()
+    
+    const promoSub = supabase
+      .channel('staff_promo')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'promotions' },
+        () => { loadPromotions() }
+      )
+      .subscribe()
+    
+    return () => {
+      menuSub.unsubscribe()
+      drinkSub.unsubscribe()
+      promoSub.unsubscribe()
+    }
   }, [])
+
+  async function loadAllData() {
+    setLoading(true)
+    await Promise.all([
+      loadCategories(),
+      loadMenu(),
+      loadPromotions(),
+      loadDrinkOptions() // ✅ IMPORTANT
+    ])
+    setLoading(false)
+  }
 
   async function loadCategories() {
     try {
@@ -138,17 +168,15 @@ function StaffApp() {
   }
 
   async function loadMenu() {
-    setLoading(true)
     try {
       const { data } = await supabase
         .from('menu')
         .select('*')
-        .order('category')
+        .order('sort_order')
       setMenu(data || [])
     } catch (err) {
       console.error('Error loading menu:', err)
     }
-    setLoading(false)
   }
 
   async function loadPromotions() {
@@ -166,14 +194,17 @@ function StaffApp() {
     }
   }
 
+  // ✅ DRINK OPTIONS - FIXED
   async function loadDrinkOptions() {
     try {
       const { data } = await supabase
         .from('drink_options')
         .select('*')
       setDrinkOptions(data || [])
+      console.log('🍹 Drink options loaded:', data?.length || 0, 'options')
     } catch (err) {
       console.error('Error loading drink options:', err)
+      setDrinkOptions([])
     }
   }
 
@@ -191,9 +222,7 @@ function StaffApp() {
     }
   }
 
-  // ============================================================
-  // PROMOTION HELPERS
-  // ============================================================
+  // ===== PROMOTION HELPERS =====
   function getItemPromotion(item) {
     for (const promo of promotions) {
       if (promo.type === 'bogo') {
@@ -238,8 +267,72 @@ function StaffApp() {
   }
 
   // ============================================================
-  // HELPERS
+  // ✅ FIXED: getItemPrice - PRIORITIZE DRINK OPTIONS
   // ============================================================
+  function getItemPrice(item, option, size) {
+    let basePrice = item?.price || 0
+    
+    // 🔥 STEP 1: Check drink option price (MOST IMPORTANT)
+    if (option && item) {
+      const drinkOpt = drinkOptions.find(d => 
+        d.drink_name === item.name && 
+        d.option_type === option
+      )
+      
+      if (drinkOpt && drinkOpt.price !== undefined && drinkOpt.price !== null) {
+        basePrice = parseFloat(drinkOpt.price)
+        console.log(`🍹 ${item.name} - ${option}: RM ${basePrice}`)
+        // ✅ Don't check promo if using drink option price
+        return parseFloat(basePrice) || 0
+      }
+    }
+    
+    // STEP 2: Check promotion (only if no drink option)
+    const promoPrice = getPromoPrice(item)
+    if (promoPrice !== null && promoPrice !== undefined) {
+      basePrice = promoPrice
+    }
+    
+    // STEP 3: Add size price adjustment
+    if (size && size.price_adjustment !== undefined && size.price_adjustment !== null) {
+      if (size.is_absolute_price) {
+        basePrice = parseFloat(size.price_adjustment)
+      } else {
+        basePrice += parseFloat(size.price_adjustment)
+      }
+    }
+    
+    return parseFloat(basePrice) || 0
+  }
+
+  // ============================================================
+  // ✅ getDrinkOptionsForItem - FIXED
+  // ============================================================
+  function getDrinkOptionsForItem(item) {
+    if (!item) return []
+    return drinkOptions.filter(opt => opt.drink_name === item.name)
+  }
+
+  function hasDrinkOptions(item) {
+    if (!item) return false
+    return getDrinkOptionsForItem(item).length > 0
+  }
+
+  function getOptionLabel(option) {
+    if (option === 'Panas') return t('hot')
+    if (option === 'Sejuk') return t('cold')
+    if (option === 'Bungkus') return t('packed')
+    return option
+  }
+
+  function getOptionEmoji(option) {
+    if (option === 'Panas') return '🔥'
+    if (option === 'Sejuk') return '🧊'
+    if (option === 'Bungkus') return '📦'
+    return '☕'
+  }
+
+  // ===== HELPERS =====
   const getCategories = () => {
     return ['All', ...categories.map(c => c.name)]
   }
@@ -257,71 +350,29 @@ function StaffApp() {
     return filtered
   }
 
-  const getItemPrice = (item, option, size) => {
-    let basePrice = item.price || 0
-    
-    // Check for promotion
-    const promoPrice = getPromoPrice(item)
-    if (promoPrice !== null) {
-      basePrice = promoPrice
-    }
-    
-    // Add option price adjustment
-    if (option) {
-      const drinkOpt = drinkOptions.find(d => d.drink_name === item.name && d.option_type === option)
-      if (drinkOpt) {
-        basePrice = drinkOpt.price || basePrice
-      }
-    }
-    
-    // Add size price adjustment
-    if (size && size.price_adjustment) {
-      if (size.is_absolute_price) {
-        basePrice = size.price_adjustment
-      } else {
-        basePrice += size.price_adjustment
-      }
-    }
-    
-    return basePrice
-  }
-
-  const getOptionLabel = (option) => {
-    if (option === 'Panas') return t('hot')
-    if (option === 'Sejuk') return t('cold')
-    if (option === 'Bungkus') return t('packed')
-    return option
-  }
-
-  const getOptionEmoji = (option) => {
-    if (option === 'Panas') return '🔥'
-    if (option === 'Sejuk') return '🧊'
-    if (option === 'Bungkus') return '📦'
-    return ''
-  }
-
   const isDrinkCategory = (category) => {
-    const drinkCategories = ['Minuman', 'Jus', 'Teh', 'Kopi', 'Air']
-    return drinkCategories.includes(category)
+    const drinkCategories = ['Minuman', 'Jus', 'Teh', 'Kopi', 'Air', 'Milo', 'Nescafe', 'Teh Tarik']
+    return drinkCategories.some(cat => category?.includes(cat))
   }
 
   const isSizeCategory = (item) => {
-    return item.has_options === true
+    return item?.has_options === true
   }
 
-  // ============================================================
-  // CART FUNCTIONS
-  // ============================================================
+  // ===== CART FUNCTIONS =====
   const addToCart = () => {
     if (!selectedItem) {
       toast.error(t('please_select_item'))
       return
     }
 
-    // Check if drink needs option
-    if (isDrinkCategory(selectedItem.category) && !selectedOption) {
-      toast.error(t('please_select_option'))
-      return
+    // ✅ Check if drink needs option
+    if (isDrinkCategory(selectedItem.category)) {
+      const availableOptions = getDrinkOptionsForItem(selectedItem)
+      if (availableOptions.length > 0 && !selectedOption) {
+        toast.error(t('please_select_option'))
+        return
+      }
     }
 
     // Check if item has size options
@@ -401,9 +452,7 @@ function StaffApp() {
     setCart(newCart)
   }
 
-  // ============================================================
-  // CHECKOUT
-  // ============================================================
+  // ===== CHECKOUT =====
   const handleCheckout = async () => {
     if (cart.length === 0) {
       toast.error(t('cart_empty'))
@@ -461,9 +510,7 @@ function StaffApp() {
     }
   }
 
-  // ============================================================
-  // PRINT RECEIPT
-  // ============================================================
+  // ===== PRINT RECEIPT =====
   const printReceipt = (order) => {
     const receiptContent = `
       <!DOCTYPE html>
@@ -487,6 +534,7 @@ function StaffApp() {
           .footer { text-align: center; margin-top: 12px; border-top: 1px dashed #ccc; padding-top: 10px; font-size: 11px; color: #666; }
           .free-label { color: #ef4444; font-weight: bold; }
           .promo-label { color: #ef4444; font-size: 10px; }
+          .option-label { font-size: 10px; color: #666; }
           @media print { body { margin: 0; padding: 10px; } }
         </style>
       </head>
@@ -507,8 +555,8 @@ function StaffApp() {
                 <tr>
                   <td>
                     ${item.isFree ? '🎁 ' : ''}${item.name}
-                    ${item.option ? `<div style="font-size:10px;color:#666;">${item.option}</div>` : ''}
-                    ${item.size ? `<div style="font-size:10px;color:#666;">${item.size}</div>` : ''}
+                    ${item.option ? `<div class="option-label">${item.option}</div>` : ''}
+                    ${item.size ? `<div class="option-label">${item.size}</div>` : ''}
                     ${item.isFree ? `<div class="free-label">FREE</div>` : ''}
                     ${item.promoName ? `<div class="promo-label">🔥 ${item.promoName}</div>` : ''}
                   </td>
@@ -548,14 +596,15 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RENDER ITEM MODAL
+  // ✅ RENDER ITEM MODAL - WITH DRINK OPTIONS
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
     
     const isDrink = isDrinkCategory(selectedItem.category)
     const hasSize = isSizeCategory(selectedItem)
-    const options = ['Panas', 'Sejuk', 'Bungkus']
+    const availableDrinkOptions = getDrinkOptionsForItem(selectedItem)
+    const hasAvailableOptions = availableDrinkOptions.length > 0
     const sizes = menuOptions
     
     return (
@@ -611,7 +660,7 @@ function StaffApp() {
               fontSize: '48px',
               marginBottom: '16px'
             }}>
-              {selectedItem.category === 'Minuman' ? '🥤' : '🍽️'}
+              {isDrink ? '🥤' : '🍽️'}
             </div>
           )}
           
@@ -650,7 +699,7 @@ function StaffApp() {
             </p>
           )}
           
-          {/* Options - For drinks */}
+          {/* ✅ DRINK OPTIONS - SHOW FROM DATABASE */}
           {isDrink && (
             <div style={{ marginBottom: '16px' }}>
               <label style={{
@@ -662,49 +711,64 @@ function StaffApp() {
               }}>
                 {t('select_option')}:
               </label>
-              <div style={{
-                display: 'flex',
-                gap: '10px',
-                flexWrap: 'wrap'
-              }}>
-                {options.map(option => {
-                  const price = getItemPrice(selectedItem, option, selectedSize)
-                  const isSelected = selectedOption === option
-                  const isFree = price === 0
-                  return (
-                    <button
-                      key={option}
-                      onClick={() => setSelectedOption(option)}
-                      style={{
-                        flex: 1,
-                        minWidth: '80px',
-                        padding: isMobile ? '10px 12px' : '12px 16px',
-                        background: isSelected ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : secondaryBg,
-                        color: isSelected ? 'white' : textColor,
-                        border: isSelected ? 'none' : `1px solid ${borderColor}`,
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        fontWeight: isSelected ? 'bold' : 'normal',
-                        fontSize: isMobile ? '12px' : '13px',
-                        transition: 'all 0.2s',
-                        textAlign: 'center'
-                      }}
-                    >
-                      <div style={{ fontSize: isMobile ? '18px' : '22px' }}>
-                        {getOptionEmoji(option)}
-                      </div>
-                      <div>{getOptionLabel(option)}</div>
-                      <div style={{ 
-                        fontSize: isMobile ? '11px' : '12px', 
-                        color: isSelected ? 'rgba(255,255,255,0.9)' : (isFree ? promoColor : priceColor),
-                        fontWeight: 'bold'
-                      }}>
-                        {isFree ? 'FREE' : `RM ${price.toFixed(2)}`}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+              
+              {hasAvailableOptions ? (
+                <div style={{
+                  display: 'flex',
+                  gap: '10px',
+                  flexWrap: 'wrap'
+                }}>
+                  {availableDrinkOptions.map(opt => {
+                    const price = parseFloat(opt.price) || 0
+                    const isSelected = selectedOption === opt.option_type
+                    const isFree = price === 0
+                    
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => setSelectedOption(opt.option_type)}
+                        style={{
+                          flex: 1,
+                          minWidth: '80px',
+                          padding: isMobile ? '10px 12px' : '12px 16px',
+                          background: isSelected ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : secondaryBg,
+                          color: isSelected ? 'white' : textColor,
+                          border: isSelected ? 'none' : `1px solid ${borderColor}`,
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: isSelected ? 'bold' : 'normal',
+                          fontSize: isMobile ? '12px' : '13px',
+                          transition: 'all 0.2s',
+                          textAlign: 'center'
+                        }}
+                      >
+                        <div style={{ fontSize: isMobile ? '18px' : '22px' }}>
+                          {getOptionEmoji(opt.option_type)}
+                        </div>
+                        <div>{getOptionLabel(opt.option_type)}</div>
+                        <div style={{ 
+                          fontSize: isMobile ? '11px' : '12px', 
+                          color: isSelected ? 'rgba(255,255,255,0.9)' : (isFree ? promoColor : priceColor),
+                          fontWeight: 'bold'
+                        }}>
+                          {isFree ? 'FREE' : `RM ${price.toFixed(2)}`}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div style={{
+                  background: 'rgba(239,68,68,0.1)',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: `1px solid ${promoColor}40`
+                }}>
+                  <span style={{ color: promoColor, fontSize: '13px' }}>
+                    ⚠️ No drink options available. Please add options in Manage Menu.
+                  </span>
+                </div>
+              )}
             </div>
           )}
           
@@ -1192,6 +1256,10 @@ function StaffApp() {
             const promoPrice = getPromoPrice(item)
             const isBOGO = isItemInBOGO(item)
             
+            // ✅ Check drink options
+            const drinkOpts = getDrinkOptionsForItem(item)
+            const hasDrinkOpts = drinkOpts.length > 0
+            
             return (
               <div
                 key={item.id}
@@ -1201,7 +1269,6 @@ function StaffApp() {
                   setSelectedSize(null)
                   setQuantity(1)
                   
-                  // Load size options if item has them
                   if (item.has_options) {
                     loadMenuOptions(item.id)
                   }
@@ -1249,6 +1316,28 @@ function StaffApp() {
                   </div>
                 )}
                 
+                {/* ✅ Drink Options Indicator */}
+                {hasDrinkOpts && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-8px',
+                    left: '-8px',
+                    background: '#3b82f6',
+                    color: 'white',
+                    padding: '2px 8px',
+                    borderRadius: '20px',
+                    fontSize: '8px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
+                    zIndex: 5,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '3px'
+                  }}>
+                    ☕ {drinkOpts.length}
+                  </div>
+                )}
+                
                 {item.image_url ? (
                   <img
                     src={item.image_url}
@@ -1260,6 +1349,7 @@ function StaffApp() {
                       borderRadius: '12px',
                       marginBottom: '8px'
                     }}
+                    onError={(e) => { e.currentTarget.style.display = 'none' }}
                   />
                 ) : (
                   <div style={{

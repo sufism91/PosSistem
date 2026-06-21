@@ -38,6 +38,10 @@ const formatOrderTime = (utcDateString) => {
 function CustomerDisplay() {
   const { darkMode, toggleDarkMode } = useTheme()
   const { language, setLanguage } = useLanguage()
+  
+  // ============================================================
+  // STATE
+  // ============================================================
   const [menu, setMenu] = useState([])
   const [categories, setCategories] = useState([])
   const [tables, setTables] = useState([])
@@ -62,9 +66,10 @@ function CustomerDisplay() {
   const [searchOrder, setSearchOrder] = useState('')
   const [isMobile, setIsMobile] = useState(false)
   
-  // ============================================================
-  // DISPLAY TOGGLE SETTINGS
-  // ============================================================
+  // ✅ DRINK OPTIONS - TAMBAH
+  const [drinkOptions, setDrinkOptions] = useState([])
+  
+  // Display Settings
   const [displaySettings, setDisplaySettings] = useState({
     showFood: true,
     showDrinks: true,
@@ -127,6 +132,12 @@ function CustomerDisplay() {
     bogo: { en: 'BUY 1 FREE 1', ms: 'BELI 1 PERCUMA 1' },
     bundle: { en: 'BUNDLE DEAL', ms: 'TAWARAN BUNDLE' },
     set_menu: { en: 'SET MENU', ms: 'SET MENU' },
+    // ✅ Tambah translations untuk drink options
+    hot: { en: 'Hot', ms: 'Panas' },
+    cold: { en: 'Cold', ms: 'Sejuk' },
+    packed: { en: 'Packed', ms: 'Bungkus' },
+    drink_options: { en: 'Drink Options', ms: 'Pilihan Minuman' },
+    no_drink_options: { en: 'No drink options available', ms: 'Tiada pilihan minuman' },
   }
 
   const t2 = (key) => {
@@ -159,6 +170,7 @@ function CustomerDisplay() {
   const inputBg = darkMode ? '#1a1a2e' : '#ffffff'
   const promoColor = '#ef4444'
   const promoBg = 'rgba(239, 68, 68, 0.12)'
+  const priceColor = darkMode ? '#4ade80' : '#22c55e'
   
   const glassEffect = {
     background: cardBg,
@@ -225,9 +237,53 @@ function CustomerDisplay() {
       loadMenu()
       loadSpecialMenu()
       loadPromotions()
+      loadDrinkOptions() // ✅ Tambah
     }, 10000)
     return () => clearInterval(interval)
   }, [])
+
+  // ============================================================
+  // ✅ LOAD DRINK OPTIONS - TAMBAH
+  // ============================================================
+  async function loadDrinkOptions() {
+    try {
+      const { data } = await supabase
+        .from('drink_options')
+        .select('*')
+      setDrinkOptions(data || [])
+      console.log('🍹 Drink options loaded:', data?.length || 0, 'options')
+    } catch (err) {
+      console.error('Error loading drink options:', err)
+      setDrinkOptions([])
+    }
+  }
+
+  // ============================================================
+  // ✅ GET DRINK OPTIONS FOR ITEM - TAMBAH
+  // ============================================================
+  function getDrinkOptionsForItem(item) {
+    if (!item) return []
+    return drinkOptions.filter(opt => opt.drink_name === item.name)
+  }
+
+  function hasDrinkOptions(item) {
+    if (!item) return false
+    return getDrinkOptionsForItem(item).length > 0
+  }
+
+  function getOptionLabel(option) {
+    if (option === 'Panas') return t2('hot')
+    if (option === 'Sejuk') return t2('cold')
+    if (option === 'Bungkus') return t2('packed')
+    return option
+  }
+
+  function getOptionEmoji(option) {
+    if (option === 'Panas') return '🔥'
+    if (option === 'Sejuk') return '🧊'
+    if (option === 'Bungkus') return '📦'
+    return '☕'
+  }
 
   async function loadAllData() {
     setLoading(true)
@@ -239,6 +295,7 @@ function CustomerDisplay() {
     await loadSpecialMenu()
     await loadPromotions()
     await loadBusinessHours()
+    await loadDrinkOptions() // ✅ Tambah
     setLoading(false)
   }
 
@@ -277,6 +334,7 @@ function CustomerDisplay() {
     await loadMenu()
     await loadSpecialMenu()
     await loadPromotions()
+    await loadDrinkOptions() // ✅ Tambah
     setRefreshing(false)
     toast.success('Menu refreshed!')
   }
@@ -303,7 +361,6 @@ function CustomerDisplay() {
       if (itemsData) {
         try {
           const items = JSON.parse(itemsData.value)
-          // Sync prices with menu table
           const syncedItems = []
           for (const item of items) {
             if (item.menu_id) {
@@ -354,7 +411,7 @@ function CustomerDisplay() {
 
   async function loadMenu() {
     try {
-      const { data, error } = await supabase.from('menu').select('*').order('category')
+      const { data, error } = await supabase.from('menu').select('*').order('sort_order')
       if (!error && data) setMenu(data)
     } catch (err) {
       console.error('Error:', err)
@@ -413,16 +470,14 @@ function CustomerDisplay() {
   }
 
   // ============================================================
-  // GET FILTERED MENU - SYNC WITH DATABASE
+  // GET FILTERED MENU
   // ============================================================
   const getFilteredDisplayMenu = () => {
     let filtered = [...menu]
     
-    // Get sub-categories based on main categories
     const foodSubCategories = ['Makanan', 'Mee', 'Bihup SUP', 'Telur', 'Meggie Sup', 'Sup', 'Nasi']
     const drinkSubCategories = ['Minuman', 'Teh', 'Kopi', 'Jus', 'Air']
     
-    // Filter by display settings (main categories)
     if (!displaySettings.showFood) {
       filtered = filtered.filter(item => !foodSubCategories.includes(item.category))
     }
@@ -546,7 +601,7 @@ function CustomerDisplay() {
   }
 
   // ============================================================
-  // PRINT RECEIPT (SAME AS BEFORE - KEEP)
+  // PRINT RECEIPT
   // ============================================================
   const printReceiptDirect = (order) => {
     const subtotal = order.subtotal || order.total
@@ -657,6 +712,10 @@ function CustomerDisplay() {
             color: ${isDarkMode ? '#94a3b8' : '#64748b'};
             margin: 2px 0;
           }
+          .option-label {
+            font-size: 10px;
+            color: ${isDarkMode ? '#94a3b8' : '#64748b'};
+          }
           @media print { 
             body { 
               margin: 0; 
@@ -678,6 +737,7 @@ function CustomerDisplay() {
             .amount-green { color: #22c55e !important; }
             .divider { border-top-color: #ccc !important; }
             .order-info { color: #666 !important; }
+            .option-label { color: #666 !important; }
           }
         </style>
       </head>
@@ -704,9 +764,14 @@ function CustomerDisplay() {
             <tbody>
               ${order.items?.map(item => `
                 <tr>
-                  <td style="text-align:left">${item.name}</td>
+                  <td style="text-align:left">
+                    ${item.name}
+                    ${item.option ? `<div class="option-label">${item.option}</div>` : ''}
+                    ${item.size ? `<div class="option-label">${item.size}</div>` : ''}
+                    ${item.isFree ? `<div style="color:#ef4444;font-weight:bold;">FREE</div>` : ''}
+                  </td>
                   <td style="text-align:center">${item.quantity}</td>
-                  <td style="text-align:right">RM ${(item.price * item.quantity).toFixed(2)}</td>
+                  <td style="text-align:right">${item.isFree ? 'FREE' : `RM ${(item.price * item.quantity).toFixed(2)}`}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -791,7 +856,7 @@ function CustomerDisplay() {
     return t2('promo')
   }
 
-  // Get categories for filter - include all categories
+  // Get categories for filter
   const categoryNames = ['All', ...categories.map(cat => cat.name)]
 
   // Filter menu for display
@@ -829,7 +894,7 @@ function CustomerDisplay() {
   }
 
   // ============================================================
-  // RENDER - PROMOTION & SPECIAL MENU BESAR
+  // RENDER
   // ============================================================
   return (
     <div style={{ 
@@ -1018,9 +1083,7 @@ function CustomerDisplay() {
         </div>
       </div>
 
-      {/* ============================================================
-      PROMOTIONS BANNER - BIG & EYE-CATCHING
-      ============================================================ */}
+      {/* ===== PROMOTIONS BANNER ===== */}
       {promotions.length > 0 && displaySettings.showPromos && (
         <div style={{ 
           background: 'linear-gradient(135deg, #ef4444, #dc2626, #b91c1c)',
@@ -1034,7 +1097,6 @@ function CustomerDisplay() {
           flexShrink: 0,
           animation: 'pulseGlow 2s ease-in-out infinite'
         }}>
-          {/* Decorative glow */}
           <div style={{
             position: 'absolute',
             top: '-50%',
@@ -1210,9 +1272,7 @@ function CustomerDisplay() {
         </div>
       )}
 
-      {/* ============================================================
-      SPECIAL MENU BANNER - BIG & EYE-CATCHING
-      ============================================================ */}
+      {/* ===== SPECIAL MENU BANNER ===== */}
       {specialMenuEnabled && specialMenuItems.length > 0 && displaySettings.showSpecial && (
         <div style={{ 
           background: 'linear-gradient(135deg, #fef3c7, #fde68a, #f59e0b, #d97706)',
@@ -1403,9 +1463,7 @@ function CustomerDisplay() {
         </div>
       )}
 
-      {/* ============================================================
-      DISPLAY TOGGLE CONTROLS
-      ============================================================ */}
+      {/* ===== DISPLAY TOGGLE CONTROLS ===== */}
       <div style={{ 
         ...glassEffect, 
         borderRadius: '16px', 
@@ -1577,13 +1635,17 @@ function CustomerDisplay() {
           ) : (
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', 
+              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(180px, 1fr))', 
               gap: '14px'
             }}>
               {filteredMenu.map(item => {
                 const hasImage = item.image_url && item.image_url.trim() !== ''
                 const promo = getItemPromotion(item)
                 const promoPrice = getPromoPrice(item)
+                
+                // ✅ Check drink options
+                const drinkOpts = getDrinkOptionsForItem(item)
+                const hasDrinkOpts = drinkOpts.length > 0
                 
                 return (
                   <div 
@@ -1630,6 +1692,28 @@ function CustomerDisplay() {
                       </div>
                     )}
                     
+                    {/* ✅ Drink Options Indicator */}
+                    {hasDrinkOpts && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-6px',
+                        left: '-6px',
+                        background: '#3b82f6',
+                        color: 'white',
+                        padding: '2px 8px',
+                        borderRadius: '20px',
+                        fontSize: '7px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
+                        zIndex: 5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                      }}>
+                        ☕ {drinkOpts.length}
+                      </div>
+                    )}
+                    
                     {hasImage ? (
                       <img 
                         src={item.image_url} 
@@ -1658,6 +1742,8 @@ function CustomerDisplay() {
                     }}>
                       {item.name}
                     </div>
+                    
+                    {/* Price */}
                     <div style={{ 
                       color: darkMode ? '#4ade80' : '#22c55e', 
                       fontWeight: 'bold', 
@@ -1675,6 +1761,48 @@ function CustomerDisplay() {
                         `RM ${item.price}`
                       )}
                     </div>
+                    
+                    {/* ✅ Show Drink Options */}
+                    {hasDrinkOpts && (
+                      <div style={{
+                        marginTop: '8px',
+                        paddingTop: '8px',
+                        borderTop: `1px solid ${borderColor}`,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        flexWrap: 'wrap'
+                      }}>
+                        {drinkOpts.slice(0, 3).map(opt => (
+                          <span key={opt.id} style={{
+                            fontSize: '9px',
+                            background: secondaryBg,
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            color: textMuted,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px'
+                          }}>
+                            {getOptionEmoji(opt.option_type)}
+                            {getOptionLabel(opt.option_type)}
+                            <span style={{ color: priceColor, fontWeight: 'bold' }}>
+                              RM {opt.price}
+                            </span>
+                          </span>
+                        ))}
+                        {drinkOpts.length > 3 && (
+                          <span style={{
+                            fontSize: '8px',
+                            color: textMuted,
+                            padding: '2px 6px'
+                          }}>
+                            +{drinkOpts.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    
                     {item.description && (
                       <div style={{ 
                         fontSize: '10px', 
@@ -1849,7 +1977,7 @@ function CustomerDisplay() {
               </div>
             </div>
 
-            {/* Orders List - SAME AS BEFORE */}
+            {/* Orders List */}
             {selectedTable && (
               <div>
                 <div style={{ 
@@ -1978,14 +2106,17 @@ function CustomerDisplay() {
                               borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none' 
                             }}>
                               <span style={{ color: textColor, fontSize: '13px' }}>
-                                {item.name} x{item.quantity}
+                                {item.name}
+                                {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
+                                {item.size && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>• {item.size}</span>}
+                                {' x' + item.quantity}
                               </span>
                               <span style={{ 
                                 color: darkMode ? '#4ade80' : '#22c55e', 
                                 fontWeight: 'bold', 
                                 fontSize: '13px' 
                               }}>
-                                RM {(item.price * item.quantity).toFixed(2)}
+                                {item.isFree ? 'FREE' : `RM ${(item.price * item.quantity).toFixed(2)}`}
                               </span>
                             </div>
                           ))}

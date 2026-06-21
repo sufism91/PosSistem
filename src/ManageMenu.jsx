@@ -475,7 +475,7 @@ function ManageMenu() {
   }, [])
 
   // ============================================================
-  // ✅ AUTO RESIZE & COMPRESS IMAGE (FIX - JADI KECIL)
+  // AUTO RESIZE & COMPRESS IMAGE
   // ============================================================
   async function resizeAndCompressImage(file, maxWidth = 300, maxHeight = 300, quality = 0.7) {
     return new Promise((resolve, reject) => {
@@ -490,7 +490,6 @@ function ManageMenu() {
           const canvas = document.createElement('canvas')
           const ctx = canvas.getContext('2d')
           
-          // Square crop (center)
           let size = Math.min(img.width, img.height)
           let sx = (img.width - size) / 2
           let sy = (img.height - size) / 2
@@ -502,7 +501,6 @@ function ManageMenu() {
           ctx.imageSmoothingQuality = 'high'
           ctx.drawImage(img, sx, sy, size, size, 0, 0, maxWidth, maxHeight)
           
-          // Convert to WEBP (smaller file size)
           canvas.toBlob((blob) => {
             if (!blob) {
               reject(new Error('Failed to resize image'))
@@ -531,14 +529,13 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // ✅ UPLOAD IMAGE - DENGAN RESIZE
+  // UPLOAD IMAGE
   // ============================================================
   async function uploadImage(file, type = 'menu') {
     if (!file) return null
     setUploading(true)
     
     try {
-      // Auto resize to 300x300 with 70% quality
       const resizedFile = await resizeAndCompressImage(file, 300, 300, 0.7)
       
       const fileExt = resizedFile.name.split('.').pop()
@@ -1239,6 +1236,16 @@ function ManageMenu() {
     setTimeout(() => setMessage(''), 2000)
   }
 
+  const openEditOption = (opt) => {
+    setEditingOption(opt)
+    setOptionForm({
+      option_name: opt.option_name,
+      price_adjustment: opt.price_adjustment,
+      is_absolute_price: opt.is_absolute_price,
+      sort_order: opt.sort_order || 0
+    })
+  }
+
   // ============================================================
   // CATEGORY HELPERS
   // ============================================================
@@ -1399,7 +1406,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // ✅ FIXED: PROMOTIONS FUNCTIONS
+  // PROMOTIONS FUNCTIONS
   // ============================================================
   async function loadPromotions() {
     try {
@@ -1678,7 +1685,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // ✅ FIXED: EDIT FUNCTIONS
+  // EDIT FUNCTIONS
   // ============================================================
   const openEditModal = (item) => { 
     console.log('🔄 Opening edit modal for:', item?.name)
@@ -1892,7 +1899,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // RENDER
+  // RENDER - Complete (Saya ringkaskan sebab panjang)
   // ============================================================
   return (
     <Sidebar>
@@ -1996,9 +2003,7 @@ function ManageMenu() {
           </button>
         </div>
 
-        {/* ========================================================== */}
-        {/* REGULAR TAB */}
-        {/* ========================================================== */}
+        {/* === REGULAR TAB === */}
         {activeTab === 'regular' && (
           <>
             <div style={{ 
@@ -2064,6 +2069,7 @@ function ManageMenu() {
               </div>
             )}
 
+            {/* Search */}
             <div style={{ marginBottom: '20px' }}>
               <div style={{ 
                 ...glassEffect, 
@@ -2109,7 +2115,7 @@ function ManageMenu() {
               </div>
             </div>
 
-            {/* CATEGORY FILTERS */}
+            {/* Category Filters */}
             <div style={{ 
               display: 'flex', 
               gap: '8px', 
@@ -2165,6 +2171,7 @@ function ManageMenu() {
               </DndContext>
             </div>
 
+            {/* Menu Items */}
             {filteredMenu.length === 0 ? (
               <div style={{ 
                 textAlign: 'center', 
@@ -2319,6 +2326,18 @@ function ManageMenu() {
                                         ⚙️ Size
                                       </span>
                                     )}
+                                    {hasDrinkOptions && (
+                                      <span style={{ 
+                                        background: '#06b6d4', 
+                                        color: 'white', 
+                                        padding: '2px 10px', 
+                                        borderRadius: '12px', 
+                                        fontSize: '9px',
+                                        fontWeight: 'bold'
+                                      }}>
+                                        ☕ {drinkOpts.length} opt
+                                      </span>
+                                    )}
                                   </div>
                                   {hasDescription && (
                                     <div style={{ 
@@ -2447,6 +2466,7 @@ function ManageMenu() {
                                 </div>
                               </div>
 
+                              {/* Drink Options Display */}
                               {hasDrinkOptions && (
                                 <div style={{ 
                                   marginTop: '4px', 
@@ -2460,116 +2480,56 @@ function ManageMenu() {
                                   borderRadius: '12px',
                                   padding: '10px'
                                 }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <span style={{ fontSize: isMobile ? '11px' : '12px', color: '#f97316', fontWeight: 'bold' }}>🔥</span>
-                                    <input 
-                                      type="number" 
-                                      step="0.01" 
-                                      value={drinkPriceEdits[`${item.name}_Panas`] !== undefined ? drinkPriceEdits[`${item.name}_Panas`] : (panasPrice || '')} 
-                                      onChange={(e) => handleDrinkPriceChange(item.name, 'Panas', e.target.value)} 
-                                      style={{ 
-                                        width: isMobile ? '55px' : '65px', 
-                                        padding: '4px 6px', 
-                                        borderRadius: '8px', 
-                                        border: `1px solid ${borderColor}`, 
-                                        background: inputBg, 
-                                        color: inputText, 
-                                        fontSize: isMobile ? '11px' : '12px',
-                                        textAlign: 'center'
-                                      }} 
-                                    />
-                                    <button 
-                                      onClick={() => handleDrinkPriceSave(item.name, 'Panas')} 
-                                      style={{ 
-                                        background: '#22c55e', 
-                                        color: 'white', 
-                                        padding: '2px 8px', 
-                                        border: 'none', 
-                                        borderRadius: '12px', 
-                                        cursor: 'pointer', 
-                                        fontSize: isMobile ? '9px' : '10px',
-                                        fontWeight: 'bold',
-                                        transition: 'all 0.2s'
-                                      }}
-                                      title={translate('save')}
-                                    >
-                                      ✓
-                                    </button>
-                                  </div>
-
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <span style={{ fontSize: isMobile ? '11px' : '12px', color: '#06b6d4', fontWeight: 'bold' }}>🧊</span>
-                                    <input 
-                                      type="number" 
-                                      step="0.01" 
-                                      value={drinkPriceEdits[`${item.name}_Sejuk`] !== undefined ? drinkPriceEdits[`${item.name}_Sejuk`] : (sejukPrice || '')} 
-                                      onChange={(e) => handleDrinkPriceChange(item.name, 'Sejuk', e.target.value)} 
-                                      style={{ 
-                                        width: isMobile ? '55px' : '65px', 
-                                        padding: '4px 6px', 
-                                        borderRadius: '8px', 
-                                        border: `1px solid ${borderColor}`, 
-                                        background: inputBg, 
-                                        color: inputText, 
-                                        fontSize: isMobile ? '11px' : '12px',
-                                        textAlign: 'center'
-                                      }} 
-                                    />
-                                    <button 
-                                      onClick={() => handleDrinkPriceSave(item.name, 'Sejuk')} 
-                                      style={{ 
-                                        background: '#22c55e', 
-                                        color: 'white', 
-                                        padding: '2px 8px', 
-                                        border: 'none', 
-                                        borderRadius: '12px', 
-                                        cursor: 'pointer', 
-                                        fontSize: isMobile ? '9px' : '10px',
-                                        fontWeight: 'bold',
-                                        transition: 'all 0.2s'
-                                      }}
-                                      title={translate('save')}
-                                    >
-                                      ✓
-                                    </button>
-                                  </div>
-
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                    <span style={{ fontSize: isMobile ? '11px' : '12px', color: '#8b5cf6', fontWeight: 'bold' }}>📦</span>
-                                    <input 
-                                      type="number" 
-                                      step="0.01" 
-                                      value={drinkPriceEdits[`${item.name}_Bungkus`] !== undefined ? drinkPriceEdits[`${item.name}_Bungkus`] : (bungkusPrice || '')} 
-                                      onChange={(e) => handleDrinkPriceChange(item.name, 'Bungkus', e.target.value)} 
-                                      style={{ 
-                                        width: isMobile ? '55px' : '65px', 
-                                        padding: '4px 6px', 
-                                        borderRadius: '8px', 
-                                        border: `1px solid ${borderColor}`, 
-                                        background: inputBg, 
-                                        color: inputText, 
-                                        fontSize: isMobile ? '11px' : '12px',
-                                        textAlign: 'center'
-                                      }} 
-                                    />
-                                    <button 
-                                      onClick={() => handleDrinkPriceSave(item.name, 'Bungkus')} 
-                                      style={{ 
-                                        background: '#22c55e', 
-                                        color: 'white', 
-                                        padding: '2px 8px', 
-                                        border: 'none', 
-                                        borderRadius: '12px', 
-                                        cursor: 'pointer', 
-                                        fontSize: isMobile ? '9px' : '10px',
-                                        fontWeight: 'bold',
-                                        transition: 'all 0.2s'
-                                      }}
-                                      title={translate('save')}
-                                    >
-                                      ✓
-                                    </button>
-                                  </div>
+                                  {drinkOpts.map(opt => {
+                                    const key = `${item.name}_${opt.option_type}`
+                                    const currentPrice = drinkPriceEdits[key] !== undefined ? drinkPriceEdits[key] : opt.price
+                                    const emoji = opt.option_type === 'Panas' ? '🔥' : opt.option_type === 'Sejuk' ? '🧊' : '📦'
+                                    const label = opt.option_type === 'Panas' ? translate('hot') : opt.option_type === 'Sejuk' ? translate('cold') : translate('takeaway')
+                                    
+                                    return (
+                                      <div key={opt.id} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                        <span style={{ fontSize: isMobile ? '11px' : '12px', fontWeight: 'bold' }}>
+                                          {emoji}
+                                        </span>
+                                        <span style={{ fontSize: isMobile ? '9px' : '10px', color: textMuted }}>
+                                          {label}
+                                        </span>
+                                        <input 
+                                          type="number" 
+                                          step="0.01" 
+                                          value={currentPrice} 
+                                          onChange={(e) => handleDrinkPriceChange(item.name, opt.option_type, e.target.value)} 
+                                          style={{ 
+                                            width: isMobile ? '55px' : '65px', 
+                                            padding: '4px 6px', 
+                                            borderRadius: '8px', 
+                                            border: `1px solid ${borderColor}`, 
+                                            background: inputBg, 
+                                            color: inputText, 
+                                            fontSize: isMobile ? '11px' : '12px',
+                                            textAlign: 'center'
+                                          }} 
+                                        />
+                                        <button 
+                                          onClick={() => handleDrinkPriceSave(item.name, opt.option_type)} 
+                                          style={{ 
+                                            background: '#22c55e', 
+                                            color: 'white', 
+                                            padding: '2px 8px', 
+                                            border: 'none', 
+                                            borderRadius: '12px', 
+                                            cursor: 'pointer', 
+                                            fontSize: isMobile ? '9px' : '10px',
+                                            fontWeight: 'bold',
+                                            transition: 'all 0.2s'
+                                          }}
+                                          title={translate('save')}
+                                        >
+                                          ✓
+                                        </button>
+                                      </div>
+                                    )
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -2595,9 +2555,7 @@ function ManageMenu() {
           </>
         )}
 
-        {/* ========================================================== */}
-        {/* SPECIAL TAB */}
-        {/* ========================================================== */}
+        {/* === SPECIAL TAB === */}
         {activeTab === 'special' && (
           <div>
             <div style={{ 
@@ -2785,11 +2743,6 @@ function ManageMenu() {
                                   🔗 {translate('price_sync')}
                                 </div>
                               )}
-                              {!item.menu_id && (
-                                <div style={{ fontSize: '9px', color: '#f59e0b' }}>
-                                  ⚠️ No menu link - price may not sync
-                                </div>
-                              )}
                             </div>
                           </div>
                           <div style={{ display: 'flex', gap: '6px' }}>
@@ -2836,9 +2789,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* ========================================================== */}
-        {/* PROMOTIONS TAB */}
-        {/* ========================================================== */}
+        {/* === PROMOTIONS TAB === */}
         {activeTab === 'promotions' && (
           <div>
             <div style={{ 
@@ -3469,7 +3420,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* PROMOTION MODALS */}
+        {/* ADD PROMOTION MODAL */}
         {showAddPromoModal && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
@@ -3625,6 +3576,7 @@ function ManageMenu() {
           </div>
         )}
 
+        {/* EDIT PROMOTION MODAL */}
         {showEditPromoModal && selectedPromo && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>

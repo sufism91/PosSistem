@@ -475,9 +475,9 @@ function ManageMenu() {
   }, [])
 
   // ============================================================
-  // IMAGE RESIZE
+  // ✅ AUTO RESIZE & COMPRESS IMAGE (FIX - JADI KECIL)
   // ============================================================
-  async function resizeAndCompressImage(file, maxWidth = 300, maxHeight = 300, quality = 0.8) {
+  async function resizeAndCompressImage(file, maxWidth = 300, maxHeight = 300, quality = 0.7) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader()
       reader.readAsDataURL(file)
@@ -490,6 +490,7 @@ function ManageMenu() {
           const canvas = document.createElement('canvas')
           const ctx = canvas.getContext('2d')
           
+          // Square crop (center)
           let size = Math.min(img.width, img.height)
           let sx = (img.width - size) / 2
           let sy = (img.height - size) / 2
@@ -501,7 +502,7 @@ function ManageMenu() {
           ctx.imageSmoothingQuality = 'high'
           ctx.drawImage(img, sx, sy, size, size, 0, 0, maxWidth, maxHeight)
           
-          const outputFormat = 'image/webp'
+          // Convert to WEBP (smaller file size)
           canvas.toBlob((blob) => {
             if (!blob) {
               reject(new Error('Failed to resize image'))
@@ -510,12 +511,12 @@ function ManageMenu() {
             
             const fileName = file.name.split('.')[0] + '.webp'
             const resizedFile = new File([blob], fileName, {
-              type: outputFormat,
+              type: 'image/webp',
               lastModified: Date.now()
             })
             
             resolve(resizedFile)
-          }, outputFormat, quality)
+          }, 'image/webp', quality)
         }
         
         img.onerror = () => {
@@ -527,6 +528,45 @@ function ManageMenu() {
         reject(new Error('Failed to read file'))
       }
     })
+  }
+
+  // ============================================================
+  // ✅ UPLOAD IMAGE - DENGAN RESIZE
+  // ============================================================
+  async function uploadImage(file, type = 'menu') {
+    if (!file) return null
+    setUploading(true)
+    
+    try {
+      // Auto resize to 300x300 with 70% quality
+      const resizedFile = await resizeAndCompressImage(file, 300, 300, 0.7)
+      
+      const fileExt = resizedFile.name.split('.').pop()
+      const fileName = `${type}-${Date.now()}.${fileExt}`
+      
+      const { error: uploadError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .upload(fileName, resizedFile)
+      
+      if (uploadError) {
+        setMessage(`❌ ${translate('upload_fail')}: ${uploadError.message}`)
+        setUploading(false)
+        return null
+      }
+      
+      const { data: urlData } = supabase.storage
+        .from(STORAGE_BUCKET)
+        .getPublicUrl(fileName)
+      
+      const sizeInKB = (resizedFile.size / 1024).toFixed(0)
+      setMessage(`✅ ${translate('upload_success')} (${sizeInKB}KB)`)
+      setUploading(false)
+      return urlData.publicUrl
+    } catch (err) {
+      setMessage(`❌ ${translate('upload_fail')}: ${err.message}`)
+      setUploading(false)
+      return null
+    }
   }
 
   // ============================================================
@@ -1329,43 +1369,8 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // UPLOAD IMAGE
+  // DELETE IMAGE
   // ============================================================
-  async function uploadImage(file, type = 'menu') {
-    if (!file) return null
-    setUploading(true)
-    
-    try {
-      const resizedFile = await resizeAndCompressImage(file, 300, 300, 0.8)
-      
-      const fileExt = resizedFile.name.split('.').pop()
-      const fileName = `${type}-${Date.now()}.${fileExt}`
-      
-      const { error: uploadError } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .upload(fileName, resizedFile)
-      
-      if (uploadError) {
-        setMessage(`❌ ${translate('upload_fail')}: ${uploadError.message}`)
-        setUploading(false)
-        return null
-      }
-      
-      const { data: urlData } = supabase.storage
-        .from(STORAGE_BUCKET)
-        .getPublicUrl(fileName)
-      
-      const sizeInKB = (resizedFile.size / 1024).toFixed(0)
-      setMessage(`✅ ${translate('upload_success')} (${sizeInKB}KB)`)
-      setUploading(false)
-      return urlData.publicUrl
-    } catch (err) {
-      setMessage(`❌ ${translate('upload_fail')}: ${err.message}`)
-      setUploading(false)
-      return null
-    }
-  }
-
   async function deleteImageFromStorage(imageUrl) {
     if (!imageUrl) return false
     try {
@@ -1394,7 +1399,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // ✅ FIXED: PROMOTIONS FUNCTIONS - ADD THIS ENTIRE BLOCK
+  // ✅ FIXED: PROMOTIONS FUNCTIONS
   // ============================================================
   async function loadPromotions() {
     try {
@@ -1673,7 +1678,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // ✅ FIXED: ADD MISSING EDIT FUNCTIONS
+  // ✅ FIXED: EDIT FUNCTIONS
   // ============================================================
   const openEditModal = (item) => { 
     console.log('🔄 Opening edit modal for:', item?.name)

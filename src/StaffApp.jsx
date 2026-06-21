@@ -453,61 +453,61 @@ function StaffApp() {
 
   // ===== CHECKOUT =====
   const handleCheckout = async () => {
-    if (cart.length === 0) {
-      toast.error(t('cart_empty'))
-      return
-    }
-
-    const total = cart.reduce((sum, item) => sum + item.subtotal, 0)
-    
-    const orderData = {
-      items: cart.map(item => ({
-        name: item.name,
-        category: item.category,
-        option: item.option,
-        size: item.size,
-        price: item.price,
-        originalPrice: item.originalPrice,
-        quantity: item.quantity,
-        subtotal: item.subtotal,
-        isFree: item.isFree,
-        promoType: item.promoType,
-        promoName: item.promoName
-      })),
-      total: total,
-      customer_name: customerName || 'Guest',
-      table_number: orderType === 'dine_in' ? parseInt(tableNumber) || null : null,
-      order_type: orderType,
-      status: 'pending',
-      payment_status: 'unpaid',
-      notes: cart.map(item => item.notes).filter(n => n).join(', ')
-    }
-
-    try {
-      const { data, error } = await supabase
-        .from('customer_orders')
-        .insert([orderData])
-        .select()
-        .single()
-
-      if (error) throw error
-
-      toast.success(t('payment_success'))
-      setCart([])
-      setCustomerName('')
-      setTableNumber('')
-      
-      if (data) {
-        setTimeout(() => {
-          printReceipt(data)
-        }, 500)
-      }
-
-    } catch (err) {
-      console.error('Checkout error:', err)
-      toast.error(err.message)
-    }
+  if (cart.length === 0) {
+    toast.error(t('cart_empty'))
+    return
   }
+
+  const total = cart.reduce((sum, item) => sum + item.subtotal, 0)
+  
+  const orderData = {
+    items: cart.map(item => ({
+      name: item.name,
+      category: item.category,
+      option: item.option,
+      size: item.size,
+      price: item.price,
+      originalPrice: item.originalPrice,
+      quantity: item.quantity,
+      subtotal: item.subtotal,
+      isFree: item.isFree,
+      promoType: item.promoType,
+      promoName: item.promoName
+    })),
+    total: total,
+    customer_name: customerName || 'Guest',
+    table_number: orderType === 'dine_in' ? parseInt(tableNumber) || null : 0,  // 👈 FIX
+    order_type: orderType,
+    status: 'pending',
+    payment_status: 'unpaid',
+    notes: cart.map(item => item.notes).filter(n => n).join(', ')
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('customer_orders')
+      .insert([orderData])
+      .select()
+      .single()
+
+    if (error) throw error
+
+    toast.success(t('payment_success'))
+    setCart([])
+    setCustomerName('')
+    setTableNumber('')
+    
+    if (data) {
+      setTimeout(() => {
+        printReceipt(data)
+      }, 500)
+    }
+
+  } catch (err) {
+    console.error('Checkout error:', err)
+    toast.error(err.message)
+  }
+}
 
   // ===== PRINT RECEIPT =====
   const printReceipt = (order) => {

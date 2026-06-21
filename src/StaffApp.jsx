@@ -13,11 +13,8 @@ function StaffApp() {
   // COMPLETE TRANSLATIONS
   // ============================================================
   const translations = {
-    // Header
     pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
     pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
-    
-    // Buttons
     table_service: { en: 'Table Service', ms: 'Perkhidmatan Meja' },
     take_away: { en: 'Take Away', ms: 'Bungkus' },
     add_order: { en: 'Add Order', ms: 'Tambah Pesanan' },
@@ -26,8 +23,6 @@ function StaffApp() {
     cancel: { en: 'Cancel', ms: 'Batal' },
     confirm: { en: 'Confirm', ms: 'Sahkan' },
     print_receipt: { en: 'Print Receipt', ms: 'Cetak Resit' },
-    
-    // Labels
     customer_name: { en: 'Customer Name', ms: 'Nama Pelanggan' },
     table_number: { en: 'Table Number', ms: 'Nombor Meja' },
     select_table: { en: 'Select Table', ms: 'Pilih Meja' },
@@ -37,14 +32,16 @@ function StaffApp() {
     price: { en: 'Price', ms: 'Harga' },
     notes: { en: 'Notes', ms: 'Nota' },
     special_request: { en: 'Special Request', ms: 'Permintaan Khas' },
-    
-    // Options
     select_option: { en: 'Select Option', ms: 'Pilih Pilihan' },
     hot: { en: 'Hot', ms: 'Panas' },
     cold: { en: 'Cold', ms: 'Sejuk' },
     packed: { en: 'Packed', ms: 'Bungkus' },
-    
-    // Messages
+    select_size: { en: 'Select Size', ms: 'Pilih Saiz' },
+    promo: { en: '🔥 Promo', ms: '🔥 Promosi' },
+    bogo: { en: 'Buy 1 Free 1', ms: 'Beli 1 Percuma 1' },
+    free: { en: 'FREE', ms: 'PERCUMA' },
+    original_price: { en: 'Original', ms: 'Asal' },
+    promo_price: { en: 'Promo Price', ms: 'Harga Promosi' },
     order_added: { en: 'Order added!', ms: 'Pesanan ditambah!' },
     order_updated: { en: 'Order updated!', ms: 'Pesanan dikemaskini!' },
     order_cancelled: { en: 'Order cancelled', ms: 'Pesanan dibatalkan' },
@@ -65,10 +62,12 @@ function StaffApp() {
   // ============================================================
   const [menu, setMenu] = useState([])
   const [categories, setCategories] = useState([])
+  const [promotions, setPromotions] = useState([])
   const [cart, setCart] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedItem, setSelectedItem] = useState(null)
   const [selectedOption, setSelectedOption] = useState('')
+  const [selectedSize, setSelectedSize] = useState(null)
   const [quantity, setQuantity] = useState(1)
   const [customerName, setCustomerName] = useState('')
   const [tableNumber, setTableNumber] = useState('')
@@ -77,6 +76,9 @@ function StaffApp() {
   const [loading, setLoading] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
+  const [menuOptions, setMenuOptions] = useState([])
+  const [drinkOptions, setDrinkOptions] = useState([])
+  const [showSizeModal, setShowSizeModal] = useState(false)
 
   // ============================================================
   // CHECK MOBILE
@@ -99,6 +101,7 @@ function StaffApp() {
   const textMuted = darkMode ? '#94a3b8' : '#64748b'
   const borderColor = darkMode ? 'rgba(71, 85, 105, 0.3)' : 'rgba(203, 213, 225, 0.5)'
   const priceColor = darkMode ? '#4ade80' : '#22c55e'
+  const promoColor = '#ef4444'
   const secondaryBg = darkMode ? 'rgba(30, 30, 50, 0.6)' : 'rgba(248, 250, 252, 0.8)'
   const inputBg = darkMode ? '#1a1a2e' : '#ffffff'
   const inputBorder = darkMode ? '#3d3d5c' : '#cbd5e1'
@@ -118,6 +121,8 @@ function StaffApp() {
   useEffect(() => {
     loadCategories()
     loadMenu()
+    loadPromotions()
+    loadDrinkOptions()
   }, [])
 
   async function loadCategories() {
@@ -146,12 +151,97 @@ function StaffApp() {
     setLoading(false)
   }
 
+  async function loadPromotions() {
+    try {
+      const now = new Date().toISOString()
+      const { data } = await supabase
+        .from('promotions')
+        .select('*')
+        .eq('is_active', true)
+        .or(`start_date.is.null,start_date.lte.${now}`)
+        .or(`end_date.is.null,end_date.gte.${now}`)
+      setPromotions(data || [])
+    } catch (err) {
+      console.error('Error loading promotions:', err)
+    }
+  }
+
+  async function loadDrinkOptions() {
+    try {
+      const { data } = await supabase
+        .from('drink_options')
+        .select('*')
+      setDrinkOptions(data || [])
+    } catch (err) {
+      console.error('Error loading drink options:', err)
+    }
+  }
+
+  async function loadMenuOptions(menuId) {
+    try {
+      const { data } = await supabase
+        .from('menu_options')
+        .select('*')
+        .eq('menu_id', menuId)
+        .order('sort_order')
+      setMenuOptions(data || [])
+    } catch (err) {
+      console.error('Error loading menu options:', err)
+      setMenuOptions([])
+    }
+  }
+
+  // ============================================================
+  // PROMOTION HELPERS
+  // ============================================================
+  function getItemPromotion(item) {
+    for (const promo of promotions) {
+      if (promo.type === 'bogo') {
+        const triggerItem = promo.trigger_items?.[0]
+        if (triggerItem && item.id === triggerItem.id) {
+          return { type: 'bogo', trigger: triggerItem, free: promo.free_items?.[0], promo: promo }
+        }
+      } else if (promo.type === 'bundle' || promo.type === 'set_menu') {
+        const bundleItems = promo.bundle_items || []
+        const found = bundleItems.find(i => i.id === item.id)
+        if (found) {
+          return { type: promo.type, bundleItems: bundleItems, bundlePrice: promo.bundle_price, promo: promo }
+        }
+      }
+    }
+    return null
+  }
+
+  function getPromoPrice(item) {
+    const promo = getItemPromotion(item)
+    if (!promo) return null
+    if (promo.type === 'bogo') return 0
+    if (promo.type === 'bundle' || promo.type === 'set_menu') {
+      if (promo.bundlePrice > 0) return promo.bundlePrice
+      const bundleItem = promo.bundleItems?.find(i => i.id === item.id)
+      return bundleItem?.price || item.price
+    }
+    return null
+  }
+
+  function isItemInBOGO(item) {
+    const promo = getItemPromotion(item)
+    return promo?.type === 'bogo'
+  }
+
+  function getBOGOFreeItem(item) {
+    const promo = getItemPromotion(item)
+    if (promo?.type === 'bogo') {
+      return promo.free
+    }
+    return null
+  }
+
   // ============================================================
   // HELPERS
   // ============================================================
   const getCategories = () => {
-    const all = ['All', ...categories.map(c => c.name)]
-    return all
+    return ['All', ...categories.map(c => c.name)]
   }
 
   const getFilteredMenu = () => {
@@ -167,12 +257,33 @@ function StaffApp() {
     return filtered
   }
 
-  const getItemPrice = (item, option) => {
-    if (!option) return item.price || 0
-    if (option === 'Panas') return item.price || 0
-    if (option === 'Sejuk') return (item.price || 0) + 0.50
-    if (option === 'Bungkus') return (item.price || 0) + 0.50
-    return item.price || 0
+  const getItemPrice = (item, option, size) => {
+    let basePrice = item.price || 0
+    
+    // Check for promotion
+    const promoPrice = getPromoPrice(item)
+    if (promoPrice !== null) {
+      basePrice = promoPrice
+    }
+    
+    // Add option price adjustment
+    if (option) {
+      const drinkOpt = drinkOptions.find(d => d.drink_name === item.name && d.option_type === option)
+      if (drinkOpt) {
+        basePrice = drinkOpt.price || basePrice
+      }
+    }
+    
+    // Add size price adjustment
+    if (size && size.price_adjustment) {
+      if (size.is_absolute_price) {
+        basePrice = size.price_adjustment
+      } else {
+        basePrice += size.price_adjustment
+      }
+    }
+    
+    return basePrice
   }
 
   const getOptionLabel = (option) => {
@@ -194,6 +305,10 @@ function StaffApp() {
     return drinkCategories.includes(category)
   }
 
+  const isSizeCategory = (item) => {
+    return item.has_options === true
+  }
+
   // ============================================================
   // CART FUNCTIONS
   // ============================================================
@@ -209,25 +324,56 @@ function StaffApp() {
       return
     }
 
-    const price = getItemPrice(selectedItem, selectedOption)
+    // Check if item has size options
+    if (isSizeCategory(selectedItem) && !selectedSize) {
+      toast.error(t('select_size'))
+      return
+    }
+
+    const price = getItemPrice(selectedItem, selectedOption, selectedSize)
+    const isFree = price === 0
+    const promo = getItemPromotion(selectedItem)
+    
     const cartItem = {
       id: selectedItem.id,
       name: selectedItem.name,
       category: selectedItem.category,
       option: selectedOption || null,
+      size: selectedSize?.option_name || null,
       price: price,
+      originalPrice: selectedItem.price,
       quantity: quantity,
       subtotal: price * quantity,
       image_url: selectedItem.image_url,
-      notes: selectedItem.notes || ''
+      notes: selectedItem.notes || '',
+      isFree: isFree,
+      promoType: promo?.type || null,
+      promoName: promo?.promo?.name || null,
+      sizeData: selectedSize || null
     }
 
-    setCart([...cart, cartItem])
+    // Check if item already in cart with same option and size
+    const existingIndex = cart.findIndex(c => 
+      c.id === cartItem.id && 
+      c.option === cartItem.option && 
+      c.size === cartItem.size
+    )
+
+    if (existingIndex >= 0) {
+      const newCart = [...cart]
+      newCart[existingIndex].quantity += quantity
+      newCart[existingIndex].subtotal = newCart[existingIndex].price * newCart[existingIndex].quantity
+      setCart(newCart)
+    } else {
+      setCart([...cart, cartItem])
+    }
+
     setShowItemModal(false)
     setSelectedItem(null)
     setSelectedOption('')
+    setSelectedSize(null)
     setQuantity(1)
-    toast.success(t('order_added'))
+    toast.success(isFree ? `🎁 ${selectedItem.name} FREE!` : t('order_added'))
   }
 
   const removeFromCart = (index) => {
@@ -266,15 +412,19 @@ function StaffApp() {
 
     const total = cart.reduce((sum, item) => sum + item.subtotal, 0)
     
-    // Prepare order data
     const orderData = {
       items: cart.map(item => ({
         name: item.name,
         category: item.category,
         option: item.option,
+        size: item.size,
         price: item.price,
+        originalPrice: item.originalPrice,
         quantity: item.quantity,
-        subtotal: item.subtotal
+        subtotal: item.subtotal,
+        isFree: item.isFree,
+        promoType: item.promoType,
+        promoName: item.promoName
       })),
       total: total,
       customer_name: customerName || 'Guest',
@@ -286,7 +436,6 @@ function StaffApp() {
     }
 
     try {
-      // Insert order
       const { data, error } = await supabase
         .from('customer_orders')
         .insert([orderData])
@@ -296,13 +445,10 @@ function StaffApp() {
       if (error) throw error
 
       toast.success(t('payment_success'))
-      
-      // Clear cart
       setCart([])
       setCustomerName('')
       setTableNumber('')
       
-      // Print receipt
       if (data) {
         setTimeout(() => {
           printReceipt(data)
@@ -327,58 +473,21 @@ function StaffApp() {
         <meta charset="UTF-8">
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { 
-            font-family: 'Courier New', monospace; 
-            padding: 20px; 
-            background: white;
-            color: black;
-          }
-          .receipt { 
-            max-width: 320px; 
-            margin: 0 auto; 
-            font-size: 12px;
-          }
-          .header { 
-            text-align: center; 
-            border-bottom: 1px dashed #ccc; 
-            padding-bottom: 10px; 
-            margin-bottom: 10px; 
-          }
+          body { font-family: 'Courier New', monospace; padding: 20px; background: white; color: black; }
+          .receipt { max-width: 320px; margin: 0 auto; font-size: 12px; }
+          .header { text-align: center; border-bottom: 1px dashed #ccc; padding-bottom: 10px; margin-bottom: 10px; }
           .header h1 { font-size: 18px; }
           .header .sub { font-size: 11px; color: #666; }
           .divider { border-top: 1px dashed #ccc; margin: 8px 0; }
           .items { width: 100%; margin: 8px 0; border-collapse: collapse; }
-          .items th, .items td { 
-            text-align: left; 
-            padding: 4px 0; 
-            font-size: 12px;
-          }
+          .items th, .items td { text-align: left; padding: 4px 0; font-size: 12px; }
           .items th:last-child, .items td:last-child { text-align: right; }
-          .items th { 
-            border-bottom: 1px solid #ccc; 
-            font-size: 11px; 
-            color: #666; 
-          }
-          .total-row {
-            font-size: 16px;
-            font-weight: bold;
-            color: #22c55e;
-          }
-          .footer { 
-            text-align: center; 
-            margin-top: 12px; 
-            border-top: 1px dashed #ccc; 
-            padding-top: 10px; 
-            font-size: 11px; 
-            color: #666;
-          }
-          .option-label {
-            font-size: 10px;
-            color: #666;
-          }
-          @media print {
-            body { margin: 0; padding: 10px; }
-          }
+          .items th { border-bottom: 1px solid #ccc; font-size: 11px; color: #666; }
+          .total-row { font-size: 16px; font-weight: bold; color: #22c55e; }
+          .footer { text-align: center; margin-top: 12px; border-top: 1px dashed #ccc; padding-top: 10px; font-size: 11px; color: #666; }
+          .free-label { color: #ef4444; font-weight: bold; }
+          .promo-label { color: #ef4444; font-size: 10px; }
+          @media print { body { margin: 0; padding: 10px; } }
         </style>
       </head>
       <body>
@@ -397,11 +506,14 @@ function StaffApp() {
               ${order.items?.map(item => `
                 <tr>
                   <td>
-                    ${item.name}
-                    ${item.option ? `<div class="option-label">${item.option}</div>` : ''}
+                    ${item.isFree ? '🎁 ' : ''}${item.name}
+                    ${item.option ? `<div style="font-size:10px;color:#666;">${item.option}</div>` : ''}
+                    ${item.size ? `<div style="font-size:10px;color:#666;">${item.size}</div>` : ''}
+                    ${item.isFree ? `<div class="free-label">FREE</div>` : ''}
+                    ${item.promoName ? `<div class="promo-label">🔥 ${item.promoName}</div>` : ''}
                   </td>
                   <td style="text-align:center">${item.quantity}</td>
-                  <td style="text-align:right">RM ${(item.price * item.quantity).toFixed(2)}</td>
+                  <td style="text-align:right">${item.isFree ? 'FREE' : `RM ${(item.price * item.quantity).toFixed(2)}`}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -442,7 +554,9 @@ function StaffApp() {
     if (!selectedItem) return null
     
     const isDrink = isDrinkCategory(selectedItem.category)
+    const hasSize = isSizeCategory(selectedItem)
     const options = ['Panas', 'Sejuk', 'Bungkus']
+    const sizes = menuOptions
     
     return (
       <div style={{
@@ -467,7 +581,9 @@ function StaffApp() {
           maxWidth: '450px',
           width: '100%',
           ...glassEffect,
-          animation: 'popIn 0.3s ease'
+          animation: 'popIn 0.3s ease',
+          maxHeight: '90vh',
+          overflowY: 'auto'
         }}>
           
           {/* Item Image */}
@@ -508,6 +624,22 @@ function StaffApp() {
             {selectedItem.name}
           </h2>
           
+          {/* Promotion Badge */}
+          {getItemPromotion(selectedItem) && (
+            <div style={{
+              background: promoColor,
+              color: 'white',
+              padding: '4px 12px',
+              borderRadius: '20px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              display: 'inline-block',
+              marginBottom: '12px'
+            }}>
+              {getItemPromotion(selectedItem)?.type === 'bogo' ? '🎁 BOGO' : '🔥 PROMO'}
+            </div>
+          )}
+          
           {selectedItem.description && (
             <p style={{
               color: textMuted,
@@ -518,7 +650,7 @@ function StaffApp() {
             </p>
           )}
           
-          {/* Options - Only for drinks */}
+          {/* Options - For drinks */}
           {isDrink && (
             <div style={{ marginBottom: '16px' }}>
               <label style={{
@@ -536,8 +668,9 @@ function StaffApp() {
                 flexWrap: 'wrap'
               }}>
                 {options.map(option => {
-                  const price = getItemPrice(selectedItem, option)
+                  const price = getItemPrice(selectedItem, option, selectedSize)
                   const isSelected = selectedOption === option
+                  const isFree = price === 0
                   return (
                     <button
                       key={option}
@@ -563,10 +696,65 @@ function StaffApp() {
                       <div>{getOptionLabel(option)}</div>
                       <div style={{ 
                         fontSize: isMobile ? '11px' : '12px', 
-                        color: isSelected ? 'rgba(255,255,255,0.9)' : priceColor,
+                        color: isSelected ? 'rgba(255,255,255,0.9)' : (isFree ? promoColor : priceColor),
                         fontWeight: 'bold'
                       }}>
-                        RM {price.toFixed(2)}
+                        {isFree ? 'FREE' : `RM ${price.toFixed(2)}`}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          
+          {/* Size Options */}
+          {hasSize && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                fontWeight: 'bold',
+                color: textColor,
+                fontSize: isMobile ? '12px' : '13px',
+                marginBottom: '8px'
+              }}>
+                {t('select_size')}:
+              </label>
+              <div style={{
+                display: 'flex',
+                gap: '10px',
+                flexWrap: 'wrap'
+              }}>
+                {sizes.map(size => {
+                  const price = getItemPrice(selectedItem, selectedOption, size)
+                  const isSelected = selectedSize?.id === size.id
+                  const isFree = price === 0
+                  return (
+                    <button
+                      key={size.id}
+                      onClick={() => setSelectedSize(size)}
+                      style={{
+                        flex: 1,
+                        minWidth: '70px',
+                        padding: isMobile ? '10px 12px' : '12px 16px',
+                        background: isSelected ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : secondaryBg,
+                        color: isSelected ? 'white' : textColor,
+                        border: isSelected ? 'none' : `1px solid ${borderColor}`,
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: isSelected ? 'bold' : 'normal',
+                        fontSize: isMobile ? '12px' : '13px',
+                        transition: 'all 0.2s',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <div>{size.option_name}</div>
+                      <div style={{ 
+                        fontSize: isMobile ? '11px' : '12px', 
+                        color: isSelected ? 'rgba(255,255,255,0.9)' : (isFree ? promoColor : priceColor),
+                        fontWeight: 'bold'
+                      }}>
+                        {isFree ? 'FREE' : `RM ${price.toFixed(2)}`}
                       </div>
                     </button>
                   )
@@ -668,6 +856,24 @@ function StaffApp() {
             />
           </div>
           
+          {/* BOGO Info */}
+          {isItemInBOGO(selectedItem) && (
+            <div style={{
+              background: 'rgba(239,68,68,0.1)',
+              padding: '10px 14px',
+              borderRadius: '12px',
+              marginBottom: '16px',
+              border: `1px solid ${promoColor}40`
+            }}>
+              <span style={{ color: promoColor, fontWeight: 'bold', fontSize: '13px' }}>
+                🎁 Buy 1 Get 1 FREE!
+              </span>
+              <span style={{ color: textMuted, fontSize: '12px', display: 'block' }}>
+                {getBOGOFreeItem(selectedItem)?.name || 'Free item'} will be added
+              </span>
+            </div>
+          )}
+          
           {/* Buttons */}
           <div style={{
             display: 'flex',
@@ -690,13 +896,14 @@ function StaffApp() {
               onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
               onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
             >
-              🛒 {t('add_order')} (RM {(getItemPrice(selectedItem, selectedOption) * quantity).toFixed(2)})
+              🛒 {t('add_order')} (RM {(getItemPrice(selectedItem, selectedOption, selectedSize) * quantity).toFixed(2)})
             </button>
             <button
               onClick={() => {
                 setShowItemModal(false)
                 setSelectedItem(null)
                 setSelectedOption('')
+                setSelectedSize(null)
                 setQuantity(1)
               }}
               style={{
@@ -980,74 +1187,161 @@ function StaffApp() {
           gap: isMobile ? '10px' : '14px',
           marginBottom: isMobile ? '160px' : '0px'
         }}>
-          {filteredMenu.map(item => (
-            <div
-              key={item.id}
-              onClick={() => {
-                setSelectedItem(item)
-                setSelectedOption('')
-                setQuantity(1)
-                setShowItemModal(true)
-              }}
-              style={{
-                ...glassEffect,
-                borderRadius: '16px',
-                padding: isMobile ? '12px' : '16px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'transform 0.2s, box-shadow 0.2s'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = 'translateY(-4px)'
-                e.currentTarget.style.boxShadow = darkMode 
-                  ? '0 12px 32px rgba(0,0,0,0.5)' 
-                  : '0 12px 32px rgba(0,0,0,0.1)'
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'translateY(0)'
-                e.currentTarget.style.boxShadow = 'none'
-              }}
-            >
-              {item.image_url ? (
-                <img
-                  src={item.image_url}
-                  alt={item.name}
-                  style={{
-                    width: '100%',
-                    height: isMobile ? '80px' : '100px',
-                    objectFit: 'cover',
-                    borderRadius: '12px',
-                    marginBottom: '8px'
-                  }}
-                />
-              ) : (
+          {filteredMenu.map(item => {
+            const promo = getItemPromotion(item)
+            const promoPrice = getPromoPrice(item)
+            const isBOGO = isItemInBOGO(item)
+            
+            return (
+              <div
+                key={item.id}
+                onClick={() => {
+                  setSelectedItem(item)
+                  setSelectedOption('')
+                  setSelectedSize(null)
+                  setQuantity(1)
+                  
+                  // Load size options if item has them
+                  if (item.has_options) {
+                    loadMenuOptions(item.id)
+                  }
+                  
+                  setShowItemModal(true)
+                }}
+                style={{
+                  ...glassEffect,
+                  borderRadius: '16px',
+                  padding: isMobile ? '12px' : '16px',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                  position: 'relative'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-4px)'
+                  e.currentTarget.style.boxShadow = darkMode 
+                    ? '0 12px 32px rgba(0,0,0,0.5)' 
+                    : '0 12px 32px rgba(0,0,0,0.1)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = 'none'
+                }}
+              >
+                {/* Promo Badge */}
+                {promo && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '-8px',
+                    right: '-8px',
+                    background: promoColor,
+                    color: 'white',
+                    padding: '3px 10px',
+                    borderRadius: '20px',
+                    fontSize: '9px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
+                    zIndex: 5
+                  }}>
+                    {promo.type === 'bogo' ? '🎁 BOGO' : 
+                     promo.type === 'bundle' ? '📦 Bundle' : 
+                     promo.type === 'set_menu' ? '🍽️ Set' : '🔥 Promo'}
+                  </div>
+                )}
+                
+                {item.image_url ? (
+                  <img
+                    src={item.image_url}
+                    alt={item.name}
+                    style={{
+                      width: '100%',
+                      height: isMobile ? '80px' : '100px',
+                      objectFit: 'cover',
+                      borderRadius: '12px',
+                      marginBottom: '8px'
+                    }}
+                  />
+                ) : (
+                  <div style={{
+                    fontSize: isMobile ? '36px' : '48px',
+                    marginBottom: '4px'
+                  }}>
+                    {isDrinkCategory(item.category) ? '🥤' : '🍽️'}
+                  </div>
+                )}
                 <div style={{
-                  fontSize: isMobile ? '36px' : '48px',
-                  marginBottom: '4px'
+                  fontWeight: 'bold',
+                  color: textColor,
+                  fontSize: isMobile ? '12px' : '14px',
+                  marginBottom: '4px',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
                 }}>
-                  {isDrinkCategory(item.category) ? '🥤' : '🍽️'}
+                  {item.name}
                 </div>
-              )}
-              <div style={{
-                fontWeight: 'bold',
-                color: textColor,
-                fontSize: isMobile ? '12px' : '14px',
-                marginBottom: '4px',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}>
-                {item.name}
+                
+                {/* Price with Promo */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  flexWrap: 'wrap'
+                }}>
+                  {promoPrice !== null && promoPrice !== item.price ? (
+                    <>
+                      <span style={{
+                        color: promoColor,
+                        fontWeight: 'bold',
+                        fontSize: isMobile ? '14px' : '16px'
+                      }}>
+                        RM {promoPrice.toFixed(2)}
+                      </span>
+                      <span style={{
+                        color: textMuted,
+                        fontSize: isMobile ? '10px' : '11px',
+                        textDecoration: 'line-through'
+                      }}>
+                        RM {item.price.toFixed(2)}
+                      </span>
+                      {isBOGO && (
+                        <span style={{
+                          background: promoColor,
+                          color: 'white',
+                          padding: '1px 6px',
+                          borderRadius: '10px',
+                          fontSize: '7px',
+                          fontWeight: 'bold'
+                        }}>
+                          BOGO
+                        </span>
+                      )}
+                    </>
+                  ) : (
+                    <span style={{
+                      color: priceColor,
+                      fontWeight: 'bold',
+                      fontSize: isMobile ? '14px' : '16px'
+                    }}>
+                      RM {item.price.toFixed(2)}
+                    </span>
+                  )}
+                </div>
+                
+                {/* Size indicator */}
+                {item.has_options && (
+                  <div style={{
+                    fontSize: '9px',
+                    color: '#8b5cf6',
+                    marginTop: '2px'
+                  }}>
+                    ⚙️ Multiple sizes
+                  </div>
+                )}
               </div>
-              <div style={{
-                color: priceColor,
-                fontWeight: 'bold',
-                fontSize: isMobile ? '14px' : '16px'
-              }}>
-                RM {item.price.toFixed(2)}
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
         
         {/* ===== CART BOTTOM BAR ===== */}

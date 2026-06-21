@@ -667,7 +667,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // CATEGORY HELPERS - SHOW ALL CATEGORIES
+  // CATEGORY HELPERS
   // ============================================================
   const getCategoriesForFilter = () => {
     return categories
@@ -1490,7 +1490,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // EDIT FUNCTIONS - FIXED
+  // EDIT FUNCTIONS
   // ============================================================
   const openEditModal = (item) => { 
     console.log('🔄 Opening edit modal for:', item?.name)
@@ -2860,7 +2860,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* EDIT MENU MODAL - FIXED */}
+        {/* EDIT MENU MODAL */}
         {showEditModal && selectedItem && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>

@@ -56,13 +56,14 @@ function CustomerDisplay() {
   const [specialMenuEnabled, setSpecialMenuEnabled] = useState(false)
   const [specialMenuTitle, setSpecialMenuTitle] = useState('Istimewa Hari Ini')
   const [specialMenuItems, setSpecialMenuItems] = useState([])
+  const [promotions, setPromotions] = useState([])
   const [searchMenu, setSearchMenu] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [searchOrder, setSearchOrder] = useState('')
   const [isMobile, setIsMobile] = useState(false)
   
   // ============================================================
-  // DISPLAY TOGGLE SETTINGS - NEW
+  // DISPLAY TOGGLE SETTINGS
   // ============================================================
   const [displaySettings, setDisplaySettings] = useState({
     showFood: true,
@@ -113,7 +114,6 @@ function CustomerDisplay() {
     error_updating: { en: 'Error updating order', ms: 'Ralat kemaskini pesanan' },
     all: { en: 'All', ms: 'Semua' },
     special_today: { en: 'Today\'s Special Menu', ms: 'Menu Istimewa Hari Ini' },
-    // Display toggle translations
     display_settings: { en: 'Display Settings', ms: 'Tetapan Paparan' },
     show_food: { en: '🍳 Food', ms: '🍳 Makanan' },
     show_drinks: { en: '🥤 Drinks', ms: '🥤 Minuman' },
@@ -123,6 +123,10 @@ function CustomerDisplay() {
     of_items: { en: 'of', ms: 'daripada' },
     items_count: { en: 'items', ms: 'item' },
     no_items_to_display: { en: 'No items to display. Please adjust display settings.', ms: 'Tiada item untuk dipaparkan. Sila tukar tetapan paparan.' },
+    promo: { en: '🔥 PROMO', ms: '🔥 PROMOSI' },
+    bogo: { en: 'BUY 1 FREE 1', ms: 'BELI 1 PERCUMA 1' },
+    bundle: { en: 'BUNDLE DEAL', ms: 'TAWARAN BUNDLE' },
+    set_menu: { en: 'SET MENU', ms: 'SET MENU' },
   }
 
   const t2 = (key) => {
@@ -153,6 +157,8 @@ function CustomerDisplay() {
   const modalBg = darkMode ? 'rgba(20, 20, 40, 0.98)' : 'rgba(255, 255, 255, 0.98)'
   const secondaryBg = darkMode ? 'rgba(30, 30, 50, 0.6)' : 'rgba(248, 250, 252, 0.8)'
   const inputBg = darkMode ? '#1a1a2e' : '#ffffff'
+  const promoColor = '#ef4444'
+  const promoBg = 'rgba(239, 68, 68, 0.12)'
   
   const glassEffect = {
     background: cardBg,
@@ -218,6 +224,7 @@ function CustomerDisplay() {
     const interval = setInterval(() => {
       loadMenu()
       loadSpecialMenu()
+      loadPromotions()
     }, 10000)
     return () => clearInterval(interval)
   }, [])
@@ -230,6 +237,7 @@ function CustomerDisplay() {
     await loadTables()
     await loadSettings()
     await loadSpecialMenu()
+    await loadPromotions()
     await loadBusinessHours()
     setLoading(false)
   }
@@ -268,6 +276,7 @@ function CustomerDisplay() {
     setRefreshing(true)
     await loadMenu()
     await loadSpecialMenu()
+    await loadPromotions()
     setRefreshing(false)
     toast.success('Menu refreshed!')
   }
@@ -283,17 +292,63 @@ function CustomerDisplay() {
   }
 
   async function loadSpecialMenu() {
-    const { data: enabledData } = await supabase.from('settings').select('value').eq('key', 'special_menu_enabled').single()
-    if (enabledData) setSpecialMenuEnabled(enabledData.value === 'true')
-    const { data: titleData } = await supabase.from('settings').select('value').eq('key', 'special_menu_title').single()
-    if (titleData) setSpecialMenuTitle(titleData.value)
-    const { data: itemsData } = await supabase.from('settings').select('value').eq('key', 'special_menu_items').single()
-    if (itemsData) {
-      try {
-        setSpecialMenuItems(JSON.parse(itemsData.value))
-      } catch (e) {
-        setSpecialMenuItems([])
+    try {
+      const { data: enabledData } = await supabase.from('settings').select('value').eq('key', 'special_menu_enabled').single()
+      if (enabledData) setSpecialMenuEnabled(enabledData.value === 'true')
+      
+      const { data: titleData } = await supabase.from('settings').select('value').eq('key', 'special_menu_title').single()
+      if (titleData) setSpecialMenuTitle(titleData.value)
+      
+      const { data: itemsData } = await supabase.from('settings').select('value').eq('key', 'special_menu_items').single()
+      if (itemsData) {
+        try {
+          const items = JSON.parse(itemsData.value)
+          // Sync prices with menu table
+          const syncedItems = []
+          for (const item of items) {
+            if (item.menu_id) {
+              const { data: menuItem } = await supabase
+                .from('menu')
+                .select('price, image_url, description, name')
+                .eq('id', item.menu_id)
+                .single()
+              if (menuItem) {
+                syncedItems.push({
+                  ...item,
+                  name: menuItem.name || item.name,
+                  price: menuItem.price,
+                  image_url: menuItem.image_url || item.image_url,
+                  description: menuItem.description || item.description
+                })
+              } else {
+                syncedItems.push(item)
+              }
+            } else {
+              syncedItems.push(item)
+            }
+          }
+          setSpecialMenuItems(syncedItems)
+        } catch (e) {
+          setSpecialMenuItems([])
+        }
       }
+    } catch (err) {
+      console.error('Error loading special menu:', err)
+    }
+  }
+
+  async function loadPromotions() {
+    try {
+      const now = new Date().toISOString()
+      const { data } = await supabase
+        .from('promotions')
+        .select('*')
+        .eq('is_active', true)
+        .or(`start_date.is.null,start_date.lte.${now}`)
+        .or(`end_date.is.null,end_date.gte.${now}`)
+      setPromotions(data || [])
+    } catch (err) {
+      console.error('Error loading promotions:', err)
     }
   }
 
@@ -348,7 +403,7 @@ function CustomerDisplay() {
   }
 
   // ============================================================
-  // TOGGLE DISPLAY SETTINGS - NEW
+  // TOGGLE DISPLAY SETTINGS
   // ============================================================
   const toggleDisplay = (key) => {
     setDisplaySettings(prev => ({
@@ -358,26 +413,26 @@ function CustomerDisplay() {
   }
 
   // ============================================================
-  // GET FILTERED MENU - NEW
+  // GET FILTERED MENU - SYNC WITH DATABASE
   // ============================================================
   const getFilteredDisplayMenu = () => {
     let filtered = [...menu]
     
-    // Filter by display settings
+    // Get sub-categories based on main categories
+    const foodSubCategories = ['Makanan', 'Mee', 'Bihup SUP', 'Telur', 'Meggie Sup', 'Sup', 'Nasi']
+    const drinkSubCategories = ['Minuman', 'Teh', 'Kopi', 'Jus', 'Air']
+    
+    // Filter by display settings (main categories)
     if (!displaySettings.showFood) {
-      // Hide all food items (including sub-categories)
-      const foodCategories = ['Makanan', 'Mee', 'Bihup SUP', 'Telur', 'Meggie Sup', 'Sup', 'Nasi']
-      filtered = filtered.filter(item => !foodCategories.includes(item.category))
+      filtered = filtered.filter(item => !foodSubCategories.includes(item.category))
     }
     
     if (!displaySettings.showDrinks) {
-      // Hide all drink items (including sub-categories)
-      const drinkCategories = ['Minuman', 'Teh', 'Kopi', 'Jus', 'Air']
-      filtered = filtered.filter(item => !drinkCategories.includes(item.category))
+      filtered = filtered.filter(item => !drinkSubCategories.includes(item.category))
     }
     
     if (!displaySettings.showSpecial) {
-      filtered = filtered.filter(item => item.category !== 'Istimewa')
+      filtered = filtered.filter(item => !item.is_special && item.category !== 'Istimewa')
     }
     
     if (!displaySettings.showPromos) {
@@ -385,6 +440,39 @@ function CustomerDisplay() {
     }
     
     return filtered
+  }
+
+  // ============================================================
+  // GET PROMOTION INFO
+  // ============================================================
+  function getItemPromotion(item) {
+    for (const promo of promotions) {
+      if (promo.type === 'bogo') {
+        const triggerItem = promo.trigger_items?.[0]
+        if (triggerItem && item.id === triggerItem.id) {
+          return { type: 'bogo', trigger: triggerItem, free: promo.free_items?.[0], promo: promo }
+        }
+      } else if (promo.type === 'bundle' || promo.type === 'set_menu') {
+        const bundleItems = promo.bundle_items || []
+        const found = bundleItems.find(i => i.id === item.id)
+        if (found) {
+          return { type: promo.type, bundleItems: bundleItems, bundlePrice: promo.bundle_price, promo: promo }
+        }
+      }
+    }
+    return null
+  }
+
+  function getPromoPrice(item) {
+    const promo = getItemPromotion(item)
+    if (!promo) return null
+    if (promo.type === 'bogo') return 0
+    if (promo.type === 'bundle' || promo.type === 'set_menu') {
+      if (promo.bundlePrice > 0) return promo.bundlePrice
+      const bundleItem = promo.bundleItems?.find(i => i.id === item.id)
+      return bundleItem?.price || item.price
+    }
+    return null
   }
 
   // ============================================================
@@ -458,7 +546,7 @@ function CustomerDisplay() {
   }
 
   // ============================================================
-  // PRINT RECEIPT
+  // PRINT RECEIPT (SAME AS BEFORE - KEEP)
   // ============================================================
   const printReceiptDirect = (order) => {
     const subtotal = order.subtotal || order.total
@@ -696,6 +784,13 @@ function CustomerDisplay() {
     }
   }
 
+  const getPromoTypeLabel = (type) => {
+    if (type === 'bogo') return t2('bogo')
+    if (type === 'bundle') return t2('bundle')
+    if (type === 'set_menu') return t2('set_menu')
+    return t2('promo')
+  }
+
   // Get categories for filter - include all categories
   const categoryNames = ['All', ...categories.map(cat => cat.name)]
 
@@ -734,7 +829,7 @@ function CustomerDisplay() {
   }
 
   // ============================================================
-  // RENDER - OPTIMIZED FOR 1080p
+  // RENDER - PROMOTION & SPECIAL MENU BESAR
   // ============================================================
   return (
     <div style={{ 
@@ -924,15 +1019,207 @@ function CustomerDisplay() {
       </div>
 
       {/* ============================================================
-      SPECIAL MENU BANNER
+      PROMOTIONS BANNER - BIG & EYE-CATCHING
+      ============================================================ */}
+      {promotions.length > 0 && displaySettings.showPromos && (
+        <div style={{ 
+          background: 'linear-gradient(135deg, #ef4444, #dc2626, #b91c1c)',
+          borderRadius: '20px',
+          padding: isMobile ? '16px 20px' : '24px 32px',
+          marginBottom: '16px',
+          boxShadow: '0 8px 32px rgba(239,68,68,0.4)',
+          border: '2px solid #fca5a5',
+          position: 'relative',
+          overflow: 'hidden',
+          flexShrink: 0,
+          animation: 'pulseGlow 2s ease-in-out infinite'
+        }}>
+          {/* Decorative glow */}
+          <div style={{
+            position: 'absolute',
+            top: '-50%',
+            right: '-20%',
+            width: '400px',
+            height: '400px',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
+            borderRadius: '50%',
+            pointerEvents: 'none'
+          }} />
+          
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            marginBottom: '12px',
+            flexWrap: 'wrap',
+            gap: '10px',
+            position: 'relative',
+            zIndex: 1
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{
+                fontSize: isMobile ? '40px' : '56px',
+                animation: 'pulse 1.5s ease-in-out infinite'
+              }}>
+                🔥
+              </div>
+              <div>
+                <div style={{ 
+                  fontSize: isMobile ? '22px' : '34px', 
+                  fontWeight: 'bold', 
+                  color: 'white',
+                  textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  letterSpacing: '1px'
+                }}>
+                  {t2('promo')}
+                </div>
+                <div style={{ 
+                  fontSize: isMobile ? '11px' : '14px', 
+                  color: '#fca5a5',
+                  fontWeight: '500'
+                }}>
+                  {promotions.length} {language === 'bm' ? 'promosi aktif' : 'active promotions'}
+                </div>
+              </div>
+            </div>
+            
+            <div style={{
+              background: 'rgba(255,255,255,0.2)',
+              color: 'white',
+              padding: '6px 20px',
+              borderRadius: '30px',
+              fontSize: isMobile ? '11px' : '14px',
+              fontWeight: 'bold',
+              backdropFilter: 'blur(4px)',
+              border: '1px solid rgba(255,255,255,0.2)'
+            }}>
+              🎉 {language === 'bm' ? 'JANGAN LEPASKAN!' : 'DON\'T MISS OUT!'}
+            </div>
+          </div>
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile 
+              ? '1fr' 
+              : 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: isMobile ? '12px' : '16px',
+            position: 'relative',
+            zIndex: 1
+          }}>
+            {promotions.slice(0, 6).map((promo, idx) => {
+              const itemCount = promo.bundle_items?.length || 0
+              const isBOGO = promo.type === 'bogo'
+              const triggerName = promo.trigger_items?.[0]?.name || ''
+              const freeName = promo.free_items?.[0]?.name || ''
+              
+              return (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    background: 'rgba(255,255,255,0.15)',
+                    backdropFilter: 'blur(8px)',
+                    borderRadius: '16px', 
+                    padding: isMobile ? '14px 18px' : '18px 24px', 
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    marginBottom: '6px'
+                  }}>
+                    <span style={{
+                      background: 'rgba(255,255,255,0.25)',
+                      color: 'white',
+                      padding: '2px 12px',
+                      borderRadius: '20px',
+                      fontSize: isMobile ? '9px' : '11px',
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      {getPromoTypeLabel(promo.type)}
+                    </span>
+                    {promo.bundle_price > 0 && (
+                      <span style={{
+                        color: '#fcd34d',
+                        fontWeight: 'bold',
+                        fontSize: isMobile ? '14px' : '18px'
+                      }}>
+                        RM {promo.bundle_price}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div style={{ 
+                    fontWeight: 'bold', 
+                    fontSize: isMobile ? '14px' : '18px', 
+                    color: 'white',
+                    textShadow: '0 1px 4px rgba(0,0,0,0.2)'
+                  }}>
+                    {promo.name}
+                  </div>
+                  
+                  <div style={{ 
+                    fontSize: isMobile ? '11px' : '13px', 
+                    color: '#fca5a5',
+                    marginTop: '4px'
+                  }}>
+                    {isBOGO ? (
+                      `🎁 ${triggerName} → ${freeName || 'FREE'}`
+                    ) : (
+                      `${itemCount} ${language === 'bm' ? 'item termasuk' : 'items included'}`
+                    )}
+                  </div>
+                  
+                  {promo.image_url && (
+                    <div style={{ marginTop: '8px' }}>
+                      <img 
+                        src={promo.image_url} 
+                        alt={promo.name}
+                        style={{
+                          width: '100%',
+                          height: isMobile ? '60px' : '80px',
+                          objectFit: 'cover',
+                          borderRadius: '10px',
+                          opacity: 0.9
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          
+          {promotions.length > 6 && (
+            <div style={{ 
+              textAlign: 'center', 
+              marginTop: '10px',
+              color: '#fca5a5',
+              fontSize: isMobile ? '11px' : '13px',
+              position: 'relative',
+              zIndex: 1
+            }}>
+              + {promotions.length - 6} {language === 'bm' ? 'lagi promosi' : 'more promotions'} 🔥
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============================================================
+      SPECIAL MENU BANNER - BIG & EYE-CATCHING
       ============================================================ */}
       {specialMenuEnabled && specialMenuItems.length > 0 && displaySettings.showSpecial && (
         <div style={{ 
-          background: 'linear-gradient(135deg, #fef3c7, #fde68a, #fcd34d)',
-          borderRadius: '24px', 
-          padding: isMobile ? '20px 16px' : '28px 32px', 
-          marginBottom: '20px',
-          boxShadow: '0 8px 32px rgba(245, 158, 11, 0.25)',
+          background: 'linear-gradient(135deg, #fef3c7, #fde68a, #f59e0b, #d97706)',
+          borderRadius: '20px', 
+          padding: isMobile ? '16px 20px' : '24px 32px', 
+          marginBottom: '16px',
+          boxShadow: '0 8px 32px rgba(245, 158, 11, 0.35)',
           border: '2px solid #f59e0b',
           position: 'relative',
           overflow: 'hidden',
@@ -942,9 +1229,9 @@ function CustomerDisplay() {
             position: 'absolute',
             top: '-50%',
             right: '-20%',
-            width: '300px',
-            height: '300px',
-            background: 'radial-gradient(circle, rgba(245,158,11,0.1) 0%, transparent 70%)',
+            width: '400px',
+            height: '400px',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%)',
             borderRadius: '50%',
             pointerEvents: 'none'
           }} />
@@ -953,30 +1240,31 @@ function CustomerDisplay() {
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'space-between',
-            marginBottom: '16px',
+            marginBottom: '12px',
             flexWrap: 'wrap',
-            gap: '12px',
+            gap: '10px',
             position: 'relative',
             zIndex: 1
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{
-                fontSize: isMobile ? '36px' : '48px',
+                fontSize: isMobile ? '40px' : '56px',
                 animation: 'pulse 2s ease-in-out infinite'
               }}>
                 ⭐
               </div>
               <div>
                 <div style={{ 
-                  fontSize: isMobile ? '20px' : '28px', 
+                  fontSize: isMobile ? '22px' : '34px', 
                   fontWeight: 'bold', 
                   color: '#92400e',
-                  textShadow: '0 2px 4px rgba(245,158,11,0.2)'
+                  textShadow: '0 2px 8px rgba(245,158,11,0.2)',
+                  letterSpacing: '1px'
                 }}>
                   {specialMenuTitle}
                 </div>
                 <div style={{ 
-                  fontSize: isMobile ? '11px' : '13px', 
+                  fontSize: isMobile ? '11px' : '14px', 
                   color: '#78350f',
                   opacity: 0.8
                 }}>
@@ -988,11 +1276,11 @@ function CustomerDisplay() {
             <div style={{
               background: 'linear-gradient(135deg, #ef4444, #dc2626)',
               color: 'white',
-              padding: '6px 20px',
+              padding: '6px 24px',
               borderRadius: '30px',
-              fontSize: isMobile ? '12px' : '14px',
+              fontSize: isMobile ? '12px' : '16px',
               fontWeight: 'bold',
-              boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
+              boxShadow: '0 4px 16px rgba(239,68,68,0.4)',
               animation: 'pulse 1.5s ease-in-out infinite'
             }}>
               🔥 {language === 'bm' ? 'ISTIMEWA' : 'SPECIAL'}
@@ -1003,26 +1291,27 @@ function CustomerDisplay() {
             display: 'grid', 
             gridTemplateColumns: isMobile 
               ? 'repeat(2, 1fr)' 
-              : 'repeat(auto-fill, minmax(220px, 1fr))',
-            gap: isMobile ? '12px' : '16px',
+              : 'repeat(auto-fill, minmax(250px, 1fr))',
+            gap: isMobile ? '10px' : '14px',
             position: 'relative',
             zIndex: 1
           }}>
-            {specialMenuItems.slice(0, isMobile ? 6 : 8).map((item, idx) => (
+            {specialMenuItems.slice(0, isMobile ? 4 : 8).map((item, idx) => (
               <div 
                 key={idx} 
                 style={{ 
-                  background: 'rgba(255,255,255,0.85)',
-                  backdropFilter: 'blur(4px)',
+                  background: 'rgba(255,255,255,0.9)',
+                  backdropFilter: 'blur(8px)',
                   borderRadius: '16px', 
-                  padding: isMobile ? '12px 14px' : '16px 20px', 
+                  padding: isMobile ? '12px 16px' : '16px 20px', 
                   display: 'flex', 
                   alignItems: 'center', 
                   gap: '12px',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-                  border: '1px solid rgba(255,255,255,0.9)',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                  border: '1px solid rgba(255,255,255,0.8)',
                   transition: 'all 0.3s ease',
-                  cursor: 'default'
+                  cursor: 'default',
+                  minHeight: isMobile ? '70px' : '90px'
                 }}
               >
                 <div style={{ flexShrink: 0 }}>
@@ -1031,8 +1320,8 @@ function CustomerDisplay() {
                       src={item.image_url} 
                       alt={item.name} 
                       style={{ 
-                        width: isMobile ? '48px' : '60px', 
-                        height: isMobile ? '48px' : '60px', 
+                        width: isMobile ? '48px' : '64px', 
+                        height: isMobile ? '48px' : '64px', 
                         borderRadius: '12px', 
                         objectFit: 'cover',
                         border: '2px solid #f59e0b'
@@ -1040,14 +1329,14 @@ function CustomerDisplay() {
                     />
                   ) : (
                     <div style={{ 
-                      width: isMobile ? '48px' : '60px', 
-                      height: isMobile ? '48px' : '60px', 
+                      width: isMobile ? '48px' : '64px', 
+                      height: isMobile ? '48px' : '64px', 
                       background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
                       borderRadius: '12px', 
                       display: 'flex', 
                       alignItems: 'center', 
                       justifyContent: 'center',
-                      fontSize: isMobile ? '24px' : '30px',
+                      fontSize: isMobile ? '24px' : '32px',
                       border: '2px solid #f59e0b'
                     }}>
                       ⭐
@@ -1058,7 +1347,7 @@ function CustomerDisplay() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ 
                     fontWeight: 'bold', 
-                    fontSize: isMobile ? '13px' : '15px', 
+                    fontSize: isMobile ? '13px' : '16px', 
                     color: '#1e293b',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
@@ -1084,11 +1373,13 @@ function CustomerDisplay() {
                   flexShrink: 0,
                   background: 'linear-gradient(135deg, #22c55e, #16a34a)',
                   color: 'white',
-                  padding: isMobile ? '4px 12px' : '6px 16px',
+                  padding: isMobile ? '4px 12px' : '6px 18px',
                   borderRadius: '30px',
                   fontWeight: 'bold',
-                  fontSize: isMobile ? '13px' : '16px',
-                  boxShadow: '0 2px 8px rgba(34,197,94,0.3)'
+                  fontSize: isMobile ? '14px' : '18px',
+                  boxShadow: '0 2px 12px rgba(34,197,94,0.3)',
+                  minWidth: isMobile ? '60px' : '80px',
+                  textAlign: 'center'
                 }}>
                   RM {item.price}
                 </div>
@@ -1096,24 +1387,24 @@ function CustomerDisplay() {
             ))}
           </div>
           
-          {specialMenuItems.length > (isMobile ? 6 : 8) && (
+          {specialMenuItems.length > (isMobile ? 4 : 8) && (
             <div style={{ 
               textAlign: 'center', 
-              marginTop: '12px',
+              marginTop: '10px',
               color: '#78350f',
               fontSize: isMobile ? '11px' : '13px',
               opacity: 0.7,
               position: 'relative',
               zIndex: 1
             }}>
-              + {specialMenuItems.length - (isMobile ? 6 : 8)} {language === 'bm' ? 'lagi item istimewa' : 'more special items'} 🎉
+              + {specialMenuItems.length - (isMobile ? 4 : 8)} {language === 'bm' ? 'lagi item istimewa' : 'more special items'} 🎉
             </div>
           )}
         </div>
       )}
 
       {/* ============================================================
-      DISPLAY TOGGLE CONTROLS - NEW
+      DISPLAY TOGGLE CONTROLS
       ============================================================ */}
       <div style={{ 
         ...glassEffect, 
@@ -1291,6 +1582,9 @@ function CustomerDisplay() {
             }}>
               {filteredMenu.map(item => {
                 const hasImage = item.image_url && item.image_url.trim() !== ''
+                const promo = getItemPromotion(item)
+                const promoPrice = getPromoPrice(item)
+                
                 return (
                   <div 
                     key={item.id} 
@@ -1301,7 +1595,8 @@ function CustomerDisplay() {
                       textAlign: 'center',
                       border: `1px solid ${borderColor}`,
                       transition: 'transform 0.2s, box-shadow 0.2s',
-                      cursor: 'default'
+                      cursor: 'default',
+                      position: 'relative'
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.transform = 'translateY(-4px)'
@@ -1314,6 +1609,27 @@ function CustomerDisplay() {
                       e.currentTarget.style.boxShadow = 'none'
                     }}
                   >
+                    {/* Promo Badge */}
+                    {promo && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-6px',
+                        right: '-6px',
+                        background: promoColor,
+                        color: 'white',
+                        padding: '2px 10px',
+                        borderRadius: '20px',
+                        fontSize: '9px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
+                        zIndex: 5
+                      }}>
+                        {promo.type === 'bogo' ? '🎁 BOGO' : 
+                         promo.type === 'bundle' ? '📦 Bundle' : 
+                         promo.type === 'set_menu' ? '🍽️ Set' : '🔥 Promo'}
+                      </div>
+                    )}
+                    
                     {hasImage ? (
                       <img 
                         src={item.image_url} 
@@ -1351,7 +1667,13 @@ function CustomerDisplay() {
                       padding: '2px 14px',
                       borderRadius: '30px'
                     }}>
-                      RM {item.price}
+                      {promoPrice !== null ? (
+                        <span style={{ color: promoColor }}>
+                          RM {promoPrice}
+                        </span>
+                      ) : (
+                        `RM ${item.price}`
+                      )}
                     </div>
                     {item.description && (
                       <div style={{ 
@@ -1527,7 +1849,7 @@ function CustomerDisplay() {
               </div>
             </div>
 
-            {/* Orders List */}
+            {/* Orders List - SAME AS BEFORE */}
             {selectedTable && (
               <div>
                 <div style={{ 
@@ -1962,6 +2284,11 @@ function CustomerDisplay() {
           @keyframes pulse {
             0%, 100% { transform: scale(1); }
             50% { transform: scale(1.05); }
+          }
+          
+          @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 8px 32px rgba(239,68,68,0.4); }
+            50% { box-shadow: 0 8px 48px rgba(239,68,68,0.6); }
           }
           
           ::-webkit-scrollbar { 

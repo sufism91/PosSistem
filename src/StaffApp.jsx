@@ -9,45 +9,134 @@ function StaffApp() {
   const { darkMode } = useTheme()
   const { language } = useLanguage()
   
-  // ===== TRANSLATIONS =====
+  // ============================================================
+  // ✅ COMPLETE TRANSLATIONS - ENGLISH & MALAY
+  // ============================================================
   const translations = {
+    // Header
     pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
     pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
-    table_service: { en: 'Table Service', ms: 'Perkhidmatan Meja' },
-    take_away: { en: 'Take Away', ms: 'Bungkus' },
-    add_order: { en: 'Add Order', ms: 'Tambah Pesanan' },
-    clear_cart: { en: 'Clear Cart', ms: 'Kosongkan Keranjang' },
-    checkout: { en: 'Checkout', ms: 'Bayar' },
+    
+    // Buttons
+    new_order: { en: '➕ New Order', ms: '➕ Pesanan Baru' },
+    unpaid_orders: { en: '📋 Unpaid Orders', ms: '📋 Pesanan Belum Bayar' },
+    clear_cart: { en: '🗑️ Clear Cart', ms: '🗑️ Kosongkan Keranjang' },
+    checkout: { en: '💳 Checkout', ms: '💳 Bayar' },
     cancel: { en: 'Cancel', ms: 'Batal' },
     confirm: { en: 'Confirm', ms: 'Sahkan' },
-    print_receipt: { en: 'Print Receipt', ms: 'Cetak Resit' },
+    print_receipt: { en: '🖨️ Print Receipt', ms: '🖨️ Cetak Resit' },
+    back: { en: 'Back', ms: 'Kembali' },
+    view_order: { en: 'View Order', ms: 'Lihat Pesanan' },
+    mark_paid: { en: '💰 Mark as Paid', ms: '💰 Tanda Bayar' },
+    add_order: { en: 'Add Order', ms: 'Tambah Pesanan' },
+    view_cart: { en: 'View Cart', ms: 'Lihat Keranjang' },
+    close: { en: 'Close', ms: 'Tutup' },
+    save: { en: 'Save', ms: 'Simpan' },
+    edit: { en: 'Edit', ms: 'Edit' },
+    delete: { en: 'Delete', ms: 'Hapus' },
+    add: { en: 'Add', ms: 'Tambah' },
+    
+    // Order types
+    table_service: { en: '🍽️ Table Service', ms: '🍽️ Perkhidmatan Meja' },
+    take_away: { en: '🥡 Take Away', ms: '🥡 Bungkus' },
+    dine_in: { en: 'Dine In', ms: 'Makan di Sini' },
+    
+    // Form labels
     customer_name: { en: 'Customer Name', ms: 'Nama Pelanggan' },
     table_number: { en: 'Table Number', ms: 'Nombor Meja' },
     select_table: { en: 'Select Table', ms: 'Pilih Meja' },
-    order_items: { en: 'Order Items', ms: 'Item Pesanan' },
-    total: { en: 'Total', ms: 'Jumlah' },
     quantity: { en: 'Qty', ms: 'Kuantiti' },
     price: { en: 'Price', ms: 'Harga' },
     notes: { en: 'Notes', ms: 'Nota' },
     special_request: { en: 'Special Request', ms: 'Permintaan Khas' },
     select_option: { en: 'Select Option', ms: 'Pilih Pilihan' },
+    select_size: { en: 'Select Size', ms: 'Pilih Saiz' },
+    order_items: { en: 'Order Items', ms: 'Item Pesanan' },
+    total: { en: 'Total', ms: 'Jumlah' },
+    subtotal: { en: 'Subtotal', ms: 'Subtotal' },
+    service_charge: { en: 'Service Charge', ms: 'Caj Perkhidmatan' },
+    tax: { en: 'Tax', ms: 'Cukai' },
+    grand_total: { en: 'Grand Total', ms: 'Jumlah Keseluruhan' },
+    payment: { en: 'Payment', ms: 'Bayaran' },
+    status: { en: 'Status', ms: 'Status' },
+    items: { en: 'Items', ms: 'Item' },
+    total_items: { en: 'Total Items', ms: 'Jumlah Item' },
+    order_status: { en: 'Order Status', ms: 'Status Pesanan' },
+    payment_status: { en: 'Payment Status', ms: 'Status Bayaran' },
+    
+    // Drink options
     hot: { en: 'Hot', ms: 'Panas' },
     cold: { en: 'Cold', ms: 'Sejuk' },
     packed: { en: 'Packed', ms: 'Bungkus' },
-    select_size: { en: 'Select Size', ms: 'Pilih Saiz' },
+    
+    // Promotions
     promo: { en: '🔥 Promo', ms: '🔥 Promosi' },
     bogo: { en: 'Buy 1 Free 1', ms: 'Beli 1 Percuma 1' },
-    free: { en: 'FREE', ms: 'PERCUMA' },
+    free: { en: '🎁 FREE', ms: '🎁 PERCUMA' },
     original_price: { en: 'Original', ms: 'Asal' },
     promo_price: { en: 'Promo Price', ms: 'Harga Promosi' },
-    order_added: { en: 'Order added!', ms: 'Pesanan ditambah!' },
-    order_updated: { en: 'Order updated!', ms: 'Pesanan dikemaskini!' },
-    order_cancelled: { en: 'Order cancelled', ms: 'Pesanan dibatalkan' },
-    payment_success: { en: 'Payment successful!', ms: 'Pembayaran berjaya!' },
-    please_select_item: { en: 'Please select an item', ms: 'Sila pilih item' },
-    please_select_option: { en: 'Please select an option', ms: 'Sila pilih pilihan' },
-    cart_empty: { en: 'Cart is empty', ms: 'Keranjang kosong' },
+    
+    // Messages
+    order_added: { en: '✅ Order added!', ms: '✅ Pesanan ditambah!' },
+    order_updated: { en: '✅ Order updated!', ms: '✅ Pesanan dikemaskini!' },
+    order_cancelled: { en: '❌ Order cancelled', ms: '❌ Pesanan dibatalkan' },
+    payment_success: { en: '✅ Payment successful!', ms: '✅ Pembayaran berjaya!' },
+    please_select_item: { en: '⚠️ Please select an item', ms: '⚠️ Sila pilih item' },
+    please_select_option: { en: '⚠️ Please select an option', ms: '⚠️ Sila pilih pilihan' },
+    cart_empty: { en: '⚠️ Cart is empty', ms: '⚠️ Keranjang kosong' },
     confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
+    no_unpaid_orders: { en: '📭 No unpaid orders', ms: '📭 Tiada pesanan belum bayar' },
+    new_order_started: { en: '📝 New order started!', ms: '📝 Pesanan baru dimulakan!' },
+    order_paid: { en: '✅ Order paid!', ms: '✅ Pesanan dibayar!' },
+    error_loading: { en: '❌ Error loading data', ms: '❌ Ralat memuat data' },
+    error_checkout: { en: '❌ Checkout error', ms: '❌ Ralat bayaran' },
+    
+    // Search
+    search_menu: { en: '🔍 Search menu...', ms: '🔍 Cari menu...' },
+    all_categories: { en: '📋 All', ms: '📋 Semua' },
+    
+    // Empty states
+    no_menu_items: { en: 'No menu items found', ms: 'Tiada item menu dijumpai' },
+    no_orders: { en: 'No orders', ms: 'Tiada pesanan' },
+    empty_cart: { en: 'Your cart is empty', ms: 'Keranjang anda kosong' },
+    
+    // Modal titles
+    order_details: { en: '📋 Order Details', ms: '📋 Butiran Pesanan' },
+    unpaid_orders_title: { en: '📋 Unpaid Orders', ms: '📋 Pesanan Belum Bayar' },
+    select_drink_option: { en: 'Select Drink Option', ms: 'Pilih Pilihan Minuman' },
+    select_size_option: { en: 'Select Size', ms: 'Pilih Saiz' },
+    
+    // Receipt
+    receipt_title: { en: '🧾 RECEIPT', ms: '🧾 RESIT' },
+    receipt_thankyou: { en: 'Thank you for dining with us!', ms: 'Terima kasih kerana makan di sini!' },
+    receipt_order: { en: 'Order', ms: 'Pesanan' },
+    receipt_table: { en: 'Table', ms: 'Meja' },
+    receipt_customer: { en: 'Customer', ms: 'Pelanggan' },
+    receipt_item: { en: 'Item', ms: 'Item' },
+    receipt_qty: { en: 'Qty', ms: 'Kuantiti' },
+    receipt_price: { en: 'Price', ms: 'Harga' },
+    receipt_total: { en: 'TOTAL', ms: 'JUMLAH' },
+    receipt_paid: { en: 'Paid', ms: 'Dibayar' },
+    receipt_unpaid: { en: 'Unpaid', ms: 'Belum Bayar' },
+    receipt_cash: { en: 'Cash', ms: 'Tunai' },
+    receipt_tng: { en: 'TnG', ms: 'TnG' },
+    receipt_bank: { en: 'Bank', ms: 'Bank' },
+    receipt_payment_method: { en: 'Payment Method', ms: 'Kaedah Bayaran' },
+    
+    // Table
+    table: { en: 'Table', ms: 'Meja' },
+    customer: { en: 'Customer', ms: 'Pelanggan' },
+    guest: { en: 'Guest', ms: 'Tetamu' },
+    
+    // Payment methods
+    cash: { en: 'Cash', ms: 'Tunai' },
+    tng: { en: 'TnG', ms: 'TnG' },
+    bank: { en: 'Bank', ms: 'Bank' },
+    
+    // Sizes
+    size_small: { en: 'Small', ms: 'Kecil' },
+    size_medium: { en: 'Medium', ms: 'Sederhana' },
+    size_large: { en: 'Large', ms: 'Besar' },
   }
 
   const t = (key) => {
@@ -61,6 +150,7 @@ function StaffApp() {
   const [promotions, setPromotions] = useState([])
   const [drinkOptions, setDrinkOptions] = useState([])
   const [cart, setCart] = useState([])
+  const [unpaidOrders, setUnpaidOrders] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedItem, setSelectedItem] = useState(null)
   const [selectedOption, setSelectedOption] = useState('')
@@ -74,6 +164,8 @@ function StaffApp() {
   const [isMobile, setIsMobile] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [menuOptions, setMenuOptions] = useState([])
+  const [showUnpaidOrders, setShowUnpaidOrders] = useState(false)
+  const [viewingOrder, setViewingOrder] = useState(null)
 
   // ===== CHECK MOBILE =====
   useEffect(() => {
@@ -111,6 +203,7 @@ function StaffApp() {
   // ============================================================
   useEffect(() => {
     loadAllData()
+    loadUnpaidOrders()
     
     const menuSub = supabase
       .channel('staff_menu')
@@ -124,25 +217,22 @@ function StaffApp() {
       .channel('staff_drink')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'drink_options' },
-        () => { 
-          console.log('🔄 Drink options changed, reloading...')
-          loadDrinkOptions() 
-        }
+        () => { loadDrinkOptions() }
       )
       .subscribe()
     
-    const promoSub = supabase
-      .channel('staff_promo')
+    const orderSub = supabase
+      .channel('staff_orders')
       .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'promotions' },
-        () => { loadPromotions() }
+        { event: '*', schema: 'public', table: 'customer_orders' },
+        () => { loadUnpaidOrders() }
       )
       .subscribe()
     
     return () => {
       menuSub.unsubscribe()
       drinkSub.unsubscribe()
-      promoSub.unsubscribe()
+      orderSub.unsubscribe()
     }
   }, [])
 
@@ -155,7 +245,6 @@ function StaffApp() {
       loadDrinkOptions()
     ])
     setLoading(false)
-    console.log('✅ All data loaded! Drink options:', drinkOptions.length)
   }
 
   async function loadCategories() {
@@ -203,11 +292,23 @@ function StaffApp() {
         .from('drink_options')
         .select('*')
       setDrinkOptions(data || [])
-      console.log('🍹 Drink options loaded:', data?.length || 0, 'options')
-      console.log('📋 Data:', data)
     } catch (err) {
       console.error('Error loading drink options:', err)
       setDrinkOptions([])
+    }
+  }
+
+  async function loadUnpaidOrders() {
+    try {
+      const { data } = await supabase
+        .from('customer_orders')
+        .select('*')
+        .eq('payment_status', 'unpaid')
+        .order('created_at', { ascending: false })
+      setUnpaidOrders(data || [])
+    } catch (err) {
+      console.error('Error loading unpaid orders:', err)
+      setUnpaidOrders([])
     }
   }
 
@@ -225,7 +326,9 @@ function StaffApp() {
     }
   }
 
-  // ===== PROMOTION HELPERS =====
+  // ============================================================
+  // PROMOTION HELPERS
+  // ============================================================
   function getItemPromotion(item) {
     for (const promo of promotions) {
       if (promo.type === 'bogo') {
@@ -275,26 +378,22 @@ function StaffApp() {
   function getItemPrice(item, option, size) {
     let basePrice = item?.price || 0
     
-    // Check drink option price FIRST
     if (option && item) {
       const drinkOpt = drinkOptions.find(d => 
         d.drink_name === item.name && 
         d.option_type === option
       )
-      
       if (drinkOpt && drinkOpt.price !== undefined && drinkOpt.price !== null) {
         basePrice = parseFloat(drinkOpt.price)
         return parseFloat(basePrice) || 0
       }
     }
     
-    // Check promotion
     const promoPrice = getPromoPrice(item)
     if (promoPrice !== null && promoPrice !== undefined) {
       basePrice = promoPrice
     }
     
-    // Add size price adjustment
     if (size && size.price_adjustment !== undefined && size.price_adjustment !== null) {
       if (size.is_absolute_price) {
         basePrice = parseFloat(size.price_adjustment)
@@ -311,8 +410,7 @@ function StaffApp() {
   // ============================================================
   function getDrinkOptionsForItem(item) {
     if (!item) return []
-    const options = drinkOptions.filter(opt => opt.drink_name === item.name)
-    return options
+    return drinkOptions.filter(opt => opt.drink_name === item.name)
   }
 
   function hasDrinkOptions(item) {
@@ -453,61 +551,86 @@ function StaffApp() {
 
   // ===== CHECKOUT =====
   const handleCheckout = async () => {
-  if (cart.length === 0) {
-    toast.error(t('cart_empty'))
-    return
-  }
-
-  const total = cart.reduce((sum, item) => sum + item.subtotal, 0)
-  
-  const orderData = {
-    items: cart.map(item => ({
-      name: item.name,
-      category: item.category,
-      option: item.option,
-      size: item.size,
-      price: item.price,
-      originalPrice: item.originalPrice,
-      quantity: item.quantity,
-      subtotal: item.subtotal,
-      isFree: item.isFree,
-      promoType: item.promoType,
-      promoName: item.promoName
-    })),
-    total: total,
-    customer_name: customerName || 'Guest',
-    table_number: orderType === 'dine_in' ? parseInt(tableNumber) || null : 0,  // 👈 FIX
-    order_type: orderType,
-    status: 'pending',
-    payment_status: 'unpaid',
-    notes: cart.map(item => item.notes).filter(n => n).join(', ')
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from('customer_orders')
-      .insert([orderData])
-      .select()
-      .single()
-
-    if (error) throw error
-
-    toast.success(t('payment_success'))
-    setCart([])
-    setCustomerName('')
-    setTableNumber('')
-    
-    if (data) {
-      setTimeout(() => {
-        printReceipt(data)
-      }, 500)
+    if (cart.length === 0) {
+      toast.error(t('cart_empty'))
+      return
     }
 
-  } catch (err) {
-    console.error('Checkout error:', err)
-    toast.error(err.message)
+    const total = cart.reduce((sum, item) => sum + item.subtotal, 0)
+    
+    const orderData = {
+      items: cart.map(item => ({
+        name: item.name,
+        category: item.category,
+        option: item.option,
+        size: item.size,
+        price: item.price,
+        originalPrice: item.originalPrice,
+        quantity: item.quantity,
+        subtotal: item.subtotal,
+        isFree: item.isFree,
+        promoType: item.promoType,
+        promoName: item.promoName,
+        image_url: item.image_url || null
+      })),
+      total: total,
+      customer_name: customerName || 'Guest',
+      table_number: orderType === 'dine_in' ? parseInt(tableNumber) || null : null,
+      order_type: orderType,
+      status: 'pending',
+      payment_status: 'unpaid',
+      notes: cart.map(item => item.notes).filter(n => n).join(', ')
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('customer_orders')
+        .insert([orderData])
+        .select()
+        .single()
+
+      if (error) throw error
+
+      toast.success(t('payment_success'))
+      setCart([])
+      setCustomerName('')
+      setTableNumber('')
+      await loadUnpaidOrders()
+      
+      if (data) {
+        setTimeout(() => {
+          printReceipt(data)
+        }, 500)
+      }
+
+    } catch (err) {
+      console.error('Checkout error:', err)
+      toast.error(t('error_checkout') + ': ' + err.message)
+    }
   }
-}
+
+  // ===== MARK ORDER AS PAID =====
+  const markOrderAsPaid = async (order) => {
+    try {
+      const { error } = await supabase
+        .from('customer_orders')
+        .update({ 
+          payment_status: 'paid',
+          paid_at: new Date().toISOString()
+        })
+        .eq('id', order.id)
+
+      if (error) throw error
+
+      toast.success(`✅ ${t('order_paid')}`)
+      await loadUnpaidOrders()
+      setViewingOrder(null)
+      setShowUnpaidOrders(false)
+    } catch (err) {
+      console.error('Error marking order as paid:', err)
+      toast.error(err.message)
+    }
+  }
 
   // ===== PRINT RECEIPT =====
   const printReceipt = (order) => {
@@ -515,7 +638,7 @@ function StaffApp() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Receipt</title>
+        <title>${t('receipt_title')}</title>
         <meta charset="UTF-8">
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -540,14 +663,14 @@ function StaffApp() {
       <body>
         <div class="receipt">
           <div class="header">
-            <h1>${order.customer_name || 'Guest'}</h1>
-            <div class="sub">${order.order_type === 'take_away' ? '🥡 Take Away' : '🍽️ Table ' + (order.table_number || '')}</div>
+            <h1>${order.customer_name || t('guest')}</h1>
+            <div class="sub">${order.order_type === 'take_away' ? '🥡 ' + t('take_away') : '🍽️ ' + t('table') + ' ' + (order.table_number || '')}</div>
             <div class="sub">${new Date(order.created_at).toLocaleString()}</div>
           </div>
           
           <table class="items">
             <thead>
-              <tr><th>Item</th><th>Qty</th><th>Price</th></tr>
+              <tr><th>${t('receipt_item')}</th><th>${t('receipt_qty')}</th><th>${t('receipt_price')}</th></tr>
             </thead>
             <tbody>
               ${order.items?.map(item => `
@@ -556,11 +679,11 @@ function StaffApp() {
                     ${item.isFree ? '🎁 ' : ''}${item.name}
                     ${item.option ? `<div class="option-label">${item.option}</div>` : ''}
                     ${item.size ? `<div class="option-label">${item.size}</div>` : ''}
-                    ${item.isFree ? `<div class="free-label">FREE</div>` : ''}
+                    ${item.isFree ? `<div class="free-label">${t('free')}</div>` : ''}
                     ${item.promoName ? `<div class="promo-label">🔥 ${item.promoName}</div>` : ''}
                   </td>
                   <td style="text-align:center">${item.quantity}</td>
-                  <td style="text-align:right">${item.isFree ? 'FREE' : `RM ${(item.price * item.quantity).toFixed(2)}`}</td>
+                  <td style="text-align:right">${item.isFree ? t('free') : `RM ${(item.price * item.quantity).toFixed(2)}`}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -569,13 +692,13 @@ function StaffApp() {
           <div class="divider"></div>
           
           <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:bold;padding:4px 0;">
-            <span>TOTAL</span>
+            <span>${t('receipt_total')}</span>
             <span style="color:#22c55e">RM ${order.total.toFixed(2)}</span>
           </div>
           
           <div class="footer">
             <div>⭐ ⭐ ⭐ ⭐ ⭐</div>
-            <div>Thank you!</div>
+            <div>${t('receipt_thankyou')}</div>
           </div>
         </div>
         <script>
@@ -644,7 +767,8 @@ function StaffApp() {
                 height: '150px',
                 objectFit: 'cover',
                 borderRadius: '16px',
-                marginBottom: '16px'
+                marginBottom: '16px',
+                backgroundColor: secondaryBg
               }}
               onError={(e) => { e.currentTarget.style.display = 'none' }}
             />
@@ -658,7 +782,8 @@ function StaffApp() {
               alignItems: 'center',
               justifyContent: 'center',
               fontSize: '48px',
-              marginBottom: '16px'
+              marginBottom: '16px',
+              border: `1px solid ${borderColor}`
             }}>
               {isDrink ? '🥤' : '🍽️'}
             </div>
@@ -685,7 +810,7 @@ function StaffApp() {
               display: 'inline-block',
               marginBottom: '12px'
             }}>
-              {getItemPromotion(selectedItem)?.type === 'bogo' ? '🎁 BOGO' : '🔥 PROMO'}
+              {getItemPromotion(selectedItem)?.type === 'bogo' ? '🎁 BOGO' : '🔥 ' + t('promo')}
             </div>
           )}
           
@@ -751,7 +876,7 @@ function StaffApp() {
                           color: isSelected ? 'rgba(255,255,255,0.9)' : (isFree ? promoColor : priceColor),
                           fontWeight: 'bold'
                         }}>
-                          {isFree ? 'FREE' : `RM ${price.toFixed(2)}`}
+                          {isFree ? t('free') : `RM ${price.toFixed(2)}`}
                         </div>
                       </button>
                     )
@@ -818,7 +943,7 @@ function StaffApp() {
                         color: isSelected ? 'rgba(255,255,255,0.9)' : (isFree ? promoColor : priceColor),
                         fontWeight: 'bold'
                       }}>
-                        {isFree ? 'FREE' : `RM ${price.toFixed(2)}`}
+                        {isFree ? t('free') : `RM ${price.toFixed(2)}`}
                       </div>
                     </button>
                   )
@@ -994,6 +1119,244 @@ function StaffApp() {
   }
 
   // ============================================================
+  // RENDER UNPAID ORDERS MODAL
+  // ============================================================
+  const renderUnpaidOrdersModal = () => {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 2000,
+        animation: 'fadeIn 0.2s ease',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: cardBg,
+          borderRadius: '28px',
+          padding: isMobile ? '20px' : '28px',
+          maxWidth: '600px',
+          width: '100%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          ...glassEffect,
+          animation: 'popIn 0.3s ease'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px'
+          }}>
+            <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>
+              📋 {t('unpaid_orders')} ({unpaidOrders.length})
+            </h2>
+            <button 
+              onClick={() => {
+                setShowUnpaidOrders(false)
+                setViewingOrder(null)
+              }}
+              style={{
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                transition: 'all 0.2s'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {unpaidOrders.length === 0 ? (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: '40px 20px',
+              color: textMuted
+            }}>
+              <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>📭</span>
+              {t('no_unpaid_orders')}
+            </div>
+          ) : viewingOrder ? (
+            // View single order
+            <div>
+              <button 
+                onClick={() => setViewingOrder(null)}
+                style={{
+                  background: '#64748b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '30px',
+                  padding: '6px 16px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  marginBottom: '16px'
+                }}
+              >
+                ← {t('back')}
+              </button>
+              
+              <div style={{
+                background: secondaryBg,
+                borderRadius: '16px',
+                padding: '16px',
+                marginBottom: '16px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 'bold', color: textColor }}>👤 {viewingOrder.customer_name || t('guest')}</span>
+                  <span style={{ color: textMuted, fontSize: '12px' }}>
+                    {viewingOrder.order_type === 'take_away' ? '🥡' : `🍽️ ${t('table')} ${viewingOrder.table_number}`}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', color: textMuted, marginBottom: '12px' }}>
+                  🕐 {new Date(viewingOrder.created_at).toLocaleString()}
+                </div>
+                
+                {viewingOrder.items?.map((item, idx) => (
+                  <div key={idx} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '6px 0',
+                    borderBottom: idx !== viewingOrder.items.length - 1 ? `1px solid ${borderColor}` : 'none'
+                  }}>
+                    <span style={{ color: textColor }}>
+                      {item.name}
+                      {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
+                      {item.isFree && <span style={{ color: priceColor, fontSize: '10px', marginLeft: '4px' }}>({t('free')})</span>}
+                      <span style={{ fontSize: '11px', color: textMuted, marginLeft: '4px' }}>x{item.quantity}</span>
+                    </span>
+                    <span style={{ color: priceColor, fontWeight: 'bold' }}>
+                      {item.isFree ? t('free') : `RM ${(item.price * item.quantity).toFixed(2)}`}
+                    </span>
+                  </div>
+                ))}
+                
+                <div style={{
+                  borderTop: `2px solid ${borderColor}`,
+                  marginTop: '12px',
+                  paddingTop: '12px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontWeight: 'bold',
+                  fontSize: '18px'
+                }}>
+                  <span>{t('total')}:</span>
+                  <span style={{ color: priceColor }}>RM {viewingOrder.total?.toFixed(2) || '0.00'}</span>
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  onClick={() => printReceipt(viewingOrder)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: '#0ea5e9',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  🖨️ {t('print_receipt')}
+                </button>
+                <button 
+                  onClick={() => markOrderAsPaid(viewingOrder)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 16px rgba(34,197,94,0.3)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  💰 {t('mark_paid')}
+                </button>
+              </div>
+            </div>
+          ) : (
+            // List of unpaid orders
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {unpaidOrders.map(order => (
+                <div key={order.id} style={{
+                  background: secondaryBg,
+                  borderRadius: '16px',
+                  padding: '14px 16px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  border: `1px solid ${borderColor}`,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onClick={() => setViewingOrder(order)}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#3b82f6'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = borderColor}
+                >
+                  <div>
+                    <div style={{ fontWeight: 'bold', color: textColor }}>
+                      👤 {order.customer_name || t('guest')}
+                    </div>
+                    <div style={{ fontSize: '12px', color: textMuted }}>
+                      {order.order_type === 'take_away' ? '🥡 ' + t('take_away') : '🍽️ ' + t('table') + ' ' + (order.table_number || '-')} • 
+                      {order.items?.length || 0} {t('items')}
+                    </div>
+                    <div style={{ fontSize: '11px', color: textMuted }}>
+                      🕐 {new Date(order.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '18px', color: priceColor }}>
+                      RM {order.total?.toFixed(2) || '0.00'}
+                    </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setViewingOrder(order)
+                      }}
+                      style={{
+                        background: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '20px',
+                        padding: '4px 14px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        marginTop: '4px'
+                      }}
+                    >
+                      {t('view_order')}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ============================================================
   // LOADING STATE
   // ============================================================
   if (loading) {
@@ -1066,37 +1429,75 @@ function StaffApp() {
             gap: '10px',
             flexWrap: 'wrap'
           }}>
+            {/* New Order Button */}
             <button
-              onClick={() => setOrderType('dine_in')}
+              onClick={() => {
+                setCart([])
+                setCustomerName('')
+                setTableNumber('')
+                toast.info(t('new_order_started'))
+              }}
               style={{
                 padding: isMobile ? '8px 16px' : '10px 20px',
-                background: orderType === 'dine_in' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : secondaryBg,
-                color: orderType === 'dine_in' ? 'white' : textColor,
-                border: orderType === 'dine_in' ? 'none' : `1px solid ${borderColor}`,
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: 'white',
+                border: 'none',
                 borderRadius: '30px',
                 cursor: 'pointer',
                 fontWeight: 'bold',
                 fontSize: isMobile ? '11px' : '13px',
+                boxShadow: '0 4px 16px rgba(34,197,94,0.3)',
                 transition: 'all 0.2s'
               }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.97)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
             >
-              🍽️ {t('table_service')}
+              {t('new_order')}
             </button>
+            
+            {/* Unpaid Orders Button */}
             <button
-              onClick={() => setOrderType('take_away')}
+              onClick={() => {
+                setShowUnpaidOrders(true)
+                setViewingOrder(null)
+                loadUnpaidOrders()
+              }}
               style={{
                 padding: isMobile ? '8px 16px' : '10px 20px',
-                background: orderType === 'take_away' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : secondaryBg,
-                color: orderType === 'take_away' ? 'white' : textColor,
-                border: orderType === 'take_away' ? 'none' : `1px solid ${borderColor}`,
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: 'white',
+                border: 'none',
                 borderRadius: '30px',
                 cursor: 'pointer',
                 fontWeight: 'bold',
                 fontSize: isMobile ? '11px' : '13px',
-                transition: 'all 0.2s'
+                boxShadow: '0 4px 16px rgba(245,158,11,0.3)',
+                transition: 'all 0.2s',
+                position: 'relative'
               }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.97)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
             >
-              🥡 {t('take_away')}
+              {t('unpaid_orders')}
+              {unpaidOrders.length > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  right: '-6px',
+                  background: '#ef4444',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold'
+                }}>
+                  {unpaidOrders.length}
+                </span>
+              )}
             </button>
           </div>
         </div>
@@ -1125,7 +1526,7 @@ function StaffApp() {
               type="text"
               value={customerName}
               onChange={(e) => setCustomerName(e.target.value)}
-              placeholder="Guest"
+              placeholder={t('guest')}
               style={{
                 width: '100%',
                 padding: isMobile ? '8px 12px' : '10px 14px',
@@ -1169,6 +1570,39 @@ function StaffApp() {
               />
             </div>
           )}
+          
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <button
+              onClick={() => setOrderType('dine_in')}
+              style={{
+                padding: '6px 14px',
+                background: orderType === 'dine_in' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
+                color: orderType === 'dine_in' ? 'white' : textColor,
+                border: orderType === 'dine_in' ? 'none' : `1px solid ${borderColor}`,
+                borderRadius: '30px',
+                cursor: 'pointer',
+                fontSize: isMobile ? '10px' : '12px',
+                transition: 'all 0.2s'
+              }}
+            >
+              🍽️ {t('dine_in')}
+            </button>
+            <button
+              onClick={() => setOrderType('take_away')}
+              style={{
+                padding: '6px 14px',
+                background: orderType === 'take_away' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
+                color: orderType === 'take_away' ? 'white' : textColor,
+                border: orderType === 'take_away' ? 'none' : `1px solid ${borderColor}`,
+                borderRadius: '30px',
+                cursor: 'pointer',
+                fontSize: isMobile ? '10px' : '12px',
+                transition: 'all 0.2s'
+              }}
+            >
+              🥡 {t('take_away')}
+            </button>
+          </div>
         </div>
         
         {/* SEARCH */}
@@ -1183,7 +1617,7 @@ function StaffApp() {
           <span style={{ fontSize: '18px', marginRight: '12px', color: textMuted }}>🔍</span>
           <input
             type="text"
-            placeholder="Search menu..."
+            placeholder={t('search_menu')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{
@@ -1239,7 +1673,7 @@ function StaffApp() {
                 transition: 'all 0.2s'
               }}
             >
-              {cat === 'All' ? '📋 All' : cat}
+              {cat === 'All' ? t('all_categories') : cat}
             </button>
           ))}
         </div>
@@ -1310,7 +1744,7 @@ function StaffApp() {
                   }}>
                     {promo.type === 'bogo' ? '🎁 BOGO' : 
                      promo.type === 'bundle' ? '📦 Bundle' : 
-                     promo.type === 'set_menu' ? '🍽️ Set' : '🔥 Promo'}
+                     promo.type === 'set_menu' ? '🍽️ Set' : '🔥 ' + t('promo')}
                   </div>
                 )}
                 
@@ -1346,7 +1780,8 @@ function StaffApp() {
                       height: isMobile ? '80px' : '100px',
                       objectFit: 'cover',
                       borderRadius: '12px',
-                      marginBottom: '8px'
+                      marginBottom: '8px',
+                      backgroundColor: secondaryBg
                     }}
                     onError={(e) => { e.currentTarget.style.display = 'none' }}
                   />
@@ -1461,7 +1896,7 @@ function StaffApp() {
               color: textColor,
               fontSize: isMobile ? '14px' : '16px'
             }}>
-              🛒 {cart.length} {cart.length === 1 ? 'item' : 'items'}
+              🛒 {cart.length} {cart.length === 1 ? t('items') : t('items')}
             </span>
             <span style={{
               fontWeight: 'bold',
@@ -1493,7 +1928,7 @@ function StaffApp() {
               onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.97)'}
               onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
             >
-              🗑️ {t('clear_cart')}
+              {t('clear_cart')}
             </button>
             <button
               onClick={handleCheckout}
@@ -1525,6 +1960,9 @@ function StaffApp() {
         
         {/* ITEM MODAL */}
         {showItemModal && renderItemModal()}
+        
+        {/* UNPAID ORDERS MODAL */}
+        {showUnpaidOrders && renderUnpaidOrdersModal()}
         
         {/* STYLES */}
         <style>

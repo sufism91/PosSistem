@@ -408,9 +408,13 @@ function StaffApp() {
   // ============================================================
   // DRINK OPTIONS HELPERS
   // ============================================================
+  function normalizeText(value) {
+    return String(value || '').trim().toLowerCase()
+  }
+
   function getDrinkOptionsForItem(item) {
     if (!item) return []
-    return drinkOptions.filter(opt => opt.drink_name === item.name)
+    return drinkOptions.filter(opt => normalizeText(opt.drink_name) === normalizeText(item.name))
   }
 
   function hasDrinkOptions(item) {

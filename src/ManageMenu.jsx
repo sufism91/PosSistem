@@ -1043,23 +1043,39 @@ function ManageMenu() {
   // ✅ FIXED: ADD DRINK - ONLY USE EXISTING COLUMNS
   // ============================================================
   async function addDrinkWithOptions() {
-    if (!newDrinkName) { 
+    const drinkName = newDrinkName.trim()
+
+    if (!drinkName) { 
       setMessage(`⚠️ ${translate('drink_name')} ${translate('required')}`)
       return 
     }
-    
-    const existing = menu.find(m => m.name.toLowerCase() === newDrinkName.toLowerCase())
-    if (existing) {
-      setMessage(`⚠️ "${newDrinkName}" ${translate('already_exists')}`)
+
+    const optionRows = [
+      { option_type: 'Panas', price: newDrinkPanas },
+      { option_type: 'Sejuk', price: newDrinkSejuk },
+      { option_type: 'Bungkus', price: newDrinkBungkus }
+    ]
+      .filter(opt => opt.price !== '' && opt.price !== null && opt.price !== undefined)
+      .map(opt => ({ ...opt, price: parseFloat(opt.price) }))
+
+    if (optionRows.length === 0 || optionRows.some(opt => isNaN(opt.price) || opt.price < 0)) {
+      setMessage(`⚠️ ${translate('invalid_price')}`)
       return
     }
-    
-    // 1. Insert into menu table
+
+    const existing = menu.find(m => m.name.trim().toLowerCase() === drinkName.toLowerCase())
+    if (existing) {
+      setMessage(`⚠️ "${drinkName}" ${translate('already_exists')}`)
+      return
+    }
+
+    const defaultPrice = optionRows[0]?.price || 0
+
     const { data: menuData, error: menuError } = await supabase
       .from('menu')
       .insert([{ 
-        name: newDrinkName, 
-        price: 0, 
+        name: drinkName, 
+        price: defaultPrice, 
         category: 'Minuman',
         stock: parseInt(newDrinkStock) || 0, 
         image_url: null, 
@@ -1068,37 +1084,29 @@ function ManageMenu() {
         sort_order: menu.length
       }])
       .select()
-      
+      .single()
+
     if (menuError) { 
       setMessage(`❌ ${translate('error')}: ${menuError.message}`)
       return 
     }
-    
-    // 2. Insert drink options - ONLY drink_name, option_type, price
-    if (newDrinkPanas && parseFloat(newDrinkPanas) >= 0) {
-      await supabase.from('drink_options').insert([{ 
-        drink_name: newDrinkName, 
-        option_type: 'Panas', 
-        price: parseFloat(newDrinkPanas) || 0
-      }])
+
+    const drinkRows = optionRows.map(opt => ({
+      drink_name: drinkName,
+      option_type: opt.option_type,
+      price: opt.price
+    }))
+
+    const { error: optionsError } = await supabase
+      .from('drink_options')
+      .insert(drinkRows)
+
+    if (optionsError) {
+      if (menuData?.id) await supabase.from('menu').delete().eq('id', menuData.id)
+      setMessage(`❌ ${translate('error')}: ${optionsError.message}`)
+      return
     }
-    
-    if (newDrinkSejuk && parseFloat(newDrinkSejuk) >= 0) {
-      await supabase.from('drink_options').insert([{ 
-        drink_name: newDrinkName, 
-        option_type: 'Sejuk', 
-        price: parseFloat(newDrinkSejuk) || 0
-      }])
-    }
-    
-    if (newDrinkBungkus && parseFloat(newDrinkBungkus) >= 0) {
-      await supabase.from('drink_options').insert([{ 
-        drink_name: newDrinkName, 
-        option_type: 'Bungkus', 
-        price: parseFloat(newDrinkBungkus) || 0
-      }])
-    }
-    
+
     setMessage(translate('drink_added'))
     setShowDrinkModal(false)
     setNewDrinkName('')
@@ -1106,9 +1114,9 @@ function ManageMenu() {
     setNewDrinkSejuk('')
     setNewDrinkBungkus('')
     setNewDrinkStock(100)
-    loadMenu()
-    loadDrinkOptions()
-    loadAvailableMenu()
+    await loadMenu()
+    await loadDrinkOptions()
+    await loadAvailableMenu()
     setTimeout(() => setMessage(''), 2000)
   }
 

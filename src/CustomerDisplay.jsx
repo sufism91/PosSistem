@@ -228,9 +228,13 @@ function CustomerDisplay() {
   // ============================================================
   // ✅ GET DRINK OPTIONS FOR ITEM - TAMBAH
   // ============================================================
+  function normalizeText(value) {
+    return String(value || '').trim().toLowerCase()
+  }
+
   function getDrinkOptionsForItem(item) {
     if (!item) return []
-    return drinkOptions.filter(opt => opt.drink_name === item.name)
+    return drinkOptions.filter(opt => normalizeText(opt.drink_name) === normalizeText(item.name))
   }
 
   function hasDrinkOptions(item) {
@@ -257,21 +261,35 @@ function CustomerDisplay() {
   // ============================================================
   useEffect(() => {
     loadAllData()
-    
-    const orderSubscription = supabase
-      .channel('customer_orders_display')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'customer_orders' },
-        () => {
-          if (selectedTable) {
-            loadTableOrders(selectedTable)
-          }
-        }
-      )
+
+    const liveChannel = supabase
+      .channel('customer_display_live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_orders' }, () => {
+        if (selectedTable) loadTableOrders(selectedTable)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu' }, () => {
+        loadMenu()
+        loadSpecialMenu()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
+        loadCategories()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'drink_options' }, () => {
+        loadDrinkOptions()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions' }, () => {
+        loadPromotions()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+        loadRestaurantInfo()
+        loadSettings()
+        loadSpecialMenu()
+        loadBusinessHours()
+      })
       .subscribe()
-    
+
     return () => {
-      orderSubscription.unsubscribe()
+      liveChannel.unsubscribe()
     }
   }, [selectedTable])
 

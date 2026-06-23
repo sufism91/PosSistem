@@ -183,28 +183,33 @@ function ManageSettings() {
   const updateSetting = (key, value) => { setSettings(prev => ({ ...prev, [key]: value })) }
 
   // ============================================================
-  // DELETE DATA FUNCTIONS
+  // DELETE DATA FUNCTIONS - FIXED TABLE NAMES
   // ============================================================
   
   async function deleteAllOrders() {
     try {
-      const { error } = await supabase.from('orders').delete().neq('id', 0)
+      const { error } = await supabase.from('customer_orders').delete().neq('id', 0)
       if (error) throw error
-      toast.success(language === 'bm' ? 'Semua pesanan dipadam!' : 'All orders deleted!')
+      toast.success(language === 'bm' ? '✅ Semua pesanan dipadam!' : '✅ All orders deleted!')
       setShowConfirmModal(null)
     } catch (error) {
-      toast.error(error.message)
+      toast.error('❌ ' + error.message)
     }
   }
 
   async function deleteAllMenu() {
     try {
-      const { error } = await supabase.from('menu_items').delete().neq('id', 0)
+      const { error } = await supabase.from('menu').delete().neq('id', 0)
       if (error) throw error
-      toast.success(language === 'bm' ? 'Semua menu dipadam!' : 'All menu deleted!')
+      
+      // Also delete drink options and menu options
+      await supabase.from('drink_options').delete().neq('id', 0)
+      await supabase.from('menu_options').delete().neq('id', 0)
+      
+      toast.success(language === 'bm' ? '✅ Semua menu dipadam!' : '✅ All menu deleted!')
       setShowConfirmModal(null)
     } catch (error) {
-      toast.error(error.message)
+      toast.error('❌ ' + error.message)
     }
   }
 
@@ -212,22 +217,34 @@ function ManageSettings() {
     try {
       const { error } = await supabase.from('categories').delete().neq('id', 0)
       if (error) throw error
-      toast.success(language === 'bm' ? 'Semua kategori dipadam!' : 'All categories deleted!')
+      toast.success(language === 'bm' ? '✅ Semua kategori dipadam!' : '✅ All categories deleted!')
       setShowConfirmModal(null)
     } catch (error) {
-      toast.error(error.message)
+      toast.error('❌ ' + error.message)
     }
   }
 
   async function deleteAllStaff() {
     try {
-      const { error } = await supabase.from('staff').delete().neq('username', 'admin')
+      // Try 'profiles' first (common in Supabase)
+      let error = null
+      const { error: err1 } = await supabase.from('profiles').delete().neq('username', 'admin')
+      if (err1) {
+        // Fallback to 'users'
+        const { error: err2 } = await supabase.from('users').delete().neq('username', 'admin')
+        if (err2) {
+          // Try 'staff' table
+          const { error: err3 } = await supabase.from('staff').delete().neq('username', 'admin')
+          if (err3) {
+            error = err3
+          }
+        }
+      }
       if (error) throw error
-      toast.success(language === 'bm' ? 'Semua staff dipadam!' : 'All staff deleted!')
+      toast.success(language === 'bm' ? '✅ Semua staff dipadam!' : '✅ All staff deleted!')
       setShowConfirmModal(null)
-      window.location.reload()
     } catch (error) {
-      toast.error(error.message)
+      toast.error('❌ ' + error.message)
     }
   }
 
@@ -235,20 +252,25 @@ function ManageSettings() {
     try {
       const { error } = await supabase.from('tables').delete().neq('id', 0)
       if (error) throw error
-      toast.success(language === 'bm' ? 'Semua meja dipadam!' : 'All tables deleted!')
+      toast.success(language === 'bm' ? '✅ Semua meja dipadam!' : '✅ All tables deleted!')
       setShowConfirmModal(null)
     } catch (error) {
-      toast.error(error.message)
+      toast.error('❌ ' + error.message)
     }
   }
 
   async function resetAllData() {
     try {
-      const tables = ['orders', 'menu_items', 'categories', 'tables']
+      // Delete from all tables
+      const tables = ['customer_orders', 'menu', 'categories', 'tables']
       for (const table of tables) {
         const { error } = await supabase.from(table).delete().neq('id', 0)
         if (error) console.error(`Error deleting ${table}:`, error)
       }
+      
+      // Also delete drink_options and menu_options
+      await supabase.from('drink_options').delete().neq('id', 0)
+      await supabase.from('menu_options').delete().neq('id', 0)
       
       const defaultSettings = [
         { key: 'restaurant_name', value: 'KedaiPOS' },
@@ -274,11 +296,11 @@ function ManageSettings() {
         await supabase.from('settings').upsert({ key: setting.key, value: setting.value }, { onConflict: 'key' })
       }
       
-      toast.success(language === 'bm' ? 'Semua data direset!' : 'All data reset!')
+      toast.success(language === 'bm' ? '✅ Semua data direset!' : '✅ All data reset!')
       setShowConfirmModal(null)
-      window.location.reload()
+      setTimeout(() => window.location.reload(), 1000)
     } catch (error) {
-      toast.error(error.message)
+      toast.error('❌ ' + error.message)
     }
   }
 
@@ -287,42 +309,42 @@ function ManageSettings() {
       icon: '📋', 
       title: { en: 'Delete All Orders', ms: 'Padam Semua Pesanan' },
       desc: { en: 'Delete all order records', ms: 'Padam semua rekod pesanan' },
-      color: '#f59e0b',
+      color: '#ef4444',
       action: deleteAllOrders
     },
     menu: { 
       icon: '🍽️', 
       title: { en: 'Delete All Menu', ms: 'Padam Semua Menu' },
       desc: { en: 'Delete all menu items', ms: 'Padam semua item menu' },
-      color: '#f59e0b',
+      color: '#ef4444',
       action: deleteAllMenu
     },
     categories: { 
       icon: '📂', 
       title: { en: 'Delete All Categories', ms: 'Padam Semua Kategori' },
       desc: { en: 'Delete all categories', ms: 'Padam semua kategori' },
-      color: '#f59e0b',
+      color: '#ef4444',
       action: deleteAllCategories
     },
     staff: { 
       icon: '👥', 
       title: { en: 'Delete All Staff', ms: 'Padam Semua Staff' },
       desc: { en: 'Delete all staff (except admin)', ms: 'Padam semua staff (kecuali admin)' },
-      color: '#f59e0b',
+      color: '#ef4444',
       action: deleteAllStaff
     },
     tables: { 
       icon: '🪑', 
       title: { en: 'Delete All Tables', ms: 'Padam Semua Meja' },
       desc: { en: 'Delete all table records', ms: 'Padam semua rekod meja' },
-      color: '#f59e0b',
+      color: '#ef4444',
       action: deleteAllTables
     },
     reset_all: { 
       icon: '⚠️', 
       title: { en: 'Reset ALL Data', ms: 'Reset SEMUA Data' },
       desc: { en: 'Delete all data and reset settings to default', ms: 'Padam semua data dan reset tetapan ke default' },
-      color: '#ef4444',
+      color: '#dc2626',
       action: resetAllData
     }
   }
@@ -746,8 +768,8 @@ function ManageSettings() {
             
             <p style={{ color: textMuted, marginBottom: '24px', fontSize: '14px' }}>
               {language === 'bm' 
-                ? 'Berhati-hati! Tindakan ini tidak boleh dibatalkan.' 
-                : 'Caution! This action cannot be undone.'}
+                ? '⚠️ Berhati-hati! Tindakan ini tidak boleh dibatalkan.' 
+                : '⚠️ Caution! This action cannot be undone.'}
             </p>
 
             <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
@@ -755,7 +777,7 @@ function ManageSettings() {
                 onClick={() => openConfirmModal('orders')}
                 style={{ 
                   padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '16px', 
@@ -782,7 +804,7 @@ function ManageSettings() {
                 onClick={() => openConfirmModal('menu')}
                 style={{ 
                   padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '16px', 
@@ -809,7 +831,7 @@ function ManageSettings() {
                 onClick={() => openConfirmModal('categories')}
                 style={{ 
                   padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '16px', 
@@ -836,7 +858,7 @@ function ManageSettings() {
                 onClick={() => openConfirmModal('staff')}
                 style={{ 
                   padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '16px', 
@@ -863,7 +885,7 @@ function ManageSettings() {
                 onClick={() => openConfirmModal('tables')}
                 style={{ 
                   padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '16px', 
@@ -890,7 +912,7 @@ function ManageSettings() {
                 onClick={() => openConfirmModal('reset_all')}
                 style={{ 
                   padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
+                  background: 'linear-gradient(135deg, #dc2626, #b91c1c)', 
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '16px', 
@@ -955,7 +977,7 @@ function ManageSettings() {
                   : `Are you sure you want to ${showConfirmModal.title.en.toLowerCase()}?`}
               </p>
               <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px', fontWeight: 'bold' }}>
-                {language === 'bm' ? 'Tindakan ini tidak boleh dibatalkan!' : 'This action cannot be undone!'}
+                {language === 'bm' ? '⚠️ Tindakan ini tidak boleh dibatalkan!' : '⚠️ This action cannot be undone!'}
               </p>
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
                 <button 
@@ -971,7 +993,7 @@ function ManageSettings() {
                     fontWeight: 'bold' 
                   }}
                 >
-                  {language === 'bm' ? 'Ya, Padam' : 'Yes, Delete'}
+                  {language === 'bm' ? '✅ Ya, Padam' : '✅ Yes, Delete'}
                 </button>
                 <button 
                   onClick={() => setShowConfirmModal(null)}
@@ -986,7 +1008,7 @@ function ManageSettings() {
                     fontWeight: 'bold' 
                   }}
                 >
-                  {language === 'bm' ? 'Batal' : 'Cancel'}
+                  {language === 'bm' ? '❌ Batal' : '❌ Cancel'}
                 </button>
               </div>
             </div>

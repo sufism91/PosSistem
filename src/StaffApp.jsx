@@ -304,12 +304,21 @@ function StaffApp() {
 
   async function loadUnpaidOrders() {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('customer_orders')
         .select('*')
-        .eq('payment_status', 'unpaid')
+        .eq('payment_status', PAYMENT_STATUS.UNPAID)
         .order('created_at', { ascending: false })
-      setUnpaidOrders(data || [])
+
+      if (error) throw error
+
+      // Only show orders that staff has confirmed. New orders remain in New Orders.
+      const confirmed = (data || []).filter(order => {
+        const workflowStatus = order.order_status || order.status
+        return [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'preparing', 'ready', 'served'].includes(workflowStatus) ||
+          [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'preparing', 'ready', 'served'].includes(order.status)
+      })
+      setUnpaidOrders(confirmed)
     } catch (err) {
       console.error('Error loading unpaid orders:', err)
       setUnpaidOrders([])
@@ -318,13 +327,20 @@ function StaffApp() {
 
   async function loadNewOrders() {
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('customer_orders')
         .select('*')
-        .in('status', [ORDER_STATUS.NEW, 'pending'])
         .eq('payment_status', PAYMENT_STATUS.UNPAID)
         .order('created_at', { ascending: false })
-      setNewOrders(data || [])
+
+      if (error) throw error
+
+      // Support both new workflow (order_status) and old workflow (status = pending).
+      const pending = (data || []).filter(order => {
+        const workflowStatus = order.order_status || order.status
+        return [ORDER_STATUS.NEW, 'pending'].includes(workflowStatus) || order.status === 'pending'
+      })
+      setNewOrders(pending)
     } catch (err) {
       console.error('Error loading new orders:', err)
       setNewOrders([])
@@ -619,6 +635,7 @@ function StaffApp() {
       setCart([])
       setCustomerName('')
       setTableNumber('')
+      await loadNewOrders()
       await loadUnpaidOrders()
       
       if (data) {
@@ -821,10 +838,12 @@ function StaffApp() {
               style={{
                 width: '100%',
                 height: '150px',
-                objectFit: 'cover',
+                objectFit: 'contain',
+                objectPosition: 'center',
                 borderRadius: '16px',
                 marginBottom: '16px',
-                backgroundColor: secondaryBg
+                backgroundColor: '#ffffff',
+                padding: '8px'
               }}
               onError={(e) => { e.currentTarget.style.display = 'none' }}
             />
@@ -1888,11 +1907,16 @@ function StaffApp() {
                     alt={item.name}
                     style={{
                       width: '100%',
-                      height: isMobile ? '80px' : '100px',
-                      objectFit: 'cover',
-                      borderRadius: '12px',
-                      marginBottom: '8px',
-                      backgroundColor: secondaryBg
+                      height: isMobile ? '82px' : '104px',
+                      maxWidth: '140px',
+                      objectFit: 'contain',
+                      objectPosition: 'center',
+                      borderRadius: '14px',
+                      margin: '0 auto 8px auto',
+                      display: 'block',
+                      backgroundColor: '#ffffff',
+                      padding: '6px',
+                      boxSizing: 'border-box'
                     }}
                     onError={(e) => { e.currentTarget.style.display = 'none' }}
                   />

@@ -7,8 +7,8 @@ import { ORDER_STATUS, PAYMENT_STATUS, normalizeOrderForInsert, normalizeConfirm
 import { generateReceiptHTML } from './lib/receipt'
 import toast from 'react-hot-toast'
 
-// ===== SOUND FILE =====
-const NOTIFICATION_SOUND_URL = '/sounds/notification.mp3'
+// ===== SOUND FILE - SAME PATH AS KITCHEN APP =====
+const NOTIFICATION_SOUND_URL = '/sound/notification.mp3'
 
 function StaffApp() {
   const { darkMode } = useTheme()
@@ -169,13 +169,13 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PLAY NOTIFICATION SOUND - GUNA FILE SENDIRI
+  // PLAY NOTIFICATION SOUND - GUNA FILE SENDIRI (SAME AS KITCHEN APP)
   // ============================================================
   const playNotificationSound = () => {
     if (!settings.notification_sound) return
     
     try {
-      // Guna file sound dari public folder
+      // Guna file sound dari public/sound/ (same macam KitchenApp)
       const audio = new Audio(NOTIFICATION_SOUND_URL)
       audio.volume = 0.8
       

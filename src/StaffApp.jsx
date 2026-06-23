@@ -221,6 +221,9 @@ function StaffApp() {
   const [viewingOrder, setViewingOrder] = useState(null)
   const [historyPage, setHistoryPage] = useState(1)
   const historyItemsPerPage = 10
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState(null)
+  const [paymentMethod, setPaymentMethod] = useState('cash')
 
   // ===== CHECK MOBILE =====
   useEffect(() => {
@@ -544,6 +547,25 @@ function StaffApp() {
     return '☕'
   }
 
+  // ============================================================
+  // GET CATEGORY ICON - NO DUPLICATE
+  // ============================================================
+  const getCategoryIcon = (cat) => {
+    if (!cat) return '📂'
+    if (cat === 'All' || cat === 'Semua') return '📋'
+    if (cat === 'Makanan') return '🍚'
+    if (cat === 'Minuman') return '🥤'
+    if (cat === 'SUP') return '🍜'
+    if (cat === 'Jus') return '🧃'
+    if (cat === 'Teh') return '🍵'
+    if (cat === 'Kopi') return '☕'
+    if (cat === 'Mee') return '🍜'
+    if (cat === 'Nasi') return '🍚'
+    if (cat === 'Telur') return '🥚'
+    const found = categories.find(c => c.name === cat)
+    return found?.icon || '📂'
+  }
+
   // ===== HELPERS =====
   const getCategories = () => {
     return ['All', ...categories.map(c => c.name)]
@@ -569,6 +591,15 @@ function StaffApp() {
 
   const isSizeCategory = (item) => {
     return item?.has_options === true
+  }
+
+  const getDefaultIcon = (category) => {
+    switch(category) {
+      case 'Makanan': return '🍚'
+      case 'Minuman': return '🥤'
+      case 'SUP': return '🍜'
+      default: return '🍽️'
+    }
   }
 
   // ===== CART FUNCTIONS =====
@@ -661,10 +692,17 @@ function StaffApp() {
     setCart(newCart)
   }
 
-  // ===== CHECKOUT =====
+  // ============================================================
+  // CHECKOUT - PLACE ORDER
+  // ============================================================
   const handleCheckout = async () => {
     if (cart.length === 0) {
       toast.error(t('cart_empty'))
+      return
+    }
+
+    if (orderType === 'dine_in' && !tableNumber) {
+      toast.error('⚠️ Sila masukkan nombor meja!')
       return
     }
 
@@ -673,16 +711,16 @@ function StaffApp() {
     const orderData = {
       items: cart.map(item => ({
         name: item.name,
-        category: item.category,
-        option: item.option,
-        size: item.size,
+        category: item.category || 'Makanan',
+        option: item.option || null,
+        size: item.size || null,
         price: item.price,
-        originalPrice: item.originalPrice,
+        originalPrice: item.originalPrice || item.price,
         quantity: item.quantity,
         subtotal: item.subtotal,
-        isFree: item.isFree,
-        promoType: item.promoType,
-        promoName: item.promoName,
+        isFree: item.isFree || false,
+        promoType: item.promoType || null,
+        promoName: item.promoName || null,
         image_url: item.image_url || null
       })),
       total: total,
@@ -704,7 +742,7 @@ function StaffApp() {
 
       if (error) throw error
 
-      toast.success(t('order_created_pending'))
+      toast.success('✅ Pesanan dihantar! Sila sahkan di New Orders.')
       setCart([])
       setCustomerName('')
       setTableNumber('')
@@ -717,7 +755,9 @@ function StaffApp() {
     }
   }
 
-  // ===== MARK ORDER AS PAID =====
+  // ============================================================
+  // MARK ORDER AS PAID
+  // ============================================================
   const markOrderAsPaid = async (order) => {
     try {
       const { error } = await supabase
@@ -743,7 +783,9 @@ function StaffApp() {
     }
   }
 
-  // ===== CONFIRM / CANCEL NEW ORDER =====
+  // ============================================================
+  // CONFIRM / CANCEL NEW ORDER
+  // ============================================================
   const confirmNewOrder = async (order) => {
     try {
       const { error } = await supabase
@@ -774,7 +816,40 @@ function StaffApp() {
     }
   }
 
-  // ===== PRINT RECEIPT =====
+  // ============================================================
+  // PAYMENT MODAL
+  // ============================================================
+  const openPaymentModal = (order) => {
+    setSelectedOrder(order)
+    setShowPaymentModal(true)
+  }
+
+  const processPayment = async (order) => {
+    const subtotal = parseFloat(order.subtotal || order.total || 0)
+    const serviceCharge = order.order_type === 'take_away' ? 0 : subtotal * 0.06
+    const tax = subtotal * 0.06
+    const grandTotal = subtotal + serviceCharge + tax
+    
+    await supabase.from('customer_orders').update({ 
+      payment_status: PAYMENT_STATUS.PAID, 
+      payment_method: paymentMethod, 
+      paid_at: new Date().toISOString(), 
+      subtotal, 
+      service_charge: serviceCharge, 
+      tax, 
+      grand_total: grandTotal 
+    }).eq('id', order.id)
+    
+    await loadUnpaidOrders()
+    await loadOrderHistory()
+    setShowPaymentModal(false)
+    setSelectedOrder(null)
+    toast.success(`✅ ${t('payment_received')} RM ${grandTotal.toFixed(2)}!`)
+  }
+
+  // ============================================================
+  // PRINT RECEIPT
+  // ============================================================
   const printReceipt = (order) => {
     const receiptContent = `
       <!DOCTYPE html>
@@ -1403,6 +1478,7 @@ function StaffApp() {
               {t('no_unpaid_orders')}
             </div>
           ) : viewingOrder ? (
+            // View single order
             <div>
               <button 
                 onClick={() => setViewingOrder(null)}
@@ -1524,6 +1600,7 @@ function StaffApp() {
               </div>
             </div>
           ) : (
+            // List of unpaid orders
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {unpaidOrders.map(order => (
                 <div key={order.id} style={{
@@ -1772,6 +1849,133 @@ function StaffApp() {
   }
 
   // ============================================================
+  // RENDER PAYMENT MODAL
+  // ============================================================
+  const renderPaymentModal = () => {
+    if (!selectedOrder) return null
+    const subtotal = selectedOrder.subtotal || selectedOrder.total || 0
+    const sc = selectedOrder.service_charge || (subtotal * 0.06)
+    const tax = selectedOrder.tax || (subtotal * 0.06)
+    const grandTotal = selectedOrder.grand_total || (subtotal + sc + tax)
+    
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 3000,
+        animation: 'fadeIn 0.2s ease',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: cardBg,
+          padding: '28px',
+          borderRadius: '32px',
+          maxWidth: '420px',
+          width: '90%',
+          ...glassEffect,
+          animation: 'popIn 0.3s ease'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <div style={{ width: '56px', height: '56px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto' }}>
+              <span style={{ fontSize: '28px' }}>💰</span>
+            </div>
+            <h2 style={{ margin: 0, color: textColor, fontSize: '22px', fontWeight: 'bold' }}>{t('record_payment')}</h2>
+            <p style={{ color: textMuted, fontSize: '13px', marginTop: '4px' }}>{t('payment_method')}</p>
+          </div>
+
+          <div style={{ background: secondaryBg, padding: '16px', borderRadius: '20px', marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ color: textMuted }}>{t('order_number')}:</span>
+              <span style={{ color: textColor, fontWeight: 'bold' }}>{selectedOrder.order_number || `ORD-${selectedOrder.id}`}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <span style={{ color: textMuted }}>{t('customer_name')}:</span>
+              <span style={{ color: textColor, fontWeight: 'bold' }}>{selectedOrder.customer_name || 'Walk-in'}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span style={{ color: textMuted }}>{t('total')}:</span>
+              <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '18px' }}>RM {grandTotal.toFixed(2)}</span>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              {['cash', 'tng', 'bank'].map(method => (
+                <button 
+                  key={method}
+                  onClick={() => setPaymentMethod(method)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: paymentMethod === method ? '#22c55e' : secondaryBg,
+                    color: paymentMethod === method ? 'white' : textColor,
+                    border: paymentMethod === method ? 'none' : `1px solid ${borderColor}`,
+                    borderRadius: '16px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '14px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {method === 'cash' ? '💵 ' + t('cash') : 
+                   method === 'tng' ? '📱 ' + t('tng') : 
+                   '🏦 ' + t('bank')}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button 
+              onClick={() => { setShowPaymentModal(false); setSelectedOrder(null) }}
+              style={{
+                flex: 1,
+                padding: '14px',
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '60px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '15px',
+                transition: 'all 0.2s'
+              }}
+            >
+              ❌ {t('cancel')}
+            </button>
+            <button 
+              onClick={() => processPayment(selectedOrder)}
+              style={{
+                flex: 1,
+                padding: '14px',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '60px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: '15px',
+                boxShadow: '0 4px 16px rgba(34,197,94,0.3)',
+                transition: 'all 0.2s'
+              }}
+            >
+              ✅ {t('save')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ============================================================
   // LOADING STATE
   // ============================================================
   if (loading) {
@@ -1798,6 +2002,7 @@ function StaffApp() {
   // ============================================================
   const filteredMenu = getFilteredMenu()
   const totalCart = cart.reduce((sum, item) => sum + item.subtotal, 0)
+  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
   return (
     <Sidebar>
@@ -2148,7 +2353,7 @@ function StaffApp() {
                 transition: 'all 0.2s'
               }}
             >
-              {cat === 'All' ? t('all_categories') : cat}
+              {cat === 'All' ? t('all_categories') : `${getCategoryIcon(cat)} ${cat}`}
             </button>
           ))}
         </div>
@@ -2355,7 +2560,7 @@ function StaffApp() {
           left: isMobile ? 0 : '260px',
           right: 0,
           background: cardBg,
-          borderTop: `1px solid ${borderColor}`,
+          borderTop: `2px solid ${borderColor}`,
           padding: isMobile ? '12px 16px' : '16px 24px',
           display: 'flex',
           alignItems: 'center',
@@ -2364,7 +2569,7 @@ function StaffApp() {
           gap: '10px',
           zIndex: 100,
           backdropFilter: 'blur(16px)',
-          boxShadow: '0 -4px 20px rgba(0,0,0,0.1)'
+          boxShadow: '0 -4px 20px rgba(0,0,0,0.15)'
         }}>
           <div style={{
             display: 'flex',
@@ -2376,7 +2581,7 @@ function StaffApp() {
               color: textColor,
               fontSize: isMobile ? '14px' : '16px'
             }}>
-              🛒 {cart.length} {cart.length === 1 ? t('items') : t('items')}
+              🛒 {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'}
             </span>
             <span style={{
               fontWeight: 'bold',
@@ -2412,25 +2617,18 @@ function StaffApp() {
             </button>
             <button
               onClick={handleCheckout}
+              disabled={cart.length === 0}
               style={{
                 padding: isMobile ? '8px 16px' : '10px 20px',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                background: cart.length === 0 ? '#cbd5e1' : 'linear-gradient(135deg, #22c55e, #16a34a)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '30px',
-                cursor: 'pointer',
+                cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
                 fontWeight: 'bold',
                 fontSize: isMobile ? '11px' : '13px',
-                transition: 'all 0.2s',
-                boxShadow: '0 4px 16px rgba(34,197,94,0.3)'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = 'scale(0.97)'
-                e.currentTarget.style.boxShadow = '0 2px 8px rgba(34,197,94,0.2)'
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = 'scale(1)'
-                e.currentTarget.style.boxShadow = '0 4px 16px rgba(34,197,94,0.3)'
+                boxShadow: cart.length === 0 ? 'none' : '0 4px 16px rgba(34,197,94,0.3)',
+                transition: 'all 0.2s'
               }}
             >
               💳 {t('checkout')}
@@ -2449,6 +2647,9 @@ function StaffApp() {
         
         {/* HISTORY MODAL */}
         {showHistoryModal && renderHistoryModal()}
+
+        {/* PAYMENT MODAL */}
+        {showPaymentModal && renderPaymentModal()}
         
         {/* STYLES */}
         <style>
@@ -2499,6 +2700,15 @@ function StaffApp() {
               outline: none;
               border-color: #3b82f6;
               box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+            }
+            
+            button:hover:not(:disabled) {
+              opacity: 0.9;
+              transform: scale(0.97);
+            }
+            
+            button:active:not(:disabled) {
+              transform: scale(0.93);
             }
           `}
         </style>

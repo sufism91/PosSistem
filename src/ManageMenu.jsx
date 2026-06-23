@@ -96,7 +96,7 @@ function SortableCategoryButton({ category, icon, isActive, onClick, children, i
       style={{
         ...style,
         padding: isMobile ? '8px 18px' : '10px 24px',
-        background: isActive ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'transparent',
+        background: isActive ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
         color: isActive ? 'white' : textColor,
         border: isActive ? 'none' : `1px solid ${borderColor}`,
         borderRadius: '50px',
@@ -353,7 +353,7 @@ function ManageMenu() {
   // ============================================================
   // THEME COLORS
   // ============================================================
-  const bgColor = darkMode ? '#07111f' : '#eff6ff'
+  const bgColor = darkMode ? '#0a0a16' : '#f1f5f9'
   const cardBg = darkMode ? 'rgba(20, 20, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)'
   const textColor = darkMode ? '#e8edf5' : '#1e293b'
   const textMuted = darkMode ? '#94a3b8' : '#64748b'
@@ -1040,42 +1040,26 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // ✅ FIXED: ADD DRINK - ONLY USE EXISTING COLUMNS
+  // ✅ FIXED: ADD DRINK - Tanpa menu_id
   // ============================================================
   async function addDrinkWithOptions() {
-    const drinkName = newDrinkName.trim()
-
-    if (!drinkName) { 
+    if (!newDrinkName) { 
       setMessage(`⚠️ ${translate('drink_name')} ${translate('required')}`)
       return 
     }
-
-    const optionRows = [
-      { option_type: 'Panas', price: newDrinkPanas },
-      { option_type: 'Sejuk', price: newDrinkSejuk },
-      { option_type: 'Bungkus', price: newDrinkBungkus }
-    ]
-      .filter(opt => opt.price !== '' && opt.price !== null && opt.price !== undefined)
-      .map(opt => ({ ...opt, price: parseFloat(opt.price) }))
-
-    if (optionRows.length === 0 || optionRows.some(opt => isNaN(opt.price) || opt.price < 0)) {
-      setMessage(`⚠️ ${translate('invalid_price')}`)
-      return
-    }
-
-    const existing = menu.find(m => m.name.trim().toLowerCase() === drinkName.toLowerCase())
+    
+    const existing = menu.find(m => m.name.toLowerCase() === newDrinkName.toLowerCase())
     if (existing) {
-      setMessage(`⚠️ "${drinkName}" ${translate('already_exists')}`)
+      setMessage(`⚠️ "${newDrinkName}" ${translate('already_exists')}`)
       return
     }
-
-    const defaultPrice = optionRows[0]?.price || 0
-
+    
+    // Insert menu item
     const { data: menuData, error: menuError } = await supabase
       .from('menu')
       .insert([{ 
-        name: drinkName, 
-        price: defaultPrice, 
+        name: newDrinkName, 
+        price: 0, 
         category: 'Minuman',
         stock: parseInt(newDrinkStock) || 0, 
         image_url: null, 
@@ -1084,29 +1068,37 @@ function ManageMenu() {
         sort_order: menu.length
       }])
       .select()
-      .single()
-
+      
     if (menuError) { 
       setMessage(`❌ ${translate('error')}: ${menuError.message}`)
       return 
     }
-
-    const drinkRows = optionRows.map(opt => ({
-      drink_name: drinkName,
-      option_type: opt.option_type,
-      price: opt.price
-    }))
-
-    const { error: optionsError } = await supabase
-      .from('drink_options')
-      .insert(drinkRows)
-
-    if (optionsError) {
-      if (menuData?.id) await supabase.from('menu').delete().eq('id', menuData.id)
-      setMessage(`❌ ${translate('error')}: ${optionsError.message}`)
-      return
+    
+    // Insert drink options WITHOUT menu_id
+    if (newDrinkPanas && parseFloat(newDrinkPanas) >= 0) {
+      await supabase.from('drink_options').insert([{ 
+        drink_name: newDrinkName, 
+        option_type: 'Panas', 
+        price: parseFloat(newDrinkPanas) || 0
+      }])
     }
-
+    
+    if (newDrinkSejuk && parseFloat(newDrinkSejuk) >= 0) {
+      await supabase.from('drink_options').insert([{ 
+        drink_name: newDrinkName, 
+        option_type: 'Sejuk', 
+        price: parseFloat(newDrinkSejuk) || 0
+      }])
+    }
+    
+    if (newDrinkBungkus && parseFloat(newDrinkBungkus) >= 0) {
+      await supabase.from('drink_options').insert([{ 
+        drink_name: newDrinkName, 
+        option_type: 'Bungkus', 
+        price: parseFloat(newDrinkBungkus) || 0
+      }])
+    }
+    
     setMessage(translate('drink_added'))
     setShowDrinkModal(false)
     setNewDrinkName('')
@@ -1114,13 +1106,13 @@ function ManageMenu() {
     setNewDrinkSejuk('')
     setNewDrinkBungkus('')
     setNewDrinkStock(100)
-    await loadMenu()
-    await loadDrinkOptions()
-    await loadAvailableMenu()
+    loadMenu()
+    loadDrinkOptions()
+    loadAvailableMenu()
     setTimeout(() => setMessage(''), 2000)
   }
 
-  // ✅ Handle price change
+  // Handle price change
   function handleDrinkPriceChange(drinkName, optionType, value) { 
     const key = `${drinkName}_${optionType}` 
     setDrinkPriceEdits(prev => ({ 
@@ -1129,7 +1121,7 @@ function ManageMenu() {
     })) 
   }
   
-  // ✅ Save price
+  // Save price
   async function handleDrinkPriceSave(drinkName, optionType) { 
     const key = `${drinkName}_${optionType}` 
     const newPrice = drinkPriceEdits[key] 
@@ -1155,7 +1147,7 @@ function ManageMenu() {
     }
   }
 
-  // ✅ Delete individual drink option
+  // Delete individual drink option
   async function deleteDrinkOption(drinkName, optionType) {
     if (!window.confirm(`Delete ${drinkName} - ${optionType}?`)) return
     
@@ -1770,12 +1762,38 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // FILTERS & PAGINATION
+  // ✅ FIXED: FILTERED MENU - With Parent/Sub Categories
   // ============================================================
-  const categoriesForFilter = getCategoriesForFilter()
-  
   const filteredMenu = menu.filter(item => {
-    const matchCategory = activeCategory === 'all' || item.category === activeCategory
+    let matchCategory = false
+    
+    if (activeCategory === 'all') {
+      matchCategory = true
+    } else {
+      // Find selected category
+      const selectedCat = categories.find(c => c.name === activeCategory)
+      
+      if (selectedCat) {
+        const isParent = selectedCat.parent_id === null || selectedCat.parent_id === undefined
+        
+        if (isParent) {
+          // If parent, include items from parent AND all sub-categories
+          const subCategoryNames = categories
+            .filter(c => c.parent_id === selectedCat.id)
+            .map(c => c.name)
+          
+          const allRelatedCategories = [activeCategory, ...subCategoryNames]
+          matchCategory = allRelatedCategories.includes(item.category)
+        } else {
+          // If sub-category, exact match
+          matchCategory = item.category === activeCategory
+        }
+      } else {
+        // If category not found, fallback to exact match
+        matchCategory = item.category === activeCategory
+      }
+    }
+    
     const matchSearch = item.name.toLowerCase().includes(searchMenuTerm.toLowerCase())
     return matchCategory && matchSearch
   })
@@ -1934,7 +1952,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // RENDER - MAIN UI
+  // RENDER - MAIN
   // ============================================================
   return (
     <Sidebar>
@@ -2498,7 +2516,7 @@ function ManageMenu() {
                                 </div>
                               </div>
 
-                              {/* DRINK OPTIONS DISPLAY - WITH EDIT */}
+                              {/* DRINK OPTIONS DISPLAY */}
                               {hasDrinkOptions && (
                                 <div style={{ 
                                   marginTop: '4px', 

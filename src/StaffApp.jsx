@@ -20,7 +20,9 @@ function StaffApp() {
     
     // Buttons
     new_order: { en: '➕ New Order', ms: '➕ Pesanan Baru' },
-    unpaid_orders: { en: '📋 Unpaid Orders', ms: '📋 Pesanan Belum Bayar' },
+    new_orders_title: { en: '🆕 New Orders', ms: '🆕 Pesanan Baru' },
+    unpaid_orders: { en: '💰 Unpaid', ms: '💰 Belum Bayar' },
+    history_orders: { en: '📜 History', ms: '📜 Sejarah' },
     clear_cart: { en: '🗑️ Clear Cart', ms: '🗑️ Kosongkan Keranjang' },
     checkout: { en: '💳 Checkout', ms: '💳 Bayar' },
     cancel: { en: 'Cancel', ms: 'Batal' },
@@ -87,8 +89,13 @@ function StaffApp() {
     cart_empty: { en: '⚠️ Cart is empty', ms: '⚠️ Keranjang kosong' },
     confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
     no_unpaid_orders: { en: '📭 No unpaid orders', ms: '📭 Tiada pesanan belum bayar' },
+    no_new_orders: { en: '📭 No new orders to confirm', ms: '📭 Tiada pesanan baru untuk disahkan' },
+    no_history_orders: { en: '📭 No order history', ms: '📭 Tiada sejarah pesanan' },
     new_order_started: { en: '📝 New order started!', ms: '📝 Pesanan baru dimulakan!' },
     order_paid: { en: '✅ Order paid!', ms: '✅ Pesanan dibayar!' },
+    order_paid_history: { en: '✅ Order paid and moved to History', ms: '✅ Pesanan dibayar dan dipindahkan ke Sejarah' },
+    order_confirmed_kitchen: { en: '✅ Order confirmed and sent to Kitchen', ms: '✅ Pesanan disahkan dan dihantar ke Dapur' },
+    order_created_pending: { en: '📝 Order created. Please confirm it in New Orders.', ms: '📝 Pesanan dibuat. Sila sahkan di Pesanan Baru.' },
     error_loading: { en: '❌ Error loading data', ms: '❌ Ralat memuat data' },
     error_checkout: { en: '❌ Checkout error', ms: '❌ Ralat bayaran' },
     
@@ -103,9 +110,10 @@ function StaffApp() {
     
     // Modal titles
     order_details: { en: '📋 Order Details', ms: '📋 Butiran Pesanan' },
-    unpaid_orders_title: { en: '📋 Unpaid Orders', ms: '📋 Pesanan Belum Bayar' },
+    unpaid_orders_title: { en: '💰 Unpaid Orders', ms: '💰 Pesanan Belum Bayar' },
     select_drink_option: { en: 'Select Drink Option', ms: 'Pilih Pilihan Minuman' },
     select_size_option: { en: 'Select Size', ms: 'Pilih Saiz' },
+    history_title: { en: '📜 Order History', ms: '📜 Sejarah Pesanan' },
     
     // Receipt
     receipt_title: { en: '🧾 RECEIPT', ms: '🧾 RESIT' },
@@ -134,23 +142,50 @@ function StaffApp() {
     tng: { en: 'TnG', ms: 'TnG' },
     bank: { en: 'Bank', ms: 'Bank' },
     
-    
     // Workflow / Dashboard
-    new_orders_title: { en: 'New Orders', ms: 'Pesanan Baru' },
     kitchen_queue: { en: 'Kitchen Queue', ms: 'Giliran Dapur' },
-    history_orders: { en: 'Order History', ms: 'Sejarah Pesanan' },
     confirm_order: { en: 'Confirm Order', ms: 'Sahkan Pesanan' },
     cancel_order: { en: 'Cancel Order', ms: 'Batalkan Pesanan' },
-    no_new_orders: { en: 'No new orders to confirm', ms: 'Tiada pesanan baru untuk disahkan' },
-    order_confirmed_kitchen: { en: 'Order confirmed and sent to Kitchen', ms: 'Pesanan disahkan dan dihantar ke Dapur' },
-    order_created_pending: { en: 'Order created. Please confirm it in New Orders.', ms: 'Pesanan dibuat. Sila sahkan di Pesanan Baru.' },
-    order_paid_history: { en: 'Order paid and moved to History', ms: 'Pesanan dibayar dan dipindahkan ke Sejarah' },
     download_receipt: { en: 'Download Receipt', ms: 'Muat Turun Resit' },
-
+    
+    // Pagination
+    first: { en: 'First', ms: 'Pertama' },
+    prev: { en: 'Prev', ms: 'Sebelum' },
+    next: { en: 'Next', ms: 'Seterus' },
+    last: { en: 'Last', ms: 'Terakhir' },
+    
     // Sizes
     size_small: { en: 'Small', ms: 'Kecil' },
     size_medium: { en: 'Medium', ms: 'Sederhana' },
     size_large: { en: 'Large', ms: 'Besar' },
+    
+    // Action
+    action: { en: 'Action', ms: 'Tindakan' },
+    date: { en: 'Date', ms: 'Tarikh' },
+    id: { en: 'ID', ms: 'ID' },
+    order_type: { en: 'Type', ms: 'Jenis' },
+    payment_method_label: { en: 'Payment', ms: 'Bayaran' },
+    btn_receipt: { en: 'Receipt', ms: 'Resit' },
+    
+    // POS
+    pos: { en: '🧾 POS', ms: '🧾 Jualan' },
+    kitchen: { en: 'Kitchen', ms: 'Dapur' },
+    refresh: { en: 'Refresh', ms: 'Segar' },
+    sound: { en: 'Sound', ms: 'Bunyi' },
+    service_charge: { en: 'Service Charge', ms: 'Caj Perkhidmatan' },
+    tax: { en: 'Tax', ms: 'Cukai' },
+    place_order: { en: 'Place Order', ms: 'Hantar Pesanan' },
+    accept: { en: 'Accept', ms: 'Terima' },
+    start_cooking: { en: 'Start Cooking', ms: 'Mula Masak' },
+    ready: { en: 'Ready', ms: 'Sedia' },
+    preparing: { en: 'Preparing', ms: 'Sedang Masak' },
+    pending: { en: 'Pending', ms: 'Menunggu' },
+    record_payment: { en: 'Record Payment', ms: 'Rekod Bayaran' },
+    payment_method: { en: 'Payment Method', ms: 'Kaedah Bayaran' },
+    add_to_cart: { en: 'Add to Cart', ms: 'Tambah ke Keranjang' },
+    no_data: { en: 'No data', ms: 'Tiada data' },
+    new_orders: { en: 'new orders', ms: 'pesanan baru' },
+    select_drink: { en: 'Select drink temperature', ms: 'Pilih suhu minuman' },
   }
 
   const t = (key) => {
@@ -166,6 +201,7 @@ function StaffApp() {
   const [cart, setCart] = useState([])
   const [unpaidOrders, setUnpaidOrders] = useState([])
   const [newOrders, setNewOrders] = useState([])
+  const [orderHistory, setOrderHistory] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedItem, setSelectedItem] = useState(null)
   const [selectedOption, setSelectedOption] = useState('')
@@ -181,7 +217,10 @@ function StaffApp() {
   const [menuOptions, setMenuOptions] = useState([])
   const [showUnpaidOrders, setShowUnpaidOrders] = useState(false)
   const [showNewOrders, setShowNewOrders] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [viewingOrder, setViewingOrder] = useState(null)
+  const [historyPage, setHistoryPage] = useState(1)
+  const historyItemsPerPage = 10
 
   // ===== CHECK MOBILE =====
   useEffect(() => {
@@ -221,6 +260,7 @@ function StaffApp() {
     loadAllData()
     loadUnpaidOrders()
     loadNewOrders()
+    loadOrderHistory()
     
     const menuSub = supabase
       .channel('staff_menu')
@@ -242,7 +282,11 @@ function StaffApp() {
       .channel('staff_orders')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'customer_orders' },
-        () => { loadUnpaidOrders(); loadNewOrders() }
+        () => { 
+          loadUnpaidOrders()
+          loadNewOrders()
+          loadOrderHistory()
+        }
       )
       .subscribe()
     
@@ -325,7 +369,6 @@ function StaffApp() {
 
       if (error) throw error
 
-      // Only show orders that staff has confirmed. New orders remain in New Orders.
       const confirmed = (data || []).filter(order => {
         const workflowStatus = order.order_status || order.status
         return [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'preparing', 'ready', 'served'].includes(workflowStatus) ||
@@ -348,7 +391,6 @@ function StaffApp() {
 
       if (error) throw error
 
-      // Support both new workflow (order_status) and old workflow (status = pending).
       const pending = (data || []).filter(order => {
         const workflowStatus = order.order_status || order.status
         return [ORDER_STATUS.NEW, 'pending'].includes(workflowStatus) || order.status === 'pending'
@@ -357,6 +399,24 @@ function StaffApp() {
     } catch (err) {
       console.error('Error loading new orders:', err)
       setNewOrders([])
+    }
+  }
+
+  async function loadOrderHistory() {
+    try {
+      const { data, error } = await supabase
+        .from('customer_orders')
+        .select('*')
+        .eq('payment_status', PAYMENT_STATUS.PAID)
+        .order('created_at', { ascending: false })
+        .limit(200)
+
+      if (error) throw error
+      setOrderHistory(data || [])
+      setHistoryPage(1)
+    } catch (err) {
+      console.error('Error loading order history:', err)
+      setOrderHistory([])
     }
   }
 
@@ -674,6 +734,7 @@ function StaffApp() {
 
       toast.success(t('order_paid_history'))
       await loadUnpaidOrders()
+      await loadOrderHistory()
       setViewingOrder(null)
       setShowUnpaidOrders(false)
     } catch (err) {
@@ -681,7 +742,6 @@ function StaffApp() {
       toast.error(err.message)
     }
   }
-
 
   // ===== CONFIRM / CANCEL NEW ORDER =====
   const confirmNewOrder = async (order) => {
@@ -799,7 +859,6 @@ function StaffApp() {
     printWindow.document.close()
   }
 
-
   const downloadReceipt = (order) => {
     const lines = []
     lines.push('================================')
@@ -871,7 +930,7 @@ function StaffApp() {
           overflowY: 'auto'
         }}>
           
-          {/* Image with objectFit cover */}
+          {/* Image with objectFit contain */}
           {selectedItem.image_url ? (
             <img 
               src={selectedItem.image_url} 
@@ -1234,7 +1293,6 @@ function StaffApp() {
     )
   }
 
-
   // ============================================================
   // RENDER NEW ORDERS MODAL
   // ============================================================
@@ -1250,7 +1308,7 @@ function StaffApp() {
         ) : newOrders.map(order => (
           <div key={order.id} style={{ background: secondaryBg, border:`1px solid ${borderColor}`, borderRadius:'18px', padding:'16px', marginBottom:'12px' }}>
             <div style={{ display:'flex', justifyContent:'space-between', gap:'10px', flexWrap:'wrap', marginBottom:'10px' }}>
-              <strong style={{ color:textColor }}>{order.customer_name || 'Guest'} {order.table_number ? `• Meja ${order.table_number}` : '• Take Away'}</strong>
+              <strong style={{ color:textColor }}>{order.customer_name || 'Guest'} {order.table_number ? `• ${t('table')} ${order.table_number}` : '• ' + t('take_away')}</strong>
               <span style={{ color:textMuted, fontSize:'12px' }}>{new Date(order.created_at).toLocaleString()}</span>
             </div>
             <div style={{ color:textColor, marginBottom:'12px' }}>
@@ -1262,7 +1320,7 @@ function StaffApp() {
               ))}
             </div>
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
-              <strong style={{ color:priceColor }}>Total: RM {Number(order.total || order.subtotal || 0).toFixed(2)}</strong>
+              <strong style={{ color:priceColor }}>{t('total')}: RM {Number(order.total || order.subtotal || 0).toFixed(2)}</strong>
               <div style={{ display:'flex', gap:'8px' }}>
                 <button onClick={() => confirmNewOrder(order)} style={{ background:'linear-gradient(135deg,#2563eb,#1d4ed8)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>✅ {t('confirm_order')}</button>
                 <button onClick={() => cancelNewOrder(order)} style={{ background:'linear-gradient(135deg,#ef4444,#dc2626)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>{t('cancel')}</button>
@@ -1345,7 +1403,6 @@ function StaffApp() {
               {t('no_unpaid_orders')}
             </div>
           ) : viewingOrder ? (
-            // View single order
             <div>
               <button 
                 onClick={() => setViewingOrder(null)}
@@ -1467,7 +1524,6 @@ function StaffApp() {
               </div>
             </div>
           ) : (
-            // List of unpaid orders
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {unpaidOrders.map(order => (
                 <div key={order.id} style={{
@@ -1524,6 +1580,191 @@ function StaffApp() {
                 </div>
               ))}
             </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ============================================================
+  // RENDER HISTORY MODAL
+  // ============================================================
+  const renderHistoryModal = () => {
+    const totalPages = Math.ceil(orderHistory.length / historyItemsPerPage)
+    
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 2000,
+        animation: 'fadeIn 0.2s ease',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: cardBg,
+          borderRadius: '28px',
+          padding: isMobile ? '20px' : '28px',
+          maxWidth: '900px',
+          width: '100%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          ...glassEffect,
+          animation: 'popIn 0.3s ease'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px'
+          }}>
+            <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>
+              📜 {t('history_title')} ({orderHistory.length})
+            </h2>
+            <button 
+              onClick={() => setShowHistoryModal(false)}
+              style={{
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                transition: 'all 0.2s'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {orderHistory.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: textMuted }}>
+              <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>📭</span>
+              {t('no_history_orders')}
+            </div>
+          ) : (
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: darkMode ? 'rgba(30,30,46,0.8)' : '#f1f5f9' }}>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('id')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('customer_name')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('order_type')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('total')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('payment_method_label')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('date')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('action')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orderHistory.slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage).map(order => (
+                      <tr key={order.id} style={{ borderBottom: `1px solid ${borderColor}` }}>
+                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>{order.order_number || `ORD-${order.id}`}</td>
+                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>{order.customer_name || 'Walk-in'}</td>
+                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>
+                          {order.order_type === 'take_away' ? '🥡 ' + t('take_away') : '🍽️ ' + t('table') + ' ' + (order.table_number || '')}
+                        </td>
+                        <td style={{ padding: '10px', color: priceColor, fontWeight: 'bold', fontSize: '13px' }}>
+                          RM {Number(order.grand_total || order.total || 0).toFixed(2)}
+                        </td>
+                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>
+                          {order.payment_method === 'cash' ? '💵 ' + t('cash') : 
+                           order.payment_method === 'tng' ? '📱 ' + t('tng') : 
+                           order.payment_method === 'bank' ? '🏦 ' + t('bank') : '-'}
+                        </td>
+                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>
+                          {new Date(order.created_at).toLocaleString()}
+                        </td>
+                        <td style={{ padding: '10px' }}>
+                          <button 
+                            onClick={() => {
+                              setViewingOrder(order)
+                              setShowHistoryModal(false)
+                              setShowUnpaidOrders(true)
+                            }}
+                            style={{
+                              background: '#3b82f6',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '30px',
+                              padding: '4px 14px',
+                              cursor: 'pointer',
+                              fontSize: '11px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            👁️ {t('view_order')}
+                          </button>
+                          <button 
+                            onClick={() => downloadReceipt(order)}
+                            style={{
+                              background: '#8b5cf6',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '30px',
+                              padding: '4px 14px',
+                              cursor: 'pointer',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              marginLeft: '4px'
+                            }}
+                          >
+                            ⬇️
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '16px', flexWrap: 'wrap' }}>
+                  <button 
+                    onClick={() => setHistoryPage(1)} 
+                    disabled={historyPage === 1}
+                    style={{ padding: '6px 12px', background: historyPage === 1 ? secondaryBg : '#3b82f6', color: historyPage === 1 ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                  >
+                    « {t('first')}
+                  </button>
+                  <button 
+                    onClick={() => setHistoryPage(prev => Math.max(1, prev - 1))} 
+                    disabled={historyPage === 1}
+                    style={{ padding: '6px 12px', background: historyPage === 1 ? secondaryBg : '#3b82f6', color: historyPage === 1 ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                  >
+                    ‹ {t('prev')}
+                  </button>
+                  <span style={{ padding: '4px 14px', background: cardBg, borderRadius: '30px', color: textColor, fontSize: '13px', border: `1px solid ${borderColor}` }}>
+                    {historyPage} / {totalPages}
+                  </span>
+                  <button 
+                    onClick={() => setHistoryPage(prev => Math.min(totalPages, prev + 1))} 
+                    disabled={historyPage === totalPages}
+                    style={{ padding: '6px 12px', background: historyPage === totalPages ? secondaryBg : '#3b82f6', color: historyPage === totalPages ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === totalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                  >
+                    {t('next')} ›
+                  </button>
+                  <button 
+                    onClick={() => setHistoryPage(totalPages)} 
+                    disabled={historyPage === totalPages}
+                    style={{ padding: '6px 12px', background: historyPage === totalPages ? secondaryBg : '#3b82f6', color: historyPage === totalPages ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === totalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                  >
+                    {t('last')} »
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -1629,19 +1870,43 @@ function StaffApp() {
               {t('new_order')}
             </button>
             
-
+            {/* New Orders Button */}
             <button
               onClick={() => { setShowNewOrders(true); loadNewOrders() }}
               style={{
                 padding: isMobile ? '8px 16px' : '10px 20px',
                 background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                color: 'white', border: 'none', borderRadius: '30px', cursor: 'pointer',
-                fontWeight: 'bold', fontSize: isMobile ? '11px' : '13px',
-                boxShadow: '0 4px 16px rgba(37,99,235,0.3)', transition: 'all 0.2s', position:'relative'
+                color: 'white',
+                border: 'none',
+                borderRadius: '30px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '11px' : '13px',
+                boxShadow: '0 4px 16px rgba(37,99,235,0.3)',
+                transition: 'all 0.2s',
+                position: 'relative'
               }}
             >
               🆕 {t('new_orders_title')}
-              {newOrders.length > 0 && <span style={{ position:'absolute', top:'-6px', right:'-6px', background:'#ef4444', color:'white', borderRadius:'50%', width:'20px', height:'20px', fontSize:'10px', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold' }}>{newOrders.length}</span>}
+              {newOrders.length > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-6px',
+                  right: '-6px',
+                  background: '#ef4444',
+                  color: 'white',
+                  borderRadius: '50%',
+                  width: '20px',
+                  height: '20px',
+                  fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 'bold'
+                }}>
+                  {newOrders.length}
+                </span>
+              )}
             </button>
 
             {/* Unpaid Orders Button */}
@@ -1687,6 +1952,27 @@ function StaffApp() {
                   {unpaidOrders.length}
                 </span>
               )}
+            </button>
+
+            {/* History Button */}
+            <button
+              onClick={() => { setShowHistoryModal(true); loadOrderHistory() }}
+              style={{
+                padding: isMobile ? '8px 16px' : '10px 20px',
+                background: 'linear-gradient(135deg, #6c757d, #495057)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '30px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '11px' : '13px',
+                boxShadow: '0 4px 16px rgba(108,117,125,0.3)',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.97)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              📜 {t('history_orders')}
             </button>
           </div>
         </div>
@@ -1959,7 +2245,7 @@ function StaffApp() {
                   </div>
                 )}
                 
-                {/* Image with objectFit cover */}
+                {/* Image with objectFit contain */}
                 {item.image_url ? (
                   <img
                     src={item.image_url}
@@ -2160,6 +2446,9 @@ function StaffApp() {
 
         {/* UNPAID ORDERS MODAL */}
         {showUnpaidOrders && renderUnpaidOrdersModal()}
+        
+        {/* HISTORY MODAL */}
+        {showHistoryModal && renderHistoryModal()}
         
         {/* STYLES */}
         <style>

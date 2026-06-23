@@ -122,7 +122,7 @@ function StaffApp() {
 
   // ===== NOTIFICATION STATE =====
   const [notifiedOrderIds, setNotifiedOrderIds] = useState([])
-  const audioRef = useRef(null)
+  const [audioContext, setAudioContext] = useState(null)
 
   // ===== SETTINGS =====
   const [settings, setSettings] = useState({
@@ -169,59 +169,92 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PLAY NOTIFICATION SOUND - GUNA FILE SENDIRI (SAME AS KITCHEN APP)
+  // PLAY NOTIFICATION SOUND - WITH DEBUG + FALLBACK
   // ============================================================
-  const playNotificationSound = () => {
-    if (!settings.notification_sound) return
-    
+  const playBeepSound = () => {
+    console.log('🔊 Playing beep sound via Web Audio API')
     try {
-      // Guna file sound dari public/sound/ (same macam KitchenApp)
-      const audio = new Audio(NOTIFICATION_SOUND_URL)
-      audio.volume = 0.8
+      const ctx = new (window.AudioContext || window.webkitAudioContext)()
       
-      audio.play().catch(err => {
-        console.log('Audio play error:', err)
-        // Fallback - guna Web Audio API
-        fallbackBeep()
-      })
+      // Resume if suspended (needed for Chrome)
+      if (ctx.state === 'suspended') {
+        ctx.resume()
+      }
+      
+      // Beep 1 - 800Hz
+      const osc1 = ctx.createOscillator()
+      const gain1 = ctx.createGain()
+      osc1.connect(gain1)
+      gain1.connect(ctx.destination)
+      osc1.frequency.value = 800
+      osc1.type = 'sine'
+      gain1.gain.setValueAtTime(0.5, ctx.currentTime)
+      gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
+      osc1.start(ctx.currentTime)
+      osc1.stop(ctx.currentTime + 0.3)
+      
+      // Beep 2 - 1000Hz (higher pitch)
+      setTimeout(() => {
+        try {
+          const osc2 = ctx.createOscillator()
+          const gain2 = ctx.createGain()
+          osc2.connect(gain2)
+          gain2.connect(ctx.destination)
+          osc2.frequency.value = 1000
+          osc2.type = 'sine'
+          gain2.gain.setValueAtTime(0.5, ctx.currentTime)
+          gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2)
+          osc2.start(ctx.currentTime)
+          osc2.stop(ctx.currentTime + 0.2)
+        } catch (e) {
+          console.log('Beep 2 error:', e)
+        }
+      }, 200)
+      
+      console.log('✅ Beep played successfully!')
     } catch (err) {
-      console.log('Audio not supported:', err)
-      fallbackBeep()
+      console.log('❌ Web Audio API failed:', err)
     }
   }
 
-  // ===== FALLBACK BEEP (jika file sound gagal) =====
-  const fallbackBeep = () => {
-    try {
-      const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
-      
-      const oscillator = audioCtx.createOscillator()
-      const gainNode = audioCtx.createGain()
-      oscillator.connect(gainNode)
-      gainNode.connect(audioCtx.destination)
-      oscillator.frequency.value = 800
-      oscillator.type = 'sine'
-      gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime)
-      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3)
-      oscillator.start(audioCtx.currentTime)
-      oscillator.stop(audioCtx.currentTime + 0.3)
-      
-      setTimeout(() => {
-        const osc2 = audioCtx.createOscillator()
-        const gain2 = audioCtx.createGain()
-        osc2.connect(gain2)
-        gain2.connect(audioCtx.destination)
-        osc2.frequency.value = 1000
-        osc2.type = 'sine'
-        gain2.gain.setValueAtTime(0.3, audioCtx.currentTime)
-        gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2)
-        osc2.start(audioCtx.currentTime)
-        osc2.stop(audioCtx.currentTime + 0.2)
-      }, 200)
-      
-    } catch (err) {
-      console.log('Fallback audio error:', err)
+  const playNotificationSound = () => {
+    console.log('🔔 playNotificationSound called')
+    console.log('📋 settings.notification_sound:', settings.notification_sound)
+    
+    if (!settings.notification_sound) {
+      console.log('🔇 Sound disabled in settings')
+      return
     }
+    
+    // TRY 1: File sound
+    try {
+      console.log('📁 Trying file sound:', NOTIFICATION_SOUND_URL)
+      const audio = new Audio(NOTIFICATION_SOUND_URL)
+      audio.volume = 1.0
+      
+      const playPromise = audio.play()
+      
+      if (playPromise !== undefined) {
+        playPromise.then(() => {
+          console.log('✅ File sound played successfully!')
+        }).catch(err => {
+          console.log('❌ File sound failed:', err)
+          console.log('🔄 Falling back to Web Audio API...')
+          playBeepSound()
+        })
+      }
+    } catch (err) {
+      console.log('❌ Audio creation error:', err)
+      console.log('🔄 Falling back to Web Audio API...')
+      playBeepSound()
+    }
+  }
+
+  // Test sound function
+  const testSound = () => {
+    console.log('🧪 Test sound button clicked!')
+    playNotificationSound()
+    toast.info('🔊 Testing notification sound...')
   }
 
   // ============================================================
@@ -247,6 +280,7 @@ function StaffApp() {
       })
 
       setSettings(prev => ({ ...prev, ...settingsObj }))
+      console.log('✅ Settings loaded:', settingsObj)
     } catch (err) {
       console.error('Error loading settings:', err)
     }
@@ -304,15 +338,22 @@ function StaffApp() {
     loadNewOrders()
     
     const interval = setInterval(async () => {
+      console.log('🔄 Checking for new orders...')
       await loadNewOrders()
+      
+      console.log('📋 New orders count:', newOrders.length)
+      console.log('📋 Notified IDs:', notifiedOrderIds)
       
       const pendingOrders = newOrders.filter(order => 
         !notifiedOrderIds.includes(order.id) && 
         (order.status === 'pending' || order.order_status === 'pending' || order.status === ORDER_STATUS.NEW)
       )
       
+      console.log('📋 Pending orders to notify:', pendingOrders.length)
+      
       if (pendingOrders.length > 0) {
-        playNotificationSound()  // ← Bunyi dari file sound!
+        console.log('🔔 Playing notification sound!')
+        playNotificationSound()
         setNotifiedOrderIds(prev => [...prev, ...pendingOrders.map(o => o.id)])
         toast.info(`🔔 ${pendingOrders.length} ${t('new_order_notification')}`, {
           duration: 5000,
@@ -2114,6 +2155,25 @@ function StaffApp() {
             gap: '10px',
             flexWrap: 'wrap'
           }}>
+            {/* TEST SOUND BUTTON */}
+            <button
+              onClick={testSound}
+              style={{
+                padding: isMobile ? '8px 16px' : '10px 20px',
+                background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '30px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '11px' : '13px',
+                boxShadow: '0 4px 16px rgba(139,92,246,0.3)',
+              }}
+              title="Test Notification Sound"
+            >
+              🔊 Test Sound
+            </button>
+
             <button
               onClick={() => {
                 setCart([])

@@ -12,7 +12,7 @@ function StaffApp() {
   const { language } = useLanguage()
 
   // ============================================================
-  // TRANSLATIONS - TANPA EMOJI (emoji letak kat button)
+  // TRANSLATIONS - TANPA EMOJI
   // ============================================================
   const translations = {
     pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
@@ -244,12 +244,16 @@ function StaffApp() {
     setLoading(false)
   }
 
+  // ============================================================
+  // LOAD CATEGORIES - FIXED with parent_id
+  // ============================================================
   async function loadCategories() {
     try {
       const { data } = await supabase
         .from('categories')
         .select('*')
         .order('sort_order')
+      console.log('📂 Categories loaded:', data)
       setCategories(data || [])
     } catch (err) {
       console.error('Error loading categories:', err)
@@ -481,11 +485,65 @@ function StaffApp() {
   }
 
   // ============================================================
-  // GET CATEGORY ICON
+  // HELPERS - FIXED Parent/Sub Categories
+  // ============================================================
+  const getCategories = () => {
+    return ['All', ...categories.map(c => c.name)]
+  }
+
+  // ============================================================
+  // GET FILTERED MENU - FIXED with Parent/Sub
+  // ============================================================
+  const getFilteredMenu = () => {
+    let filtered = [...menu]
+    
+    if (selectedCategory !== 'All') {
+      // Cari category yang dipilih
+      const selectedCat = categories.find(c => c.name === selectedCategory)
+      
+      if (selectedCat) {
+        // Check sama ada ia parent category (parent_id = null)
+        const isParent = selectedCat.parent_id === null || selectedCat.parent_id === undefined
+        
+        if (isParent) {
+          // Jika parent, dapatkan semua sub-category names
+          const subCategoryNames = categories
+            .filter(c => c.parent_id === selectedCat.id)
+            .map(c => c.name)
+          
+          // Include parent + semua sub-categories
+          const allRelatedCategories = [selectedCategory, ...subCategoryNames]
+          filtered = filtered.filter(item => allRelatedCategories.includes(item.category))
+        } else {
+          // Jika sub-category, filter macam biasa
+          filtered = filtered.filter(item => item.category === selectedCategory)
+        }
+      } else {
+        // Fallback - filter macam biasa
+        filtered = filtered.filter(item => item.category === selectedCategory)
+      }
+    }
+    
+    if (searchTerm) {
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+    }
+    return filtered
+  }
+
+  // ============================================================
+  // GET CATEGORY ICON - FIXED with categories data
   // ============================================================
   const getCategoryIcon = (cat) => {
     if (!cat) return '📂'
     if (cat === 'All' || cat === 'Semua') return '📋'
+    
+    // Cari category dalam list categories
+    const found = categories.find(c => c.name === cat)
+    if (found?.icon) return found.icon
+    
+    // Fallback icons
     const icons = {
       'Makanan': '🍚',
       'Minuman': '🥤',
@@ -498,24 +556,6 @@ function StaffApp() {
       'Telur': '🥚'
     }
     return icons[cat] || '📂'
-  }
-
-  // ===== HELPERS =====
-  const getCategories = () => {
-    return ['All', ...categories.map(c => c.name)]
-  }
-
-  const getFilteredMenu = () => {
-    let filtered = [...menu]
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(item => item.category === selectedCategory)
-    }
-    if (searchTerm) {
-      filtered = filtered.filter(item => 
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-    return filtered
   }
 
   const isDrinkCategory = (category) => {
@@ -1534,7 +1574,7 @@ function StaffApp() {
                 </div>
               </div>
 
-              {/* PAYMENT METHOD - NO EMOJI IN TEXT, ONLY IN BUTTONS */}
+              {/* PAYMENT METHOD */}
               <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
                 <span style={{ color: textColor, fontWeight: 'bold', fontSize: '14px', width: '100%' }}>
                   💳 {t('payment_method')}:

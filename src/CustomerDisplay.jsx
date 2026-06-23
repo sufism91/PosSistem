@@ -85,6 +85,14 @@ function CustomerDisplay() {
   // Current time
   const [currentTime, setCurrentTime] = useState(new Date())
 
+  // Settings for print
+  const [printSettings, setPrintSettings] = useState({
+    restaurant_name: 'Restoran Kita',
+    service_charge_percent: 6,
+    tax_percent: 6,
+    auto_print: true
+  })
+
   // ============================================================
   // TRANSLATIONS
   // ============================================================
@@ -92,7 +100,7 @@ function CustomerDisplay() {
     menu_pricing: { en: 'Menu & Pricing', ms: 'Menu & Harga' },
     open: { en: 'OPEN', ms: 'BUKA' },
     closed: { en: 'CLOSED', ms: 'TUTUP' },
-    billing: { en: '💳 Billing', ms: '💳 Bil' },
+    billing: { en: '💰 Billing', ms: '💰 Bil' },
     take_away: { en: 'Take Away', ms: 'Bungkus' },
     all_orders: { en: 'All Orders', ms: 'Semua Pesanan' },
     select_table: { en: 'Select Table', ms: 'Pilih Meja' },
@@ -138,6 +146,7 @@ function CustomerDisplay() {
     drink_options: { en: 'Drink Options', ms: 'Pilihan Minuman' },
     no_drink_options: { en: 'No drink options available', ms: 'Tiada pilihan minuman' },
     preview_receipt: { en: 'Preview Receipt', ms: 'Preview Resit' },
+    mark_paid: { en: 'Mark as Paid', ms: 'Tanda Bayar' },
   }
 
   const t2 = (key) => {
@@ -210,7 +219,7 @@ function CustomerDisplay() {
   }, [businessHoursStart, businessHoursEnd])
 
   // ============================================================
-  // LOAD DRINK OPTIONS
+  // DRINK OPTIONS HELPERS
   // ============================================================
   async function loadDrinkOptions() {
     try {
@@ -225,9 +234,6 @@ function CustomerDisplay() {
     }
   }
 
-  // ============================================================
-  // GET DRINK OPTIONS FOR ITEM
-  // ============================================================
   function normalizeText(value) {
     return String(value || '').trim().toLowerCase()
   }
@@ -285,6 +291,7 @@ function CustomerDisplay() {
         loadSettings()
         loadSpecialMenu()
         loadBusinessHours()
+        loadPrintSettings()
       })
       .subscribe()
 
@@ -314,6 +321,7 @@ function CustomerDisplay() {
     await loadPromotions()
     await loadBusinessHours()
     await loadDrinkOptions()
+    await loadPrintSettings()
     setLoading(false)
   }
 
@@ -364,6 +372,32 @@ function CustomerDisplay() {
       const tx = data.find(s => s.key === 'tax')
       if (sc) setServiceChargePercent(parseFloat(sc.value) || 0)
       if (tx) setTaxPercent(parseFloat(tx.value) || 0)
+    }
+  }
+
+  async function loadPrintSettings() {
+    try {
+      const { data } = await supabase.from('settings').select('key, value')
+      if (data) {
+        const settings = {}
+        data.forEach(item => {
+          if (item.key === 'service_charge' || item.key === 'tax') {
+            settings[item.key] = parseFloat(item.value) || 0
+          } else if (item.key === 'auto_print') {
+            settings[item.key] = item.value === 'true'
+          } else {
+            settings[item.key] = item.value
+          }
+        })
+        setPrintSettings({
+          restaurant_name: settings.restaurant_name || 'Restoran Kita',
+          service_charge_percent: settings.service_charge || 6,
+          tax_percent: settings.tax || 6,
+          auto_print: settings.auto_print || true
+        })
+      }
+    } catch (err) {
+      console.error('Error loading print settings:', err)
     }
   }
 
@@ -549,38 +583,6 @@ function CustomerDisplay() {
   }
 
   // ============================================================
-  // LOAD SETTINGS FOR PRINT
-  // ============================================================
-  const [printSettings, setPrintSettings] = useState({
-    restaurant_name: 'Restoran Kita',
-    service_charge_percent: 6,
-    tax_percent: 6,
-  })
-
-  async function loadPrintSettings() {
-    try {
-      const { data } = await supabase.from('settings').select('key, value')
-      if (data) {
-        const settings = {}
-        data.forEach(item => {
-          if (item.key === 'service_charge' || item.key === 'tax') {
-            settings[item.key] = parseFloat(item.value) || 0
-          } else {
-            settings[item.key] = item.value
-          }
-        })
-        setPrintSettings({
-          restaurant_name: settings.restaurant_name || 'Restoran Kita',
-          service_charge_percent: settings.service_charge || 6,
-          tax_percent: settings.tax || 6,
-        })
-      }
-    } catch (err) {
-      console.error('Error loading print settings:', err)
-    }
-  }
-
-  // ============================================================
   // PAYMENT & PRINT FUNCTIONS - SYNC WITH StaffApp
   // ============================================================
   async function markAsPaid(order) {
@@ -616,21 +618,9 @@ function CustomerDisplay() {
     setSelectedOrder(null)
     toast.success(`✅ ${t2('payment_received')} RM ${grandTotal.toFixed(2)}!`)
     
-    // Auto print after payment - SYNC with StaffApp
-    try {
-      const { data: autoPrintData } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'auto_print')
-        .single()
-      
-      const { data: printerTypeData } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'printer_type')
-        .single()
-      
-      if (autoPrintData?.value === 'true' && printerTypeData?.value !== 'none') {
+    // Auto print after payment
+    if (printSettings.auto_print) {
+      try {
         const receiptOrder = { 
           ...order, 
           payment_method: paymentMethod, 
@@ -644,14 +634,14 @@ function CustomerDisplay() {
         setTimeout(() => {
           printReceiptDirect(receiptOrder)
         }, 500)
+      } catch (err) {
+        console.error('Auto print error:', err)
       }
-    } catch (err) {
-      console.error('Auto print error:', err)
     }
   }
 
   // ============================================================
-  // PRINT RECEIPT - SYNC WITH StaffApp (use generateReceiptHTML)
+  // PRINT RECEIPT - SYNC WITH StaffApp
   // ============================================================
   const printReceiptDirect = (order) => {
     const method = order.payment_method || paymentMethod || 'cash'
@@ -699,17 +689,45 @@ function CustomerDisplay() {
     return t2('promo')
   }
 
-  // Get categories for filter
-  const categoryNames = ['All', ...categories.map(cat => cat.name)]
+  // Get categories for filter with parent/child support
+  const getCategoriesWithParent = () => {
+    return ['All', ...categories.map(cat => cat.name)]
+  }
 
-  // Filter menu for display
-  const displayMenu = getFilteredDisplayMenu()
-  
+  // Filter menu for display with parent/child support
+  const getFilteredMenuWithParent = () => {
+    let filtered = getFilteredDisplayMenu()
+    
+    if (selectedCategory !== 'All') {
+      const selectedCat = categories.find(c => c.name === selectedCategory)
+      
+      if (selectedCat) {
+        const isParent = selectedCat.parent_id === null || selectedCat.parent_id === undefined
+        
+        if (isParent) {
+          const subCategoryNames = categories
+            .filter(c => c.parent_id === selectedCat.id)
+            .map(c => c.name)
+          const allRelatedCategories = [selectedCategory, ...subCategoryNames]
+          filtered = filtered.filter(item => allRelatedCategories.includes(item.category))
+        } else {
+          filtered = filtered.filter(item => item.category === selectedCategory)
+        }
+      } else {
+        filtered = filtered.filter(item => item.category === selectedCategory)
+      }
+    }
+    
+    return filtered
+  }
+
   // Filter menu by category and search
+  const categoryNames = getCategoriesWithParent()
+  const displayMenu = getFilteredMenuWithParent()
+  
   const filteredMenu = displayMenu.filter(item => {
-    const matchCategory = selectedCategory === 'All' || item.category === selectedCategory
     const matchSearch = item.name.toLowerCase().includes(searchMenu.toLowerCase())
-    return matchCategory && matchSearch
+    return matchSearch
   })
 
   // Filter orders
@@ -1486,6 +1504,7 @@ function CustomerDisplay() {
                 const promo = getItemPromotion(item)
                 const promoPrice = getPromoPrice(item)
                 
+                // Get drink options with images
                 const drinkOpts = getDrinkOptionsForItem(item)
                 const hasDrinkOpts = drinkOpts.length > 0
                 
@@ -1606,7 +1625,7 @@ function CustomerDisplay() {
                       )}
                     </div>
                     
-                    {/* Drink Options */}
+                    {/* Drink Options WITH IMAGES */}
                     {hasDrinkOpts && (
                       <div style={{
                         marginTop: '8px',
@@ -1618,29 +1637,46 @@ function CustomerDisplay() {
                         flexWrap: 'wrap'
                       }}>
                         {drinkOpts.slice(0, 3).map(opt => (
-                          <span key={opt.id} style={{
+                          <div key={opt.id} style={{
                             fontSize: '9px',
                             background: secondaryBg,
-                            padding: '2px 8px',
+                            padding: '4px 8px',
                             borderRadius: '12px',
                             color: textMuted,
                             display: 'flex',
+                            flexDirection: 'column',
                             alignItems: 'center',
-                            gap: '3px',
-                            border: `1px solid ${borderColor}`
+                            gap: '2px',
+                            border: `1px solid ${borderColor}`,
+                            minWidth: '50px'
                           }}>
-                            {getOptionEmoji(opt.option_type)}
-                            {getOptionLabel(opt.option_type)}
-                            <span style={{ color: priceColor, fontWeight: 'bold' }}>
+                            {opt.image_url ? (
+                              <img 
+                                src={opt.image_url} 
+                                alt={opt.option_type}
+                                style={{
+                                  width: '30px',
+                                  height: '30px',
+                                  objectFit: 'cover',
+                                  borderRadius: '6px',
+                                  border: `1px solid ${borderColor}`
+                                }}
+                              />
+                            ) : (
+                              <span style={{ fontSize: '14px' }}>{getOptionEmoji(opt.option_type)}</span>
+                            )}
+                            <span style={{ fontSize: '8px', fontWeight: 'bold' }}>{getOptionLabel(opt.option_type)}</span>
+                            <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '10px' }}>
                               RM {parseFloat(opt.price).toFixed(2)}
                             </span>
-                          </span>
+                          </div>
                         ))}
                         {drinkOpts.length > 3 && (
                           <span style={{
                             fontSize: '8px',
                             color: textMuted,
-                            padding: '2px 6px'
+                            padding: '2px 6px',
+                            alignSelf: 'center'
                           }}>
                             +{drinkOpts.length - 3}
                           </span>

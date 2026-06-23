@@ -96,7 +96,7 @@ function SortableCategoryButton({ category, icon, isActive, onClick, children, i
       style={{
         ...style,
         padding: isMobile ? '8px 18px' : '10px 24px',
-        background: isActive ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
+        background: isActive ? 'linear-gradient(135deg, #3b82f6, #1d4ed8)' : 'transparent',
         color: isActive ? 'white' : textColor,
         border: isActive ? 'none' : `1px solid ${borderColor}`,
         borderRadius: '50px',
@@ -353,7 +353,7 @@ function ManageMenu() {
   // ============================================================
   // THEME COLORS
   // ============================================================
-  const bgColor = darkMode ? '#0a0a16' : '#f1f5f9'
+  const bgColor = darkMode ? '#07111f' : '#eff6ff'
   const cardBg = darkMode ? 'rgba(20, 20, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)'
   const textColor = darkMode ? '#e8edf5' : '#1e293b'
   const textMuted = darkMode ? '#94a3b8' : '#64748b'

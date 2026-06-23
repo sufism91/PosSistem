@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
 import { supabase } from './lib/supabase'
+import { PAYMENT_STATUS } from './lib/orderWorkflow'
 
 // Helper functions for Malaysia time (UTC+8)
 const formatMalaysiaDate = (date) => {
@@ -160,7 +161,7 @@ function CustomerDisplay() {
   // ============================================================
   // THEME COLORS
   // ============================================================
-  const bgColor = darkMode ? '#0a0a16' : '#f0f4f8'
+  const bgColor = darkMode ? '#07111f' : '#eff6ff'
   const cardBg = darkMode ? 'rgba(20, 20, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)'
   const textColor = darkMode ? '#e8edf5' : '#1e293b'
   const textMuted = darkMode ? '#94a3b8' : '#64748b'
@@ -450,7 +451,7 @@ function CustomerDisplay() {
   }
 
   async function loadTableOrders(tableNum) {
-    let query = supabase.from('customer_orders').select('*').eq('payment_status', 'unpaid').order('created_at', { ascending: false })
+    let query = supabase.from('customer_orders').select('*').eq('payment_status', PAYMENT_STATUS.UNPAID).order('created_at', { ascending: false })
     if (tableNum === 'takeaway') {
       query = query.eq('order_type', 'take_away')
     } else if (tableNum === 'all') {

@@ -3,6 +3,7 @@ import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
 import toast from 'react-hot-toast'
 import { supabase } from './lib/supabase'
+import { ORDER_STATUS, PAYMENT_STATUS, getDrinkOptionImage, normalizeOrderForInsert } from './lib/orderWorkflow'
 
 function CustomerMenu() {
   const { darkMode, toggleDarkMode } = useTheme()
@@ -259,7 +260,7 @@ function CustomerMenu() {
     const optionsMap = {}
     data?.forEach(opt => {
       if (!optionsMap[opt.drink_name]) optionsMap[opt.drink_name] = []
-      optionsMap[opt.drink_name].push({ type: opt.option_type, price: opt.price })
+      optionsMap[opt.drink_name].push({ type: opt.option_type, price: parseFloat(opt.price) || 0, image_url: opt.image_url || opt.option_image_url || opt.image || null })
     })
     setDrinkOptions(optionsMap)
   }
@@ -494,6 +495,9 @@ function CustomerMenu() {
     setShowDrinkModal(true)
   }
   
+  const selectedDrinkOptionData = selectedDrink ? drinkOptions[selectedDrink.name]?.find(opt => opt.type === selectedOption) : null
+  const selectedDrinkPreviewImage = selectedDrink ? getDrinkOptionImage(selectedDrink, selectedDrinkOptionData) : ''
+
   const addDrinkToCart = () => {
     if (!selectedDrink) return
     const options = drinkOptions[selectedDrink.name]
@@ -515,7 +519,8 @@ function CustomerMenu() {
       is_free: false,
       is_promo_item: false,
       category: 'Minuman',
-      option_type: selectedOption
+      option_type: selectedOption,
+      image_url: getDrinkOptionImage(selectedDrink, selected)
     }])
     setShowDrinkModal(false)
     setSelectedDrink(null)
@@ -679,7 +684,7 @@ function CustomerMenu() {
     const tax = getTax()
 
     try {
-      const { error } = await supabase.from('customer_orders').insert([{
+      const { error } = await supabase.from('customer_orders').insert([normalizeOrderForInsert({
         order_number: orderNumber,
         order_type: 'dine_in',
         table_number: parseInt(tableNumber),
@@ -691,9 +696,10 @@ function CustomerMenu() {
         tax: tax,
         total: total,
         notes: notes,
-        status: 'pending',
-        payment_status: 'unpaid'
-      }])
+        status: ORDER_STATUS.NEW,
+        order_status: ORDER_STATUS.NEW,
+        payment_status: PAYMENT_STATUS.UNPAID
+      })])
 
       if (error) {
         console.error('Submit error:', error)
@@ -1552,6 +1558,16 @@ function CustomerMenu() {
               {translate('drink_type')}
             </p>
             
+            {selectedDrinkPreviewImage && (
+              <div style={{ display:'flex', justifyContent:'center', marginBottom:'18px' }}>
+                <img
+                  src={selectedDrinkPreviewImage}
+                  alt={selectedDrink.name}
+                  style={{ width:isMobile ? '140px' : '180px', height:isMobile ? '140px' : '180px', objectFit:'cover', borderRadius:'24px', boxShadow:'0 14px 30px rgba(37,99,235,0.22)' }}
+                />
+              </div>
+            )}
+
             <div style={{ 
               display: 'flex',
               gap: '10px',

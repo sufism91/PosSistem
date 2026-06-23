@@ -3,6 +3,7 @@ import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
 import Sidebar from './components/Sidebar'
 import { supabase } from './lib/supabase'
+import { ORDER_STATUS, PAYMENT_STATUS, normalizeOrderForInsert, normalizeConfirmedUpdate } from './lib/orderWorkflow'
 import toast from 'react-hot-toast'
 
 function StaffApp() {
@@ -151,6 +152,7 @@ function StaffApp() {
   const [drinkOptions, setDrinkOptions] = useState([])
   const [cart, setCart] = useState([])
   const [unpaidOrders, setUnpaidOrders] = useState([])
+  const [newOrders, setNewOrders] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [selectedItem, setSelectedItem] = useState(null)
   const [selectedOption, setSelectedOption] = useState('')
@@ -165,6 +167,7 @@ function StaffApp() {
   const [searchTerm, setSearchTerm] = useState('')
   const [menuOptions, setMenuOptions] = useState([])
   const [showUnpaidOrders, setShowUnpaidOrders] = useState(false)
+  const [showNewOrders, setShowNewOrders] = useState(false)
   const [viewingOrder, setViewingOrder] = useState(null)
 
   // ===== CHECK MOBILE =====
@@ -178,7 +181,7 @@ function StaffApp() {
   }, [])
 
   // ===== THEME COLORS =====
-  const bgColor = darkMode ? '#0a0a16' : '#f1f5f9'
+  const bgColor = darkMode ? '#07111f' : '#eff6ff'
   const cardBg = darkMode ? 'rgba(20, 20, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)'
   const textColor = darkMode ? '#e8edf5' : '#1e293b'
   const textMuted = darkMode ? '#94a3b8' : '#64748b'
@@ -204,6 +207,7 @@ function StaffApp() {
   useEffect(() => {
     loadAllData()
     loadUnpaidOrders()
+    loadNewOrders()
     
     const menuSub = supabase
       .channel('staff_menu')
@@ -225,7 +229,7 @@ function StaffApp() {
       .channel('staff_orders')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'customer_orders' },
-        () => { loadUnpaidOrders() }
+        () => { loadUnpaidOrders(); loadNewOrders() }
       )
       .subscribe()
     
@@ -309,6 +313,21 @@ function StaffApp() {
     } catch (err) {
       console.error('Error loading unpaid orders:', err)
       setUnpaidOrders([])
+    }
+  }
+
+  async function loadNewOrders() {
+    try {
+      const { data } = await supabase
+        .from('customer_orders')
+        .select('*')
+        .in('status', [ORDER_STATUS.NEW, 'pending'])
+        .eq('payment_status', PAYMENT_STATUS.UNPAID)
+        .order('created_at', { ascending: false })
+      setNewOrders(data || [])
+    } catch (err) {
+      console.error('Error loading new orders:', err)
+      setNewOrders([])
     }
   }
 
@@ -581,15 +600,16 @@ function StaffApp() {
       customer_name: customerName || 'Guest',
       table_number: orderType === 'dine_in' ? parseInt(tableNumber) || null : null,
       order_type: orderType,
-      status: 'pending',
-      payment_status: 'unpaid',
+      status: ORDER_STATUS.NEW,
+      order_status: ORDER_STATUS.NEW,
+      payment_status: PAYMENT_STATUS.UNPAID,
       notes: cart.map(item => item.notes).filter(n => n).join(', ')
     }
 
     try {
       const { data, error } = await supabase
         .from('customer_orders')
-        .insert([orderData])
+        .insert([normalizeOrderForInsert(orderData)])
         .select()
         .single()
 
@@ -632,6 +652,38 @@ function StaffApp() {
       setShowUnpaidOrders(false)
     } catch (err) {
       console.error('Error marking order as paid:', err)
+      toast.error(err.message)
+    }
+  }
+
+
+  // ===== CONFIRM / CANCEL NEW ORDER =====
+  const confirmNewOrder = async (order) => {
+    try {
+      const { error } = await supabase
+        .from('customer_orders')
+        .update(normalizeConfirmedUpdate())
+        .eq('id', order.id)
+      if (error) throw error
+      toast.success('✅ Order disahkan dan dihantar ke Kitchen')
+      await loadNewOrders()
+      await loadUnpaidOrders()
+    } catch (err) {
+      console.error('Error confirming order:', err)
+      toast.error(err.message)
+    }
+  }
+
+  const cancelNewOrder = async (order) => {
+    try {
+      const { error } = await supabase
+        .from('customer_orders')
+        .update({ status: ORDER_STATUS.CANCELLED, order_status: ORDER_STATUS.CANCELLED })
+        .eq('id', order.id)
+      if (error) throw error
+      toast.success('Order dibatalkan')
+      await loadNewOrders()
+    } catch (err) {
       toast.error(err.message)
     }
   }
@@ -1122,6 +1174,46 @@ function StaffApp() {
     )
   }
 
+
+  // ============================================================
+  // RENDER NEW ORDERS MODAL
+  // ============================================================
+  const renderNewOrdersModal = () => (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', backdropFilter:'blur(8px)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:2000, padding:'20px' }}>
+      <div style={{ ...glassEffect, background: cardBg, borderRadius:'28px', padding:isMobile ? '20px' : '28px', maxWidth:'720px', width:'100%', maxHeight:'90vh', overflowY:'auto' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
+          <h2 style={{ margin:0, color:textColor, fontSize:isMobile ? '18px' : '22px' }}>🆕 New Orders ({newOrders.length})</h2>
+          <button onClick={() => setShowNewOrders(false)} style={{ background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'32px', height:'32px', cursor:'pointer' }}>✕</button>
+        </div>
+        {newOrders.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'40px 20px', color:textMuted }}>📭 Tiada new order untuk disahkan</div>
+        ) : newOrders.map(order => (
+          <div key={order.id} style={{ background: secondaryBg, border:`1px solid ${borderColor}`, borderRadius:'18px', padding:'16px', marginBottom:'12px' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', gap:'10px', flexWrap:'wrap', marginBottom:'10px' }}>
+              <strong style={{ color:textColor }}>{order.customer_name || 'Guest'} {order.table_number ? `• Meja ${order.table_number}` : '• Take Away'}</strong>
+              <span style={{ color:textMuted, fontSize:'12px' }}>{new Date(order.created_at).toLocaleString()}</span>
+            </div>
+            <div style={{ color:textColor, marginBottom:'12px' }}>
+              {order.items?.map((item, idx) => (
+                <div key={idx} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${borderColor}` }}>
+                  <span>{item.quantity}x {item.name}{item.option || item.option_type ? ` (${item.option || item.option_type})` : ''}</span>
+                  <strong>RM {Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}</strong>
+                </div>
+              ))}
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
+              <strong style={{ color:priceColor }}>Total: RM {Number(order.total || order.subtotal || 0).toFixed(2)}</strong>
+              <div style={{ display:'flex', gap:'8px' }}>
+                <button onClick={() => confirmNewOrder(order)} style={{ background:'linear-gradient(135deg,#2563eb,#1d4ed8)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>✅ Sahkan</button>
+                <button onClick={() => cancelNewOrder(order)} style={{ background:'linear-gradient(135deg,#ef4444,#dc2626)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>Batal</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
   // ============================================================
   // RENDER UNPAID ORDERS MODAL
   // ============================================================
@@ -1459,6 +1551,21 @@ function StaffApp() {
               {t('new_order')}
             </button>
             
+
+            <button
+              onClick={() => { setShowNewOrders(true); loadNewOrders() }}
+              style={{
+                padding: isMobile ? '8px 16px' : '10px 20px',
+                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                color: 'white', border: 'none', borderRadius: '30px', cursor: 'pointer',
+                fontWeight: 'bold', fontSize: isMobile ? '11px' : '13px',
+                boxShadow: '0 4px 16px rgba(37,99,235,0.3)', transition: 'all 0.2s', position:'relative'
+              }}
+            >
+              🆕 New Orders
+              {newOrders.length > 0 && <span style={{ position:'absolute', top:'-6px', right:'-6px', background:'#ef4444', color:'white', borderRadius:'50%', width:'20px', height:'20px', fontSize:'10px', display:'flex', alignItems:'center', justifyContent:'center', fontWeight:'bold' }}>{newOrders.length}</span>}
+            </button>
+
             {/* Unpaid Orders Button */}
             <button
               onClick={() => {
@@ -1965,6 +2072,9 @@ function StaffApp() {
         {/* ITEM MODAL */}
         {showItemModal && renderItemModal()}
         
+        {/* NEW ORDERS MODAL */}
+        {showNewOrders && renderNewOrdersModal()}
+
         {/* UNPAID ORDERS MODAL */}
         {showUnpaidOrders && renderUnpaidOrdersModal()}
         

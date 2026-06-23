@@ -4,6 +4,7 @@ import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
 import Sidebar from './components/Sidebar'
 import { supabase } from './lib/supabase'
+import { ORDER_STATUS, splitOrderItems } from './lib/orderWorkflow'
 import { sendNotification } from './utils/notification'
 
 function KitchenApp() {
@@ -127,7 +128,7 @@ function KitchenApp() {
   // ============================================================
   // THEME COLORS
   // ============================================================
-  const bgColor = darkMode ? '#0a0a16' : '#f8fafc'
+  const bgColor = darkMode ? '#07111f' : '#eff6ff'
   const cardBg = darkMode ? 'rgba(20, 20, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)'
   const textColor = darkMode ? '#e8edf5' : '#1e293b'
   const textMuted = darkMode ? '#94a3b8' : '#64748b'
@@ -182,7 +183,7 @@ function KitchenApp() {
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'customer_orders' },
         (payload) => {
-          if (payload.new.status === 'pending') {
+          if ([ORDER_STATUS.CONFIRMED, 'pending'].includes(payload.new.status)) {
             // Check for drink items
             const hasDrinkItems = payload.new.items?.some(item => 
               item.category === 'Minuman' || 
@@ -309,7 +310,7 @@ function KitchenApp() {
       const { data: pending } = await supabase
         .from('customer_orders')
         .select('*')
-        .in('status', ['pending', 'preparing', 'ready'])
+        .in('status', [ORDER_STATUS.CONFIRMED, 'pending', 'preparing', 'ready'])
         .order('created_at', { ascending: false })
       
       const { data: completed } = await supabase
@@ -361,7 +362,7 @@ function KitchenApp() {
           preparing.push(order)
         } else if (order.status === 'ready') {
           ready.push(order)
-        } else if (order.status === 'pending') {
+        } else if ([ORDER_STATUS.CONFIRMED, 'pending'].includes(order.status)) {
           // Only add to food if it has food items (and not just drinks)
           if (hasFoodItems) {
             food.push({
@@ -529,7 +530,9 @@ function KitchenApp() {
   // ============================================================
   // RENDER ORDER CARD
   // ============================================================
-  const renderOrderCard = (order, showAcceptButton = true, acceptStatus = 'preparing') => {
+  const renderOrderCard = (order, showAcceptButton = true, acceptStatus = 'preparing', itemType = 'all') => {
+    const visibleItems = splitOrderItems(order.items || [], itemType)
+    if (visibleItems.length === 0) return null
     const hasDrinkItems = order.items?.some(item => isDrinkItem(item))
     const hasFoodItems = order.items?.some(item => !isDrinkItem(item))
     const cardBorderColor = hasDrinkItems && !hasFoodItems ? borderLeftDrink : borderLeftFood
@@ -625,7 +628,7 @@ function KitchenApp() {
           borderTop: `1px solid ${borderColor}`, 
           paddingTop: '10px' 
         }}>
-          {order.items?.map((item, idx) => {
+          {visibleItems.map((item, idx) => {
             const isDrink = isDrinkItem(item)
             
             return (
@@ -634,7 +637,7 @@ function KitchenApp() {
                 justifyContent: 'space-between', 
                 padding: '6px 0', 
                 color: textColor,
-                borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none',
+                borderBottom: idx !== visibleItems.length - 1 ? `1px solid ${borderColor}` : 'none',
                 alignItems: 'center'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
@@ -1137,7 +1140,7 @@ function KitchenApp() {
                 </h3>
               </div>
             ) : (
-              filterOrders(foodOrders).map(order => renderOrderCard(order, true, 'preparing'))
+              filterOrders(foodOrders).map(order => renderOrderCard(order, true, 'preparing', 'food'))
             )}
           </div>
         )}
@@ -1157,7 +1160,7 @@ function KitchenApp() {
                 </h3>
               </div>
             ) : (
-              filterOrders(drinkOrders).map(order => renderOrderCard(order, true, 'preparing'))
+              filterOrders(drinkOrders).map(order => renderOrderCard(order, true, 'preparing', 'drink'))
             )}
           </div>
         )}

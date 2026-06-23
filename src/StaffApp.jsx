@@ -11,19 +11,17 @@ function StaffApp() {
   const { language } = useLanguage()
   
   // ============================================================
-  // ✅ TRANSLATIONS - UPDATED LABELS
+  // TRANSLATIONS - SIMPLIFIED
   // ============================================================
   const translations = {
     pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
     pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
-    
-    // BUTTONS - UPDATED!
     new_cart: { en: '🔄 New Cart', ms: '🔄 Keranjang Baru' },
     new_orders_title: { en: '🆕 New Orders', ms: '🆕 Pesanan Baru' },
     unpaid_orders: { en: '💰 Unpaid', ms: '💰 Belum Bayar' },
     history_orders: { en: '📜 History', ms: '📜 Sejarah' },
     clear_cart: { en: '🗑️ Clear Cart', ms: '🗑️ Kosongkan Keranjang' },
-    send_order: { en: '📤 Send Order', ms: '📤 Hantar Pesanan' },  // ← CHECKOUT → SEND ORDER
+    send_order: { en: '📤 Send Order', ms: '📤 Hantar Pesanan' },
     mark_paid: { en: '💰 Mark as Paid', ms: '💰 Tanda Bayar' },
     confirm_order: { en: '✅ Confirm', ms: '✅ Sahkan' },
     cancel: { en: 'Cancel', ms: 'Batal' },
@@ -59,9 +57,9 @@ function StaffApp() {
     order_paid_history: { en: '✅ Paid!', ms: '✅ Dibayar!' },
     error_checkout: { en: 'Error', ms: 'Ralat' },
     new_order_started: { en: 'New cart started', ms: 'Keranjang baru dimulakan' },
-    order_sent: { en: '✅ Order sent to kitchen!', ms: '✅ Pesanan dihantar ke dapur!' },
-    please_select_item: { en: 'Please select an item', ms: 'Sila pilih item' },
-    please_select_option: { en: 'Please select an option', ms: 'Sila pilih pilihan' },
+    order_sent: { en: '✅ Order sent!', ms: '✅ Pesanan dihantar!' },
+    please_select_item: { en: 'Select an item', ms: 'Pilih item' },
+    please_select_option: { en: 'Select an option', ms: 'Pilih pilihan' },
     confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
     receipt_title: { en: '🧾 RECEIPT', ms: '🧾 RESIT' },
     receipt_thankyou: { en: 'Thank you!', ms: 'Terima kasih!' },
@@ -69,7 +67,7 @@ function StaffApp() {
     receipt_qty: { en: 'Qty', ms: 'Kuantiti' },
     receipt_price: { en: 'Price', ms: 'Harga' },
     receipt_total: { en: 'TOTAL', ms: 'JUMLAH' },
-    select_drink: { en: 'Select drink temperature', ms: 'Pilih suhu minuman' },
+    select_drink: { en: 'Select temperature', ms: 'Pilih suhu' },
   }
 
   const t = (key) => {
@@ -109,6 +107,16 @@ function StaffApp() {
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [showCartPopup, setShowCartPopup] = useState(false)
+  
+  // ===== SETTINGS STATE - SYNC WITH ManageSettings =====
+  const [settings, setSettings] = useState({
+    auto_print: true,
+    printer_type: 'thermal',
+    service_charge: 6,
+    tax: 6,
+    kitchen_enabled: true,
+    notification_sound: true
+  })
 
   // ===== CHECK MOBILE =====
   useEffect(() => {
@@ -140,6 +148,39 @@ function StaffApp() {
   }
 
   // ============================================================
+  // LOAD SETTINGS - SYNC WITH ManageSettings
+  // ============================================================
+  async function loadSettings() {
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('key, value')
+      
+      if (error) throw error
+      
+      const settingsObj = {}
+      data?.forEach(item => {
+        if (item.key === 'service_charge' || item.key === 'tax') {
+          settingsObj[item.key] = parseFloat(item.value) || 0
+        } else if (item.key === 'auto_print' || item.key === 'notification_sound' || item.key === 'kitchen_enabled') {
+          settingsObj[item.key] = item.value === 'true'
+        } else {
+          settingsObj[item.key] = item.value
+        }
+      })
+      
+      setSettings(prev => ({
+        ...prev,
+        ...settingsObj
+      }))
+      
+      console.log('✅ Settings loaded:', settingsObj)
+    } catch (err) {
+      console.error('Error loading settings:', err)
+    }
+  }
+
+  // ============================================================
   // LOAD DATA
   // ============================================================
   useEffect(() => {
@@ -147,6 +188,7 @@ function StaffApp() {
     loadUnpaidOrders()
     loadNewOrders()
     loadOrderHistory()
+    loadSettings() // ← LOAD SETTINGS
     
     const menuSub = supabase
       .channel('staff_menu')
@@ -431,22 +473,23 @@ function StaffApp() {
   }
 
   // ============================================================
-  // GET CATEGORY ICON
+  // GET CATEGORY ICON - SIMPLIFIED
   // ============================================================
   const getCategoryIcon = (cat) => {
     if (!cat) return '📂'
     if (cat === 'All' || cat === 'Semua') return '📋'
-    if (cat === 'Makanan') return '🍚'
-    if (cat === 'Minuman') return '🥤'
-    if (cat === 'SUP') return '🍜'
-    if (cat === 'Jus') return '🧃'
-    if (cat === 'Teh') return '🍵'
-    if (cat === 'Kopi') return '☕'
-    if (cat === 'Mee') return '🍜'
-    if (cat === 'Nasi') return '🍚'
-    if (cat === 'Telur') return '🥚'
-    const found = categories.find(c => c.name === cat)
-    return found?.icon || '📂'
+    const icons = {
+      'Makanan': '🍚',
+      'Minuman': '🥤',
+      'SUP': '🍜',
+      'Jus': '🧃',
+      'Teh': '🍵',
+      'Kopi': '☕',
+      'Mee': '🍜',
+      'Nasi': '🍚',
+      'Telur': '🥚'
+    }
+    return icons[cat] || '📂'
   }
 
   // ===== HELPERS =====
@@ -564,7 +607,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // SEND ORDER (CHECKOUT) - Hantar ke New Orders
+  // SEND ORDER - Hantar ke New Orders
   // ============================================================
   const handleSendOrder = async () => {
     if (cart.length === 0) {
@@ -628,14 +671,20 @@ function StaffApp() {
   }
 
   // ============================================================
-  // MARK ORDER AS PAID
+  // MARK ORDER AS PAID - WITH PAYMENT METHOD & AUTO PRINT
   // ============================================================
-  const markOrderAsPaid = async (order) => {
+  const markOrderAsPaid = async (order, method) => {
+    if (!method) {
+      toast.error('Sila pilih kaedah bayaran!')
+      return
+    }
+
     try {
       const { error } = await supabase
         .from('customer_orders')
         .update({ 
           payment_status: PAYMENT_STATUS.PAID,
+          payment_method: method,
           paid_at: new Date().toISOString(),
           status: ORDER_STATUS.COMPLETED,
           order_status: ORDER_STATUS.COMPLETED
@@ -644,11 +693,23 @@ function StaffApp() {
 
       if (error) throw error
 
-      toast.success(t('order_paid_history'))
+      const methodName = method === 'cash' ? 'Tunai' : method === 'bank' ? 'Bank' : 'Touch n Go'
+      toast.success(`✅ Dibayar dengan ${methodName}!`)
+
+      // ===== AUTO PRINT IF ENABLED =====
+      if (settings.auto_print) {
+        toast.info('🖨️ Mencetak resit...')
+        setTimeout(() => {
+          printReceipt(order)
+        }, 500)
+      }
+      
       await loadUnpaidOrders()
       await loadOrderHistory()
       setViewingOrder(null)
       setShowUnpaidOrders(false)
+      setPaymentMethod('cash')
+      
     } catch (err) {
       console.error('Error marking order as paid:', err)
       toast.error(err.message)
@@ -662,7 +723,11 @@ function StaffApp() {
     try {
       const { error } = await supabase
         .from('customer_orders')
-        .update(normalizeConfirmedUpdate())
+        .update({ 
+          status: ORDER_STATUS.CONFIRMED, 
+          order_status: ORDER_STATUS.CONFIRMED,
+          confirmed_at: new Date().toISOString()
+        })
         .eq('id', order.id)
       if (error) throw error
       toast.success(t('order_confirmed_kitchen'))
@@ -715,6 +780,7 @@ function StaffApp() {
           .free-label { color: #ef4444; font-weight: bold; }
           .promo-label { color: #ef4444; font-size: 10px; }
           .option-label { font-size: 10px; color: #666; }
+          .payment-method { font-size: 11px; color: #3b82f6; font-weight: bold; margin-top: 4px; }
           @media print { body { margin: 0; padding: 10px; } }
         </style>
       </head>
@@ -724,6 +790,7 @@ function StaffApp() {
             <h1>${order.customer_name || t('guest')}</h1>
             <div class="sub">${order.order_type === 'take_away' ? '🥡 ' + t('take_away') : '🍽️ ' + t('table') + ' ' + (order.table_number || '')}</div>
             <div class="sub">${new Date(order.created_at).toLocaleString()}</div>
+            <div class="payment-method">💳 ${order.payment_method === 'cash' ? 'Tunai' : order.payment_method === 'bank' ? 'Bank' : 'Touch n Go'}</div>
           </div>
           
           <table class="items">
@@ -1333,7 +1400,7 @@ function StaffApp() {
           <button
             onClick={() => {
               setShowCartPopup(false)
-              handleSendOrder()  // ← SEND ORDER (bukan checkout)
+              handleSendOrder()
             }}
             style={{
               flex: 2,
@@ -1356,46 +1423,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RENDER NEW ORDERS MODAL
-  // ============================================================
-  const renderNewOrdersModal = () => (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', backdropFilter:'blur(8px)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:2000, padding:'20px' }}>
-      <div style={{ ...glassEffect, background: cardBg, borderRadius:'28px', padding:isMobile ? '20px' : '28px', maxWidth:'720px', width:'100%', maxHeight:'90vh', overflowY:'auto' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
-          <h2 style={{ margin:0, color:textColor, fontSize:isMobile ? '18px' : '22px' }}>🆕 {t('new_orders_title')} ({newOrders.length})</h2>
-          <button onClick={() => setShowNewOrders(false)} style={{ background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'32px', height:'32px', cursor:'pointer' }}>✕</button>
-        </div>
-        {newOrders.length === 0 ? (
-          <div style={{ textAlign:'center', padding:'40px 20px', color:textMuted }}>📭 {t('no_new_orders')}</div>
-        ) : newOrders.map(order => (
-          <div key={order.id} style={{ background: secondaryBg, border:`1px solid ${borderColor}`, borderRadius:'18px', padding:'16px', marginBottom:'12px' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', gap:'10px', flexWrap:'wrap', marginBottom:'10px' }}>
-              <strong style={{ color:textColor }}>{order.customer_name || 'Guest'} {order.table_number ? `• ${t('table')} ${order.table_number}` : '• ' + t('take_away')}</strong>
-              <span style={{ color:textMuted, fontSize:'12px' }}>{new Date(order.created_at).toLocaleString()}</span>
-            </div>
-            <div style={{ color:textColor, marginBottom:'12px' }}>
-              {order.items?.map((item, idx) => (
-                <div key={idx} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${borderColor}` }}>
-                  <span>{item.quantity}x {item.name}{item.option || item.option_type ? ` (${item.option || item.option_type})` : ''}</span>
-                  <strong>RM {Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}</strong>
-                </div>
-              ))}
-            </div>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
-              <strong style={{ color:priceColor }}>{t('total')}: RM {Number(order.total || order.subtotal || 0).toFixed(2)}</strong>
-              <div style={{ display:'flex', gap:'8px' }}>
-                <button onClick={() => confirmNewOrder(order)} style={{ background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>✅ {t('confirm_order')}</button>
-                <button onClick={() => cancelNewOrder(order)} style={{ background:'linear-gradient(135deg,#ef4444,#dc2626)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>{t('cancel')}</button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-
-  // ============================================================
-  // RENDER UNPAID ORDERS MODAL
+  // RENDER UNPAID ORDERS MODAL - WITH PAYMENT METHOD
   // ============================================================
   const renderUnpaidOrdersModal = () => {
     return (
@@ -1530,6 +1558,41 @@ function StaffApp() {
                   <span style={{ color: priceColor }}>RM {viewingOrder.total?.toFixed(2) || '0.00'}</span>
                 </div>
               </div>
+
+              {/* ===== PAYMENT METHOD SELECTION ===== */}
+              <div style={{ 
+                display: 'flex', 
+                gap: '10px', 
+                marginBottom: '16px',
+                flexWrap: 'wrap'
+              }}>
+                <span style={{ color: textColor, fontWeight: 'bold', fontSize: '14px', width: '100%' }}>
+                  💳 Kaedah Bayaran:
+                </span>
+                {['cash', 'bank', 'tng'].map(method => (
+                  <button
+                    key={method}
+                    onClick={() => setPaymentMethod(method)}
+                    style={{
+                      flex: 1,
+                      minWidth: '80px',
+                      padding: '10px 16px',
+                      background: paymentMethod === method ? 'linear-gradient(135deg, #22c55e, #16a34a)' : secondaryBg,
+                      color: paymentMethod === method ? 'white' : textColor,
+                      border: paymentMethod === method ? 'none' : `1px solid ${borderColor}`,
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontWeight: paymentMethod === method ? 'bold' : 'normal',
+                      fontSize: isMobile ? '12px' : '14px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {method === 'cash' ? '💵 Tunai' : 
+                     method === 'bank' ? '🏦 Bank' : 
+                     '📱 Touch n Go'}
+                  </button>
+                ))}
+              </div>
               
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button 
@@ -1546,7 +1609,7 @@ function StaffApp() {
                     transition: 'all 0.2s'
                   }}
                 >
-                  🖨️ {t('print_receipt')}
+                  🧾 Preview Resit
                 </button>
                 {viewingOrder.payment_status === PAYMENT_STATUS.PAID && (
                   <button
@@ -1567,7 +1630,13 @@ function StaffApp() {
                   </button>
                 )}
                 <button 
-                  onClick={() => markOrderAsPaid(viewingOrder)}
+                  onClick={() => {
+                    if (!paymentMethod) {
+                      toast.error('Sila pilih kaedah bayaran!')
+                      return
+                    }
+                    markOrderAsPaid(viewingOrder, paymentMethod)
+                  }}
                   style={{
                     flex: 1,
                     padding: '12px',
@@ -1581,9 +1650,25 @@ function StaffApp() {
                     transition: 'all 0.2s'
                   }}
                 >
-                  💰 {t('mark_paid')}
+                  💰 {t('mark_paid')} 
+                  {paymentMethod && ` (${paymentMethod === 'cash' ? 'Tunai' : paymentMethod === 'bank' ? 'Bank' : 'TnG'})`}
                 </button>
               </div>
+
+              {settings.auto_print && (
+                <div style={{
+                  marginTop: '12px',
+                  padding: '8px 14px',
+                  background: 'rgba(14,165,233,0.1)',
+                  borderRadius: '10px',
+                  border: `1px solid rgba(14,165,233,0.2)`,
+                  textAlign: 'center',
+                  fontSize: '12px',
+                  color: '#0ea5e9'
+                }}>
+                  🖨️ Auto print: ON (resit akan cetak automatik)
+                </div>
+              )}
             </div>
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -1647,6 +1732,45 @@ function StaffApp() {
       </div>
     )
   }
+
+  // ============================================================
+  // RENDER NEW ORDERS MODAL
+  // ============================================================
+  const renderNewOrdersModal = () => (
+    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', backdropFilter:'blur(8px)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:2000, padding:'20px' }}>
+      <div style={{ ...glassEffect, background: cardBg, borderRadius:'28px', padding:isMobile ? '20px' : '28px', maxWidth:'720px', width:'100%', maxHeight:'90vh', overflowY:'auto' }}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
+          <h2 style={{ margin:0, color:textColor, fontSize:isMobile ? '18px' : '22px' }}>🆕 {t('new_orders_title')} ({newOrders.length})</h2>
+          <button onClick={() => setShowNewOrders(false)} style={{ background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'32px', height:'32px', cursor:'pointer' }}>✕</button>
+        </div>
+        {newOrders.length === 0 ? (
+          <div style={{ textAlign:'center', padding:'40px 20px', color:textMuted }}>📭 {t('no_new_orders')}</div>
+        ) : newOrders.map(order => (
+          <div key={order.id} style={{ background: secondaryBg, border:`1px solid ${borderColor}`, borderRadius:'18px', padding:'16px', marginBottom:'12px' }}>
+            <div style={{ display:'flex', justifyContent:'space-between', gap:'10px', flexWrap:'wrap', marginBottom:'10px' }}>
+              <strong style={{ color:textColor }}>{order.customer_name || 'Guest'} {order.table_number ? `• ${t('table')} ${order.table_number}` : '• ' + t('take_away')}</strong>
+              <span style={{ color:textMuted, fontSize:'12px' }}>{new Date(order.created_at).toLocaleString()}</span>
+            </div>
+            <div style={{ color:textColor, marginBottom:'12px' }}>
+              {order.items?.map((item, idx) => (
+                <div key={idx} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${borderColor}` }}>
+                  <span>{item.quantity}x {item.name}{item.option || item.option_type ? ` (${item.option || item.option_type})` : ''}</span>
+                  <strong>RM {Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}</strong>
+                </div>
+              ))}
+            </div>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
+              <strong style={{ color:priceColor }}>{t('total')}: RM {Number(order.total || order.subtotal || 0).toFixed(2)}</strong>
+              <div style={{ display:'flex', gap:'8px' }}>
+                <button onClick={() => confirmNewOrder(order)} style={{ background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>✅ {t('confirm_order')}</button>
+                <button onClick={() => cancelNewOrder(order)} style={{ background:'linear-gradient(135deg,#ef4444,#dc2626)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>{t('cancel')}</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
 
   // ============================================================
   // RENDER HISTORY MODAL
@@ -1907,7 +2031,6 @@ function StaffApp() {
             gap: '10px',
             flexWrap: 'wrap'
           }}>
-            {/* NEW CART - Reset cart */}
             <button
               onClick={() => {
                 setCart([])
@@ -1932,7 +2055,6 @@ function StaffApp() {
               {t('new_cart')}
             </button>
             
-            {/* NEW ORDERS - Pending orders */}
             <button
               onClick={() => { setShowNewOrders(true); loadNewOrders() }}
               style={{
@@ -1971,7 +2093,6 @@ function StaffApp() {
               )}
             </button>
 
-            {/* UNPAID - Confirmed orders */}
             <button
               onClick={() => {
                 setShowUnpaidOrders(true)
@@ -2014,7 +2135,6 @@ function StaffApp() {
               )}
             </button>
 
-            {/* HISTORY */}
             <button
               onClick={() => { setShowHistoryModal(true); loadOrderHistory() }}
               style={{
@@ -2449,6 +2569,21 @@ function StaffApp() {
                 {cartItemCount}
               </span>
             </button>
+            
+            {/* Auto print status indicator */}
+            {settings.auto_print && (
+              <div style={{
+                fontSize: '10px',
+                color: '#0ea5e9',
+                background: 'rgba(14,165,233,0.15)',
+                padding: '4px 12px',
+                borderRadius: '20px',
+                border: '1px solid rgba(14,165,233,0.2)',
+                textAlign: 'center'
+              }}>
+                🖨️ Auto print ON
+              </div>
+            )}
           </div>
         )}
         
@@ -2466,9 +2601,6 @@ function StaffApp() {
         
         {/* HISTORY MODAL */}
         {showHistoryModal && renderHistoryModal()}
-
-        {/* PAYMENT MODAL */}
-        {showPaymentModal && renderPaymentModal()}
         
         {/* STYLES */}
         <style>

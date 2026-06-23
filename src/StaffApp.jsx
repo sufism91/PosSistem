@@ -11,145 +11,64 @@ function StaffApp() {
   const { language } = useLanguage()
   
   // ============================================================
-  // ✅ COMPLETE TRANSLATIONS - ENGLISH & MALAY
+  // ✅ TRANSLATIONS - UPDATED LABELS
   // ============================================================
   const translations = {
     pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
     pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
-    new_order: { en: '➕ New Order', ms: '➕ Pesanan Baru' },
+    
+    // BUTTONS - UPDATED!
+    new_cart: { en: '🔄 New Cart', ms: '🔄 Keranjang Baru' },
     new_orders_title: { en: '🆕 New Orders', ms: '🆕 Pesanan Baru' },
     unpaid_orders: { en: '💰 Unpaid', ms: '💰 Belum Bayar' },
     history_orders: { en: '📜 History', ms: '📜 Sejarah' },
     clear_cart: { en: '🗑️ Clear Cart', ms: '🗑️ Kosongkan Keranjang' },
-    checkout: { en: '💳 Checkout', ms: '💳 Bayar' },
-    cancel: { en: 'Cancel', ms: 'Batal' },
-    confirm: { en: 'Confirm', ms: 'Sahkan' },
-    print_receipt: { en: '🖨️ Print Receipt', ms: '🖨️ Cetak Resit' },
-    back: { en: 'Back', ms: 'Kembali' },
-    view_order: { en: 'View Order', ms: 'Lihat Pesanan' },
+    send_order: { en: '📤 Send Order', ms: '📤 Hantar Pesanan' },  // ← CHECKOUT → SEND ORDER
     mark_paid: { en: '💰 Mark as Paid', ms: '💰 Tanda Bayar' },
-    add_order: { en: 'Add Order', ms: 'Tambah Pesanan' },
-    view_cart: { en: 'View Cart', ms: 'Lihat Keranjang' },
-    close: { en: 'Close', ms: 'Tutup' },
-    save: { en: 'Save', ms: 'Simpan' },
-    edit: { en: 'Edit', ms: 'Edit' },
-    delete: { en: 'Delete', ms: 'Hapus' },
-    add: { en: 'Add', ms: 'Tambah' },
-    table_service: { en: '🍽️ Table Service', ms: '🍽️ Perkhidmatan Meja' },
-    take_away: { en: '🥡 Take Away', ms: '🥡 Bungkus' },
+    confirm_order: { en: '✅ Confirm', ms: '✅ Sahkan' },
+    cancel: { en: 'Cancel', ms: 'Batal' },
+    print_receipt: { en: '🖨️ Print', ms: '🖨️ Cetak' },
+    back: { en: 'Back', ms: 'Kembali' },
+    view_order: { en: 'View', ms: 'Lihat' },
+    search_menu: { en: '🔍 Search menu...', ms: '🔍 Cari menu...' },
+    all_categories: { en: '📋 All', ms: '📋 Semua' },
+    customer_name: { en: 'Customer', ms: 'Pelanggan' },
+    table_number: { en: 'Table', ms: 'Meja' },
     dine_in: { en: 'Dine In', ms: 'Makan di Sini' },
-    customer_name: { en: 'Customer Name', ms: 'Nama Pelanggan' },
-    table_number: { en: 'Table Number', ms: 'Nombor Meja' },
-    select_table: { en: 'Select Table', ms: 'Pilih Meja' },
-    quantity: { en: 'Qty', ms: 'Kuantiti' },
-    price: { en: 'Price', ms: 'Harga' },
-    notes: { en: 'Notes', ms: 'Nota' },
-    special_request: { en: 'Special Request', ms: 'Permintaan Khas' },
-    select_option: { en: 'Select Option', ms: 'Pilih Pilihan' },
-    select_size: { en: 'Select Size', ms: 'Pilih Saiz' },
-    order_items: { en: 'Order Items', ms: 'Item Pesanan' },
+    take_away: { en: 'Take Away', ms: 'Bungkus' },
+    add_order: { en: 'Add', ms: 'Tambah' },
     total: { en: 'Total', ms: 'Jumlah' },
-    subtotal: { en: 'Subtotal', ms: 'Subtotal' },
-    service_charge: { en: 'Service Charge', ms: 'Caj Perkhidmatan' },
-    tax: { en: 'Tax', ms: 'Cukai' },
-    grand_total: { en: 'Grand Total', ms: 'Jumlah Keseluruhan' },
-    payment: { en: 'Payment', ms: 'Bayaran' },
-    status: { en: 'Status', ms: 'Status' },
-    items: { en: 'Items', ms: 'Item' },
-    total_items: { en: 'Total Items', ms: 'Jumlah Item' },
-    order_status: { en: 'Order Status', ms: 'Status Pesanan' },
-    payment_status: { en: 'Payment Status', ms: 'Status Bayaran' },
+    items: { en: 'items', ms: 'item' },
+    guest: { en: 'Guest', ms: 'Tetamu' },
+    free: { en: 'FREE', ms: 'PERCUMA' },
+    promo: { en: '🔥 Promo', ms: '🔥 Promosi' },
     hot: { en: 'Hot', ms: 'Panas' },
     cold: { en: 'Cold', ms: 'Sejuk' },
     packed: { en: 'Packed', ms: 'Bungkus' },
-    promo: { en: '🔥 Promo', ms: '🔥 Promosi' },
-    bogo: { en: 'Buy 1 Free 1', ms: 'Beli 1 Percuma 1' },
-    free: { en: '🎁 FREE', ms: '🎁 PERCUMA' },
-    original_price: { en: 'Original', ms: 'Asal' },
-    promo_price: { en: 'Promo Price', ms: 'Harga Promosi' },
-    order_added: { en: '✅ Order added!', ms: '✅ Pesanan ditambah!' },
-    order_updated: { en: '✅ Order updated!', ms: '✅ Pesanan dikemaskini!' },
-    order_cancelled: { en: '❌ Order cancelled', ms: '❌ Pesanan dibatalkan' },
-    payment_success: { en: '✅ Payment successful!', ms: '✅ Pembayaran berjaya!' },
-    please_select_item: { en: '⚠️ Please select an item', ms: '⚠️ Sila pilih item' },
-    please_select_option: { en: '⚠️ Please select an option', ms: '⚠️ Sila pilih pilihan' },
-    cart_empty: { en: '⚠️ Cart is empty', ms: '⚠️ Keranjang kosong' },
+    table: { en: 'Table', ms: 'Meja' },
+    quantity: { en: 'Qty', ms: 'Kuantiti' },
+    notes: { en: 'Notes', ms: 'Nota' },
+    select_option: { en: 'Select Option', ms: 'Pilih Pilihan' },
+    no_new_orders: { en: 'No new orders', ms: 'Tiada pesanan baru' },
+    no_unpaid_orders: { en: 'No unpaid orders', ms: 'Tiada pesanan belum bayar' },
+    no_history_orders: { en: 'No history', ms: 'Tiada sejarah' },
+    order_added: { en: '✅ Added!', ms: '✅ Ditambah!' },
+    cart_empty: { en: 'Cart is empty', ms: 'Keranjang kosong' },
+    order_cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
+    order_confirmed_kitchen: { en: '✅ Order confirmed!', ms: '✅ Pesanan disahkan!' },
+    order_paid_history: { en: '✅ Paid!', ms: '✅ Dibayar!' },
+    error_checkout: { en: 'Error', ms: 'Ralat' },
+    new_order_started: { en: 'New cart started', ms: 'Keranjang baru dimulakan' },
+    order_sent: { en: '✅ Order sent to kitchen!', ms: '✅ Pesanan dihantar ke dapur!' },
+    please_select_item: { en: 'Please select an item', ms: 'Sila pilih item' },
+    please_select_option: { en: 'Please select an option', ms: 'Sila pilih pilihan' },
     confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
-    no_unpaid_orders: { en: '📭 No unpaid orders', ms: '📭 Tiada pesanan belum bayar' },
-    no_new_orders: { en: '📭 No new orders to confirm', ms: '📭 Tiada pesanan baru untuk disahkan' },
-    no_history_orders: { en: '📭 No order history', ms: '📭 Tiada sejarah pesanan' },
-    new_order_started: { en: '📝 New order started!', ms: '📝 Pesanan baru dimulakan!' },
-    order_paid: { en: '✅ Order paid!', ms: '✅ Pesanan dibayar!' },
-    order_paid_history: { en: '✅ Order paid and moved to History', ms: '✅ Pesanan dibayar dan dipindahkan ke Sejarah' },
-    order_confirmed_kitchen: { en: '✅ Order confirmed and sent to Kitchen', ms: '✅ Pesanan disahkan dan dihantar ke Dapur' },
-    order_created_pending: { en: '📝 Order created. Please confirm it in New Orders.', ms: '📝 Pesanan dibuat. Sila sahkan di Pesanan Baru.' },
-    error_loading: { en: '❌ Error loading data', ms: '❌ Ralat memuat data' },
-    error_checkout: { en: '❌ Checkout error', ms: '❌ Ralat bayaran' },
-    search_menu: { en: '🔍 Search menu...', ms: '🔍 Cari menu...' },
-    all_categories: { en: '📋 All', ms: '📋 Semua' },
-    no_menu_items: { en: 'No menu items found', ms: 'Tiada item menu dijumpai' },
-    no_orders: { en: 'No orders', ms: 'Tiada pesanan' },
-    empty_cart: { en: 'Your cart is empty', ms: 'Keranjang anda kosong' },
-    order_details: { en: '📋 Order Details', ms: '📋 Butiran Pesanan' },
-    unpaid_orders_title: { en: '💰 Unpaid Orders', ms: '💰 Pesanan Belum Bayar' },
-    select_drink_option: { en: 'Select Drink Option', ms: 'Pilih Pilihan Minuman' },
-    select_size_option: { en: 'Select Size', ms: 'Pilih Saiz' },
-    history_title: { en: '📜 Order History', ms: '📜 Sejarah Pesanan' },
     receipt_title: { en: '🧾 RECEIPT', ms: '🧾 RESIT' },
-    receipt_thankyou: { en: 'Thank you for dining with us!', ms: 'Terima kasih kerana makan di sini!' },
-    receipt_order: { en: 'Order', ms: 'Pesanan' },
-    receipt_table: { en: 'Table', ms: 'Meja' },
-    receipt_customer: { en: 'Customer', ms: 'Pelanggan' },
+    receipt_thankyou: { en: 'Thank you!', ms: 'Terima kasih!' },
     receipt_item: { en: 'Item', ms: 'Item' },
     receipt_qty: { en: 'Qty', ms: 'Kuantiti' },
     receipt_price: { en: 'Price', ms: 'Harga' },
     receipt_total: { en: 'TOTAL', ms: 'JUMLAH' },
-    receipt_paid: { en: 'Paid', ms: 'Dibayar' },
-    receipt_unpaid: { en: 'Unpaid', ms: 'Belum Bayar' },
-    receipt_cash: { en: 'Cash', ms: 'Tunai' },
-    receipt_tng: { en: 'TnG', ms: 'TnG' },
-    receipt_bank: { en: 'Bank', ms: 'Bank' },
-    receipt_payment_method: { en: 'Payment Method', ms: 'Kaedah Bayaran' },
-    table: { en: 'Table', ms: 'Meja' },
-    customer: { en: 'Customer', ms: 'Pelanggan' },
-    guest: { en: 'Guest', ms: 'Tetamu' },
-    cash: { en: 'Cash', ms: 'Tunai' },
-    tng: { en: 'TnG', ms: 'TnG' },
-    bank: { en: 'Bank', ms: 'Bank' },
-    kitchen_queue: { en: 'Kitchen Queue', ms: 'Giliran Dapur' },
-    confirm_order: { en: 'Confirm Order', ms: 'Sahkan Pesanan' },
-    cancel_order: { en: 'Cancel Order', ms: 'Batalkan Pesanan' },
-    download_receipt: { en: 'Download Receipt', ms: 'Muat Turun Resit' },
-    first: { en: 'First', ms: 'Pertama' },
-    prev: { en: 'Prev', ms: 'Sebelum' },
-    next: { en: 'Next', ms: 'Seterus' },
-    last: { en: 'Last', ms: 'Terakhir' },
-    size_small: { en: 'Small', ms: 'Kecil' },
-    size_medium: { en: 'Medium', ms: 'Sederhana' },
-    size_large: { en: 'Large', ms: 'Besar' },
-    action: { en: 'Action', ms: 'Tindakan' },
-    date: { en: 'Date', ms: 'Tarikh' },
-    id: { en: 'ID', ms: 'ID' },
-    order_type: { en: 'Type', ms: 'Jenis' },
-    payment_method_label: { en: 'Payment', ms: 'Bayaran' },
-    btn_receipt: { en: 'Receipt', ms: 'Resit' },
-    pos: { en: '🧾 POS', ms: '🧾 Jualan' },
-    kitchen: { en: 'Kitchen', ms: 'Dapur' },
-    refresh: { en: 'Refresh', ms: 'Segar' },
-    sound: { en: 'Sound', ms: 'Bunyi' },
-    service_charge: { en: 'Service Charge', ms: 'Caj Perkhidmatan' },
-    tax: { en: 'Tax', ms: 'Cukai' },
-    place_order: { en: 'Place Order', ms: 'Hantar Pesanan' },
-    accept: { en: 'Accept', ms: 'Terima' },
-    start_cooking: { en: 'Start Cooking', ms: 'Mula Masak' },
-    ready: { en: 'Ready', ms: 'Sedia' },
-    preparing: { en: 'Preparing', ms: 'Sedang Masak' },
-    pending: { en: 'Pending', ms: 'Menunggu' },
-    record_payment: { en: 'Record Payment', ms: 'Rekod Bayaran' },
-    payment_method: { en: 'Payment Method', ms: 'Kaedah Bayaran' },
-    add_to_cart: { en: 'Add to Cart', ms: 'Tambah ke Keranjang' },
-    no_data: { en: 'No data', ms: 'Tiada data' },
-    new_orders: { en: 'new orders', ms: 'pesanan baru' },
     select_drink: { en: 'Select drink temperature', ms: 'Pilih suhu minuman' },
   }
 
@@ -189,13 +108,11 @@ function StaffApp() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [showCartPopup, setShowCartPopup] = useState(false) // ← TAMBAH
+  const [showCartPopup, setShowCartPopup] = useState(false)
 
   // ===== CHECK MOBILE =====
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
@@ -203,13 +120,13 @@ function StaffApp() {
 
   // ===== THEME COLORS =====
   const bgColor = darkMode ? '#07111f' : '#eff6ff'
-  const cardBg = darkMode ? 'rgba(20, 20, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)'
+  const cardBg = darkMode ? 'rgba(20,20,40,0.95)' : 'rgba(255,255,255,0.95)'
   const textColor = darkMode ? '#e8edf5' : '#1e293b'
   const textMuted = darkMode ? '#94a3b8' : '#64748b'
-  const borderColor = darkMode ? 'rgba(71, 85, 105, 0.3)' : 'rgba(203, 213, 225, 0.5)'
+  const borderColor = darkMode ? 'rgba(71,85,105,0.3)' : 'rgba(203,213,225,0.5)'
   const priceColor = darkMode ? '#4ade80' : '#22c55e'
   const promoColor = '#ef4444'
-  const secondaryBg = darkMode ? 'rgba(30, 30, 50, 0.6)' : 'rgba(248, 250, 252, 0.8)'
+  const secondaryBg = darkMode ? 'rgba(30,30,50,0.6)' : 'rgba(248,250,252,0.8)'
   const inputBg = darkMode ? '#1a1a2e' : '#ffffff'
   const inputBorder = darkMode ? '#3d3d5c' : '#cbd5e1'
   
@@ -514,7 +431,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // GET CATEGORY ICON - NO DUPLICATE
+  // GET CATEGORY ICON
   // ============================================================
   const getCategoryIcon = (cat) => {
     if (!cat) return '📂'
@@ -557,15 +474,6 @@ function StaffApp() {
 
   const isSizeCategory = (item) => {
     return item?.has_options === true
-  }
-
-  const getDefaultIcon = (category) => {
-    switch(category) {
-      case 'Makanan': return '🍚'
-      case 'Minuman': return '🥤'
-      case 'SUP': return '🍜'
-      default: return '🍽️'
-    }
   }
 
   // ===== CART FUNCTIONS =====
@@ -630,7 +538,6 @@ function StaffApp() {
     setSelectedOption('')
     setSelectedSize(null)
     setQuantity(1)
-    // Auto show cart popup
     setShowCartPopup(true)
     toast.success(isFree ? `🎁 ${selectedItem.name} FREE!` : t('order_added'))
   }
@@ -656,18 +563,10 @@ function StaffApp() {
     }
   }
 
-  const updateQuantity = (index, newQuantity) => {
-    if (newQuantity < 1) return
-    const newCart = [...cart]
-    newCart[index].quantity = newQuantity
-    newCart[index].subtotal = newCart[index].price * newQuantity
-    setCart(newCart)
-  }
-
   // ============================================================
-  // CHECKOUT - PLACE ORDER
+  // SEND ORDER (CHECKOUT) - Hantar ke New Orders
   // ============================================================
-  const handleCheckout = async () => {
+  const handleSendOrder = async () => {
     if (cart.length === 0) {
       toast.error(t('cart_empty'))
       return
@@ -714,7 +613,7 @@ function StaffApp() {
 
       if (error) throw error
 
-      toast.success('✅ Pesanan dihantar! Sila sahkan di New Orders.')
+      toast.success(t('order_sent'))
       setCart([])
       setShowCartPopup(false)
       setCustomerName('')
@@ -723,7 +622,7 @@ function StaffApp() {
       await loadUnpaidOrders()
 
     } catch (err) {
-      console.error('Checkout error:', err)
+      console.error('Send order error:', err)
       toast.error(t('error_checkout') + ': ' + err.message)
     }
   }
@@ -787,37 +686,6 @@ function StaffApp() {
     } catch (err) {
       toast.error(err.message)
     }
-  }
-
-  // ============================================================
-  // PAYMENT MODAL
-  // ============================================================
-  const openPaymentModal = (order) => {
-    setSelectedOrder(order)
-    setShowPaymentModal(true)
-  }
-
-  const processPayment = async (order) => {
-    const subtotal = parseFloat(order.subtotal || order.total || 0)
-    const serviceCharge = order.order_type === 'take_away' ? 0 : subtotal * 0.06
-    const tax = subtotal * 0.06
-    const grandTotal = subtotal + serviceCharge + tax
-    
-    await supabase.from('customer_orders').update({ 
-      payment_status: PAYMENT_STATUS.PAID, 
-      payment_method: paymentMethod, 
-      paid_at: new Date().toISOString(), 
-      subtotal, 
-      service_charge: serviceCharge, 
-      tax, 
-      grand_total: grandTotal 
-    }).eq('id', order.id)
-    
-    await loadUnpaidOrders()
-    await loadOrderHistory()
-    setShowPaymentModal(false)
-    setSelectedOrder(null)
-    toast.success(`✅ ${t('payment_received')} RM ${grandTotal.toFixed(2)}!`)
   }
 
   // ============================================================
@@ -978,7 +846,6 @@ function StaffApp() {
           overflowY: 'auto'
         }}>
           
-          {/* Image with objectFit contain */}
           {selectedItem.image_url ? (
             <img 
               src={selectedItem.image_url} 
@@ -1021,7 +888,6 @@ function StaffApp() {
             {selectedItem.name}
           </h2>
           
-          {/* Promotion Badge */}
           {getItemPromotion(selectedItem) && (
             <div style={{
               background: promoColor,
@@ -1047,7 +913,6 @@ function StaffApp() {
             </p>
           )}
           
-          {/* DRINK OPTIONS */}
           {isDrink && (
             <div style={{ marginBottom: '16px' }}>
               <label style={{
@@ -1113,14 +978,13 @@ function StaffApp() {
                   border: `1px solid ${promoColor}40`
                 }}>
                   <span style={{ color: promoColor, fontSize: '13px' }}>
-                    ⚠️ No drink options available. Please add options in Manage Menu.
+                    ⚠️ No drink options available.
                   </span>
                 </div>
               )}
             </div>
           )}
           
-          {/* Size Options */}
           {hasSize && sizes.length > 0 && (
             <div style={{ marginBottom: '16px' }}>
               <label style={{
@@ -1175,7 +1039,6 @@ function StaffApp() {
             </div>
           )}
           
-          {/* Quantity */}
           <div style={{ marginBottom: '16px' }}>
             <label style={{
               display: 'block',
@@ -1239,7 +1102,6 @@ function StaffApp() {
             </div>
           </div>
           
-          {/* Notes */}
           <div style={{ marginBottom: '16px' }}>
             <label style={{
               display: 'block',
@@ -1268,7 +1130,6 @@ function StaffApp() {
             />
           </div>
           
-          {/* BOGO Info */}
           {isItemInBOGO(selectedItem) && (
             <div style={{
               background: 'rgba(239,68,68,0.1)',
@@ -1286,7 +1147,6 @@ function StaffApp() {
             </div>
           )}
           
-          {/* Buttons */}
           <div style={{
             display: 'flex',
             gap: '10px'
@@ -1390,7 +1250,6 @@ function StaffApp() {
           </button>
         </div>
         
-        {/* Cart Items */}
         {cart.map((item, index) => (
           <div key={index} style={{
             display: 'flex',
@@ -1434,7 +1293,6 @@ function StaffApp() {
           </div>
         ))}
         
-        {/* Total */}
         <div style={{
           marginTop: '12px',
           paddingTop: '12px',
@@ -1451,7 +1309,6 @@ function StaffApp() {
           </span>
         </div>
         
-        {/* Buttons */}
         <div style={{
           display: 'flex',
           gap: '8px',
@@ -1476,22 +1333,22 @@ function StaffApp() {
           <button
             onClick={() => {
               setShowCartPopup(false)
-              handleCheckout()
+              handleSendOrder()  // ← SEND ORDER (bukan checkout)
             }}
             style={{
               flex: 2,
               padding: isMobile ? '10px' : '12px',
-              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
               color: 'white',
               border: 'none',
               borderRadius: '40px',
               cursor: 'pointer',
               fontWeight: 'bold',
               fontSize: isMobile ? '12px' : '14px',
-              boxShadow: '0 4px 16px rgba(34,197,94,0.3)'
+              boxShadow: '0 4px 16px rgba(37,99,235,0.3)'
             }}
           >
-            💳 {t('checkout')}
+            📤 {t('send_order')}
           </button>
         </div>
       </div>
@@ -1527,7 +1384,7 @@ function StaffApp() {
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
               <strong style={{ color:priceColor }}>{t('total')}: RM {Number(order.total || order.subtotal || 0).toFixed(2)}</strong>
               <div style={{ display:'flex', gap:'8px' }}>
-                <button onClick={() => confirmNewOrder(order)} style={{ background:'linear-gradient(135deg,#2563eb,#1d4ed8)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>✅ {t('confirm_order')}</button>
+                <button onClick={() => confirmNewOrder(order)} style={{ background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>✅ {t('confirm_order')}</button>
                 <button onClick={() => cancelNewOrder(order)} style={{ background:'linear-gradient(135deg,#ef4444,#dc2626)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>{t('cancel')}</button>
               </div>
             </div>
@@ -1575,7 +1432,7 @@ function StaffApp() {
             marginBottom: '20px'
           }}>
             <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>
-              📋 {t('unpaid_orders')} ({unpaidOrders.length})
+              💰 {t('unpaid_orders')} ({unpaidOrders.length})
             </h2>
             <button 
               onClick={() => {
@@ -1608,7 +1465,6 @@ function StaffApp() {
               {t('no_unpaid_orders')}
             </div>
           ) : viewingOrder ? (
-            // View single order
             <div>
               <button 
                 onClick={() => setViewingOrder(null)}
@@ -1730,7 +1586,6 @@ function StaffApp() {
               </div>
             </div>
           ) : (
-            // List of unpaid orders
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {unpaidOrders.map(order => (
                 <div key={order.id} style={{
@@ -1833,7 +1688,7 @@ function StaffApp() {
             marginBottom: '20px'
           }}>
             <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>
-              📜 {t('history_title')} ({orderHistory.length})
+              📜 {t('history_orders')} ({orderHistory.length})
             </h2>
             <button 
               onClick={() => setShowHistoryModal(false)}
@@ -1935,7 +1790,6 @@ function StaffApp() {
                 </table>
               </div>
               
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '16px', flexWrap: 'wrap' }}>
                   <button 
@@ -1973,133 +1827,6 @@ function StaffApp() {
               )}
             </>
           )}
-        </div>
-      </div>
-    )
-  }
-
-  // ============================================================
-  // RENDER PAYMENT MODAL
-  // ============================================================
-  const renderPaymentModal = () => {
-    if (!selectedOrder) return null
-    const subtotal = selectedOrder.subtotal || selectedOrder.total || 0
-    const sc = selectedOrder.service_charge || (subtotal * 0.06)
-    const tax = selectedOrder.tax || (subtotal * 0.06)
-    const grandTotal = selectedOrder.grand_total || (subtotal + sc + tax)
-    
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.85)',
-        backdropFilter: 'blur(8px)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 3000,
-        animation: 'fadeIn 0.2s ease',
-        padding: '20px'
-      }}>
-        <div style={{
-          background: cardBg,
-          padding: '28px',
-          borderRadius: '32px',
-          maxWidth: '420px',
-          width: '90%',
-          ...glassEffect,
-          animation: 'popIn 0.3s ease'
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-            <div style={{ width: '56px', height: '56px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px auto' }}>
-              <span style={{ fontSize: '28px' }}>💰</span>
-            </div>
-            <h2 style={{ margin: 0, color: textColor, fontSize: '22px', fontWeight: 'bold' }}>{t('record_payment')}</h2>
-            <p style={{ color: textMuted, fontSize: '13px', marginTop: '4px' }}>{t('payment_method')}</p>
-          </div>
-
-          <div style={{ background: secondaryBg, padding: '16px', borderRadius: '20px', marginBottom: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ color: textMuted }}>{t('order_number')}:</span>
-              <span style={{ color: textColor, fontWeight: 'bold' }}>{selectedOrder.order_number || `ORD-${selectedOrder.id}`}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <span style={{ color: textMuted }}>{t('customer_name')}:</span>
-              <span style={{ color: textColor, fontWeight: 'bold' }}>{selectedOrder.customer_name || 'Walk-in'}</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span style={{ color: textMuted }}>{t('total')}:</span>
-              <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '18px' }}>RM {grandTotal.toFixed(2)}</span>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              {['cash', 'tng', 'bank'].map(method => (
-                <button 
-                  key={method}
-                  onClick={() => setPaymentMethod(method)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: paymentMethod === method ? '#22c55e' : secondaryBg,
-                    color: paymentMethod === method ? 'white' : textColor,
-                    border: paymentMethod === method ? 'none' : `1px solid ${borderColor}`,
-                    borderRadius: '16px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '14px',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {method === 'cash' ? '💵 ' + t('cash') : 
-                   method === 'tng' ? '📱 ' + t('tng') : 
-                   '🏦 ' + t('bank')}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <button 
-              onClick={() => { setShowPaymentModal(false); setSelectedOrder(null) }}
-              style={{
-                flex: 1,
-                padding: '14px',
-                background: '#ef4444',
-                color: 'white',
-                border: 'none',
-                borderRadius: '60px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '15px',
-                transition: 'all 0.2s'
-              }}
-            >
-              ❌ {t('cancel')}
-            </button>
-            <button 
-              onClick={() => processPayment(selectedOrder)}
-              style={{
-                flex: 1,
-                padding: '14px',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '60px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: '15px',
-                boxShadow: '0 4px 16px rgba(34,197,94,0.3)',
-                transition: 'all 0.2s'
-              }}
-            >
-              ✅ {t('save')}
-            </button>
-          </div>
         </div>
       </div>
     )
@@ -2180,6 +1907,7 @@ function StaffApp() {
             gap: '10px',
             flexWrap: 'wrap'
           }}>
+            {/* NEW CART - Reset cart */}
             <button
               onClick={() => {
                 setCart([])
@@ -2190,20 +1918,21 @@ function StaffApp() {
               }}
               style={{
                 padding: isMobile ? '8px 16px' : '10px 20px',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '30px',
                 cursor: 'pointer',
                 fontWeight: 'bold',
                 fontSize: isMobile ? '11px' : '13px',
-                boxShadow: '0 4px 16px rgba(34,197,94,0.3)',
+                boxShadow: '0 4px 16px rgba(245,158,11,0.3)',
                 transition: 'all 0.2s'
               }}
             >
-              {t('new_order')}
+              {t('new_cart')}
             </button>
             
+            {/* NEW ORDERS - Pending orders */}
             <button
               onClick={() => { setShowNewOrders(true); loadNewOrders() }}
               style={{
@@ -2220,7 +1949,7 @@ function StaffApp() {
                 position: 'relative'
               }}
             >
-              🆕 {t('new_orders_title')}
+              {t('new_orders_title')}
               {newOrders.length > 0 && (
                 <span style={{
                   position: 'absolute',
@@ -2242,6 +1971,7 @@ function StaffApp() {
               )}
             </button>
 
+            {/* UNPAID - Confirmed orders */}
             <button
               onClick={() => {
                 setShowUnpaidOrders(true)
@@ -2284,6 +2014,7 @@ function StaffApp() {
               )}
             </button>
 
+            {/* HISTORY */}
             <button
               onClick={() => { setShowHistoryModal(true); loadOrderHistory() }}
               style={{
@@ -2299,7 +2030,7 @@ function StaffApp() {
                 transition: 'all 0.2s'
               }}
             >
-              📜 {t('history_orders')}
+              {t('history_orders')}
             </button>
           </div>
         </div>
@@ -2572,7 +2303,6 @@ function StaffApp() {
                   </div>
                 )}
                 
-                {/* Image with objectFit contain */}
                 {item.image_url ? (
                   <img
                     src={item.image_url}
@@ -2612,7 +2342,6 @@ function StaffApp() {
                   {item.name}
                 </div>
                 
-                {/* Price with Promo */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -2660,7 +2389,6 @@ function StaffApp() {
                   )}
                 </div>
                 
-                {/* Size indicator */}
                 {item.has_options && (
                   <div style={{
                     fontSize: '9px',

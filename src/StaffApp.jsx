@@ -7,6 +7,9 @@ import { ORDER_STATUS, PAYMENT_STATUS, normalizeOrderForInsert, normalizeConfirm
 import { generateReceiptHTML } from './lib/receipt'
 import toast from 'react-hot-toast'
 
+// ===== SOUND FILE =====
+const NOTIFICATION_SOUND_URL = '/sounds/notification.mp3'
+
 function StaffApp() {
   const { darkMode } = useTheme()
   const { language } = useLanguage()
@@ -119,7 +122,6 @@ function StaffApp() {
 
   // ===== NOTIFICATION STATE =====
   const [notifiedOrderIds, setNotifiedOrderIds] = useState([])
-  const [soundEnabled, setSoundEnabled] = useState(true)
   const audioRef = useRef(null)
 
   // ===== SETTINGS =====
@@ -167,15 +169,32 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PLAY NOTIFICATION SOUND
+  // PLAY NOTIFICATION SOUND - GUNA FILE SENDIRI
   // ============================================================
   const playNotificationSound = () => {
     if (!settings.notification_sound) return
     
     try {
+      // Guna file sound dari public folder
+      const audio = new Audio(NOTIFICATION_SOUND_URL)
+      audio.volume = 0.8
+      
+      audio.play().catch(err => {
+        console.log('Audio play error:', err)
+        // Fallback - guna Web Audio API
+        fallbackBeep()
+      })
+    } catch (err) {
+      console.log('Audio not supported:', err)
+      fallbackBeep()
+    }
+  }
+
+  // ===== FALLBACK BEEP (jika file sound gagal) =====
+  const fallbackBeep = () => {
+    try {
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
       
-      // First beep
       const oscillator = audioCtx.createOscillator()
       const gainNode = audioCtx.createGain()
       oscillator.connect(gainNode)
@@ -187,7 +206,6 @@ function StaffApp() {
       oscillator.start(audioCtx.currentTime)
       oscillator.stop(audioCtx.currentTime + 0.3)
       
-      // Second beep - higher pitch
       setTimeout(() => {
         const osc2 = audioCtx.createOscillator()
         const gain2 = audioCtx.createGain()
@@ -202,7 +220,7 @@ function StaffApp() {
       }, 200)
       
     } catch (err) {
-      console.log('Audio not supported:', err)
+      console.log('Fallback audio error:', err)
     }
   }
 
@@ -283,7 +301,6 @@ function StaffApp() {
   // NOTIFICATION - CHECK NEW ORDERS EVERY 5 SECONDS
   // ============================================================
   useEffect(() => {
-    // Initial load
     loadNewOrders()
     
     const interval = setInterval(async () => {
@@ -295,7 +312,7 @@ function StaffApp() {
       )
       
       if (pendingOrders.length > 0) {
-        playNotificationSound()
+        playNotificationSound()  // ← Bunyi dari file sound!
         setNotifiedOrderIds(prev => [...prev, ...pendingOrders.map(o => o.id)])
         toast.info(`🔔 ${pendingOrders.length} ${t('new_order_notification')}`, {
           duration: 5000,

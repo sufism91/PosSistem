@@ -1762,34 +1762,31 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // ✅ FIXED: FILTERED MENU - With Parent/Sub Categories
+  // ✅ FIXED: CATEGORIES FOR FILTER & FILTERED MENU
   // ============================================================
+  const categoriesForFilter = getCategoriesForFilter()
+  
   const filteredMenu = menu.filter(item => {
     let matchCategory = false
     
     if (activeCategory === 'all') {
       matchCategory = true
     } else {
-      // Find selected category
       const selectedCat = categories.find(c => c.name === activeCategory)
       
       if (selectedCat) {
         const isParent = selectedCat.parent_id === null || selectedCat.parent_id === undefined
         
         if (isParent) {
-          // If parent, include items from parent AND all sub-categories
           const subCategoryNames = categories
             .filter(c => c.parent_id === selectedCat.id)
             .map(c => c.name)
-          
           const allRelatedCategories = [activeCategory, ...subCategoryNames]
           matchCategory = allRelatedCategories.includes(item.category)
         } else {
-          // If sub-category, exact match
           matchCategory = item.category === activeCategory
         }
       } else {
-        // If category not found, fallback to exact match
         matchCategory = item.category === activeCategory
       }
     }
@@ -1952,7 +1949,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // RENDER - MAIN
+  // RENDER - MAIN UI
   // ============================================================
   return (
     <Sidebar>

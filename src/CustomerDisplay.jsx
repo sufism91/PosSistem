@@ -1,142 +1,176 @@
 import { useState, useEffect } from 'react'
+import toast from 'react-hot-toast'
 import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
-import Sidebar from './components/Sidebar'
 import { supabase } from './lib/supabase'
-import { ORDER_STATUS, PAYMENT_STATUS, normalizeOrderForInsert, normalizeConfirmedUpdate } from './lib/orderWorkflow'
-import toast from 'react-hot-toast'
+import { PAYMENT_STATUS } from './lib/orderWorkflow'
+import { generateReceiptHTML } from './lib/receipt'
 
-function StaffApp() {
-  const { darkMode } = useTheme()
-  const { language } = useLanguage()
+// Helper functions for Malaysia time (UTC+8)
+const formatMalaysiaDate = (date) => {
+  return date.toLocaleDateString('en-MY', { 
+    timeZone: 'Asia/Kuala_Lumpur',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+}
+
+const formatMalaysiaTime = (date) => {
+  return date.toLocaleTimeString('en-MY', { 
+    timeZone: 'Asia/Kuala_Lumpur',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  })
+}
+
+const formatOrderTime = (utcDateString) => {
+  if (!utcDateString) return '-'
+  const date = new Date(utcDateString)
+  return date.toLocaleTimeString('en-MY', { 
+    timeZone: 'Asia/Kuala_Lumpur',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  })
+}
+
+function CustomerDisplay() {
+  const { darkMode, toggleDarkMode } = useTheme()
+  const { language, setLanguage } = useLanguage()
   
   // ============================================================
-  // TRANSLATIONS - SIMPLIFIED
+  // STATE
+  // ============================================================
+  const [menu, setMenu] = useState([])
+  const [categories, setCategories] = useState([])
+  const [tables, setTables] = useState([])
+  const [selectedTable, setSelectedTable] = useState(null)
+  const [tableOrders, setTableOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [restaurantName, setRestaurantName] = useState('Restoran Kita')
+  const [logoUrl, setLogoUrl] = useState('')
+  const [showBillingModal, setShowBillingModal] = useState(false)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState(null)
+  const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [serviceChargePercent, setServiceChargePercent] = useState(6)
+  const [taxPercent, setTaxPercent] = useState(6)
+  const [selectedCategory, setSelectedCategory] = useState('All')
+  const [specialMenuEnabled, setSpecialMenuEnabled] = useState(false)
+  const [specialMenuTitle, setSpecialMenuTitle] = useState('Istimewa Hari Ini')
+  const [specialMenuItems, setSpecialMenuItems] = useState([])
+  const [promotions, setPromotions] = useState([])
+  const [searchMenu, setSearchMenu] = useState('')
+  const [refreshing, setRefreshing] = useState(false)
+  const [searchOrder, setSearchOrder] = useState('')
+  const [isMobile, setIsMobile] = useState(false)
+  const [drinkOptions, setDrinkOptions] = useState([])
+  
+  // Display Settings
+  const [displaySettings, setDisplaySettings] = useState({
+    showFood: true,
+    showDrinks: true,
+    showSpecial: true,
+    showPromos: true
+  })
+  
+  // Business hours
+  const [businessHoursStart, setBusinessHoursStart] = useState('09:00')
+  const [businessHoursEnd, setBusinessHoursEnd] = useState('22:00')
+  const [isOpen, setIsOpen] = useState(true)
+  
+  // Current time
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  // ============================================================
+  // TRANSLATIONS
   // ============================================================
   const translations = {
-    pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
-    pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
-    new_cart: { en: '🔄 New Cart', ms: '🔄 Keranjang Baru' },
-    new_orders_title: { en: '🆕 New Orders', ms: '🆕 Pesanan Baru' },
-    unpaid_orders: { en: '💰 Unpaid', ms: '💰 Belum Bayar' },
-    history_orders: { en: '📜 History', ms: '📜 Sejarah' },
-    clear_cart: { en: '🗑️ Clear Cart', ms: '🗑️ Kosongkan Keranjang' },
-    send_order: { en: '📤 Send Order', ms: '📤 Hantar Pesanan' },
-    mark_paid: { en: '💰 Mark as Paid', ms: '💰 Tanda Bayar' },
-    confirm_order: { en: '✅ Confirm', ms: '✅ Sahkan' },
-    cancel: { en: 'Cancel', ms: 'Batal' },
-    print_receipt: { en: '🖨️ Print', ms: '🖨️ Cetak' },
-    back: { en: 'Back', ms: 'Kembali' },
-    view_order: { en: 'View', ms: 'Lihat' },
-    search_menu: { en: '🔍 Search menu...', ms: '🔍 Cari menu...' },
-    all_categories: { en: '📋 All', ms: '📋 Semua' },
-    customer_name: { en: 'Customer', ms: 'Pelanggan' },
-    table_number: { en: 'Table', ms: 'Meja' },
-    dine_in: { en: 'Dine In', ms: 'Makan di Sini' },
+    menu_pricing: { en: 'Menu & Pricing', ms: 'Menu & Harga' },
+    open: { en: 'OPEN', ms: 'BUKA' },
+    closed: { en: 'CLOSED', ms: 'TUTUP' },
+    billing: { en: '💳 Billing', ms: '💳 Bil' },
     take_away: { en: 'Take Away', ms: 'Bungkus' },
-    add_order: { en: 'Add', ms: 'Tambah' },
+    all_orders: { en: 'All Orders', ms: 'Semua Pesanan' },
+    select_table: { en: 'Select Table', ms: 'Pilih Meja' },
+    table_number: { en: 'Table', ms: 'Meja' },
+    no_orders: { en: 'No orders', ms: 'Tiada pesanan' },
+    subtotal: { en: 'Subtotal', ms: 'Subtotal' },
+    service_charge: { en: 'Service Charge', ms: 'Caj Perkhidmatan' },
+    tax: { en: 'Tax', ms: 'Cukai' },
     total: { en: 'Total', ms: 'Jumlah' },
-    items: { en: 'items', ms: 'item' },
-    guest: { en: 'Guest', ms: 'Tetamu' },
-    free: { en: 'FREE', ms: 'PERCUMA' },
-    promo: { en: '🔥 Promo', ms: '🔥 Promosi' },
+    payment_method: { en: 'Payment Method', ms: 'Kaedah Bayaran' },
+    cash: { en: 'Cash', ms: 'Tunai' },
+    tng: { en: 'TnG', ms: 'TnG' },
+    bank: { en: 'Bank', ms: 'Bank' },
+    record_payment: { en: 'Record Payment', ms: 'Rekod Bayaran' },
+    payment_received: { en: 'Payment received', ms: 'Bayaran diterima' },
+    btn_print: { en: 'Print', ms: 'Cetak' },
+    btn_pay: { en: 'Pay', ms: 'Bayar' },
+    btn_save: { en: 'Save', ms: 'Simpan' },
+    cancel: { en: 'Cancel', ms: 'Batal' },
+    close: { en: 'Close', ms: 'Tutup' },
+    print_all: { en: 'Print All', ms: 'Cetak Semua' },
+    find_order: { en: 'Find order...', ms: 'Cari pesanan...' },
+    thank_you: { en: 'Thank you for dining with us!', ms: 'Terima kasih kerana makan di sini!' },
+    error_updating: { en: 'Error updating order', ms: 'Ralat kemaskini pesanan' },
+    all: { en: 'All', ms: 'Semua' },
+    special_today: { en: "Today's Special Menu", ms: 'Menu Istimewa Hari Ini' },
+    display_settings: { en: 'Display Settings', ms: 'Tetapan Paparan' },
+    show_food: { en: '🍳 Food', ms: '🍳 Makanan' },
+    show_drinks: { en: '🥤 Drinks', ms: '🥤 Minuman' },
+    show_special: { en: '⭐ Special', ms: '⭐ Istimewa' },
+    show_promos: { en: '🏷️ Promotions', ms: '🏷️ Promosi' },
+    showing_items: { en: 'Showing', ms: 'Menunjukkan' },
+    of_items: { en: 'of', ms: 'daripada' },
+    items_count: { en: 'items', ms: 'item' },
+    no_items_to_display: { en: 'No items to display. Please adjust display settings.', ms: 'Tiada item untuk dipaparkan. Sila tukar tetapan paparan.' },
+    promo: { en: '🔥 PROMO', ms: '🔥 PROMOSI' },
+    bogo: { en: 'BUY 1 FREE 1', ms: 'BELI 1 PERCUMA 1' },
+    bundle: { en: 'BUNDLE DEAL', ms: 'TAWARAN BUNDLE' },
+    set_menu: { en: 'SET MENU', ms: 'SET MENU' },
     hot: { en: 'Hot', ms: 'Panas' },
     cold: { en: 'Cold', ms: 'Sejuk' },
     packed: { en: 'Packed', ms: 'Bungkus' },
-    table: { en: 'Table', ms: 'Meja' },
-    quantity: { en: 'Qty', ms: 'Kuantiti' },
-    notes: { en: 'Notes', ms: 'Nota' },
-    select_option: { en: 'Select Option', ms: 'Pilih Pilihan' },
-    no_new_orders: { en: 'No new orders', ms: 'Tiada pesanan baru' },
-    no_unpaid_orders: { en: 'No unpaid orders', ms: 'Tiada pesanan belum bayar' },
-    no_history_orders: { en: 'No history', ms: 'Tiada sejarah' },
-    order_added: { en: '✅ Added!', ms: '✅ Ditambah!' },
-    cart_empty: { en: 'Cart is empty', ms: 'Keranjang kosong' },
-    order_cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
-    order_confirmed_kitchen: { en: '✅ Order confirmed!', ms: '✅ Pesanan disahkan!' },
-    order_paid_history: { en: '✅ Paid!', ms: '✅ Dibayar!' },
-    error_checkout: { en: 'Error', ms: 'Ralat' },
-    new_order_started: { en: 'New cart started', ms: 'Keranjang baru dimulakan' },
-    order_sent: { en: '✅ Order sent!', ms: '✅ Pesanan dihantar!' },
-    please_select_item: { en: 'Select an item', ms: 'Pilih item' },
-    please_select_option: { en: 'Select an option', ms: 'Pilih pilihan' },
-    confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
-    receipt_title: { en: '🧾 RECEIPT', ms: '🧾 RESIT' },
-    receipt_thankyou: { en: 'Thank you!', ms: 'Terima kasih!' },
-    receipt_item: { en: 'Item', ms: 'Item' },
-    receipt_qty: { en: 'Qty', ms: 'Kuantiti' },
-    receipt_price: { en: 'Price', ms: 'Harga' },
-    receipt_total: { en: 'TOTAL', ms: 'JUMLAH' },
-    select_drink: { en: 'Select temperature', ms: 'Pilih suhu' },
+    drink_options: { en: 'Drink Options', ms: 'Pilihan Minuman' },
+    no_drink_options: { en: 'No drink options available', ms: 'Tiada pilihan minuman' },
+    preview_receipt: { en: 'Preview Receipt', ms: 'Preview Resit' },
   }
 
-  const t = (key) => {
+  const t2 = (key) => {
     if (!translations[key]) return key
     return language === 'en' ? translations[key].en : translations[key].ms
   }
 
-  // ===== STATE =====
-  const [menu, setMenu] = useState([])
-  const [categories, setCategories] = useState([])
-  const [promotions, setPromotions] = useState([])
-  const [drinkOptions, setDrinkOptions] = useState([])
-  const [cart, setCart] = useState([])
-  const [unpaidOrders, setUnpaidOrders] = useState([])
-  const [newOrders, setNewOrders] = useState([])
-  const [orderHistory, setOrderHistory] = useState([])
-  const [selectedCategory, setSelectedCategory] = useState('All')
-  const [selectedItem, setSelectedItem] = useState(null)
-  const [selectedOption, setSelectedOption] = useState('')
-  const [selectedSize, setSelectedSize] = useState(null)
-  const [quantity, setQuantity] = useState(1)
-  const [customerName, setCustomerName] = useState('')
-  const [tableNumber, setTableNumber] = useState('')
-  const [orderType, setOrderType] = useState('dine_in')
-  const [showItemModal, setShowItemModal] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [isMobile, setIsMobile] = useState(false)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [menuOptions, setMenuOptions] = useState([])
-  const [showUnpaidOrders, setShowUnpaidOrders] = useState(false)
-  const [showNewOrders, setShowNewOrders] = useState(false)
-  const [showHistoryModal, setShowHistoryModal] = useState(false)
-  const [viewingOrder, setViewingOrder] = useState(null)
-  const [historyPage, setHistoryPage] = useState(1)
-  const historyItemsPerPage = 10
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [selectedOrder, setSelectedOrder] = useState(null)
-  const [paymentMethod, setPaymentMethod] = useState('cash')
-  const [showCartPopup, setShowCartPopup] = useState(false)
-  
-  // ===== SETTINGS STATE - SYNC WITH ManageSettings =====
-  const [settings, setSettings] = useState({
-    auto_print: true,
-    printer_type: 'thermal',
-    service_charge: 6,
-    tax: 6,
-    kitchen_enabled: true,
-    notification_sound: true
-  })
-
-  // ===== CHECK MOBILE =====
+  // ============================================================
+  // CHECK MOBILE
+  // ============================================================
   useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // ===== THEME COLORS =====
+  // ============================================================
+  // THEME COLORS
+  // ============================================================
   const bgColor = darkMode ? '#07111f' : '#eff6ff'
-  const cardBg = darkMode ? 'rgba(20,20,40,0.95)' : 'rgba(255,255,255,0.95)'
+  const cardBg = darkMode ? 'rgba(20, 20, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)'
   const textColor = darkMode ? '#e8edf5' : '#1e293b'
   const textMuted = darkMode ? '#94a3b8' : '#64748b'
-  const borderColor = darkMode ? 'rgba(71,85,105,0.3)' : 'rgba(203,213,225,0.5)'
-  const priceColor = darkMode ? '#4ade80' : '#22c55e'
-  const promoColor = '#ef4444'
-  const secondaryBg = darkMode ? 'rgba(30,30,50,0.6)' : 'rgba(248,250,252,0.8)'
+  const borderColor = darkMode ? 'rgba(71, 85, 105, 0.3)' : 'rgba(203, 213, 225, 0.5)'
+  const modalBg = darkMode ? 'rgba(20, 20, 40, 0.98)' : 'rgba(255, 255, 255, 0.98)'
+  const secondaryBg = darkMode ? 'rgba(30, 30, 50, 0.6)' : 'rgba(248, 250, 252, 0.8)'
   const inputBg = darkMode ? '#1a1a2e' : '#ffffff'
-  const inputBorder = darkMode ? '#3d3d5c' : '#cbd5e1'
+  const promoColor = '#ef4444'
+  const promoBg = 'rgba(239, 68, 68, 0.12)'
+  const priceColor = darkMode ? '#4ade80' : '#22c55e'
   
   const glassEffect = {
     background: cardBg,
@@ -148,36 +182,78 @@ function StaffApp() {
   }
 
   // ============================================================
-  // LOAD SETTINGS - SYNC WITH ManageSettings
+  // CHECK BUSINESS HOURS
   // ============================================================
-  async function loadSettings() {
+  const checkBusinessHours = () => {
+    const now = new Date()
+    const currentHour = now.getHours()
+    const currentMinute = now.getMinutes()
+    const [startHour, startMinute] = businessHoursStart.split(':').map(Number)
+    const [endHour, endMinute] = businessHoursEnd.split(':').map(Number)
+    
+    const currentTotal = currentHour * 60 + currentMinute
+    const startTotal = startHour * 60 + startMinute
+    const endTotal = endHour * 60 + endMinute
+    
+    setIsOpen(currentTotal >= startTotal && currentTotal <= endTotal)
+  }
+
+  // ============================================================
+  // CLOCK UPDATES
+  // ============================================================
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date())
+      checkBusinessHours()
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [businessHoursStart, businessHoursEnd])
+
+  // ============================================================
+  // LOAD DRINK OPTIONS
+  // ============================================================
+  async function loadDrinkOptions() {
     try {
-      const { data, error } = await supabase
-        .from('settings')
-        .select('key, value')
-      
-      if (error) throw error
-      
-      const settingsObj = {}
-      data?.forEach(item => {
-        if (item.key === 'service_charge' || item.key === 'tax') {
-          settingsObj[item.key] = parseFloat(item.value) || 0
-        } else if (item.key === 'auto_print' || item.key === 'notification_sound' || item.key === 'kitchen_enabled') {
-          settingsObj[item.key] = item.value === 'true'
-        } else {
-          settingsObj[item.key] = item.value
-        }
-      })
-      
-      setSettings(prev => ({
-        ...prev,
-        ...settingsObj
-      }))
-      
-      console.log('✅ Settings loaded:', settingsObj)
+      const { data } = await supabase
+        .from('drink_options')
+        .select('*')
+      setDrinkOptions(data || [])
+      console.log('🍹 CustomerDisplay - Drink options loaded:', data?.length || 0, 'options')
     } catch (err) {
-      console.error('Error loading settings:', err)
+      console.error('Error loading drink options:', err)
+      setDrinkOptions([])
     }
+  }
+
+  // ============================================================
+  // GET DRINK OPTIONS FOR ITEM
+  // ============================================================
+  function normalizeText(value) {
+    return String(value || '').trim().toLowerCase()
+  }
+
+  function getDrinkOptionsForItem(item) {
+    if (!item) return []
+    return drinkOptions.filter(opt => normalizeText(opt.drink_name) === normalizeText(item.name))
+  }
+
+  function hasDrinkOptions(item) {
+    if (!item) return false
+    return getDrinkOptionsForItem(item).length > 0
+  }
+
+  function getOptionLabel(option) {
+    if (option === 'Panas') return t2('hot')
+    if (option === 'Sejuk') return t2('cold')
+    if (option === 'Bungkus') return t2('packed')
+    return option
+  }
+
+  function getOptionEmoji(option) {
+    if (option === 'Panas') return '🔥'
+    if (option === 'Sejuk') return '🧊'
+    if (option === 'Bungkus') return '📦'
+    return '☕'
   }
 
   // ============================================================
@@ -185,78 +261,154 @@ function StaffApp() {
   // ============================================================
   useEffect(() => {
     loadAllData()
-    loadUnpaidOrders()
-    loadNewOrders()
-    loadOrderHistory()
-    loadSettings() // ← LOAD SETTINGS
-    
-    const menuSub = supabase
-      .channel('staff_menu')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'menu' },
-        () => { loadMenu() }
-      )
+
+    const liveChannel = supabase
+      .channel('customer_display_live')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_orders' }, () => {
+        if (selectedTable) loadTableOrders(selectedTable)
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'menu' }, () => {
+        loadMenu()
+        loadSpecialMenu()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
+        loadCategories()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'drink_options' }, () => {
+        loadDrinkOptions()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'promotions' }, () => {
+        loadPromotions()
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
+        loadRestaurantInfo()
+        loadSettings()
+        loadSpecialMenu()
+        loadBusinessHours()
+      })
       .subscribe()
-    
-    const drinkSub = supabase
-      .channel('staff_drink')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'drink_options' },
-        () => { loadDrinkOptions() }
-      )
-      .subscribe()
-    
-    const orderSub = supabase
-      .channel('staff_orders')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'customer_orders' },
-        () => { 
-          loadUnpaidOrders()
-          loadNewOrders()
-          loadOrderHistory()
-        }
-      )
-      .subscribe()
-    
+
     return () => {
-      menuSub.unsubscribe()
-      drinkSub.unsubscribe()
-      orderSub.unsubscribe()
+      liveChannel.unsubscribe()
     }
+  }, [selectedTable])
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadMenu()
+      loadSpecialMenu()
+      loadPromotions()
+      loadDrinkOptions()
+    }, 10000)
+    return () => clearInterval(interval)
   }, [])
 
   async function loadAllData() {
     setLoading(true)
-    await Promise.all([
-      loadCategories(),
-      loadMenu(),
-      loadPromotions(),
-      loadDrinkOptions()
-    ])
+    await loadRestaurantInfo()
+    await loadCategories()
+    await loadMenu()
+    await loadTables()
+    await loadSettings()
+    await loadSpecialMenu()
+    await loadPromotions()
+    await loadBusinessHours()
+    await loadDrinkOptions()
     setLoading(false)
   }
 
+  async function loadRestaurantInfo() {
+    const { data: nameData } = await supabase.from('settings').select('value').eq('key', 'restaurant_name').single()
+    if (nameData) setRestaurantName(nameData.value)
+    const { data: logoData } = await supabase.from('settings').select('value').eq('key', 'logo_url').single()
+    if (logoData && logoData.value) setLogoUrl(logoData.value)
+  }
+
   async function loadCategories() {
-    try {
-      const { data } = await supabase
-        .from('categories')
-        .select('*')
-        .order('sort_order')
-      setCategories(data || [])
-    } catch (err) {
-      console.error('Error loading categories:', err)
+    const { data } = await supabase.from('categories').select('*').order('sort_order')
+    setCategories(data || [])
+  }
+
+  async function loadBusinessHours() {
+    const { data: startData } = await supabase.from('settings').select('value').eq('key', 'business_hours_start').single()
+    if (startData) setBusinessHoursStart(startData.value)
+    
+    const { data: endData } = await supabase.from('settings').select('value').eq('key', 'business_hours_end').single()
+    if (endData) setBusinessHoursEnd(endData.value)
+  }
+
+  async function refreshData() {
+    setRefreshing(true)
+    await loadAllData()
+    if (selectedTable) {
+      await loadTableOrders(selectedTable)
+    }
+    setRefreshing(false)
+    toast.success('Data refreshed!')
+  }
+
+  async function forceRefreshMenu() {
+    setRefreshing(true)
+    await loadMenu()
+    await loadSpecialMenu()
+    await loadPromotions()
+    await loadDrinkOptions()
+    setRefreshing(false)
+    toast.success('Menu refreshed!')
+  }
+
+  async function loadSettings() {
+    const { data } = await supabase.from('settings').select('key, value')
+    if (data) {
+      const sc = data.find(s => s.key === 'service_charge')
+      const tx = data.find(s => s.key === 'tax')
+      if (sc) setServiceChargePercent(parseFloat(sc.value) || 0)
+      if (tx) setTaxPercent(parseFloat(tx.value) || 0)
     }
   }
 
-  async function loadMenu() {
+  async function loadSpecialMenu() {
     try {
-      const { data } = await supabase
-        .from('menu')
-        .select('*')
-        .order('sort_order')
-      setMenu(data || [])
+      const { data: enabledData } = await supabase.from('settings').select('value').eq('key', 'special_menu_enabled').single()
+      if (enabledData) setSpecialMenuEnabled(enabledData.value === 'true')
+      
+      const { data: titleData } = await supabase.from('settings').select('value').eq('key', 'special_menu_title').single()
+      if (titleData) setSpecialMenuTitle(titleData.value)
+      
+      const { data: itemsData } = await supabase.from('settings').select('value').eq('key', 'special_menu_items').single()
+      if (itemsData) {
+        try {
+          const items = JSON.parse(itemsData.value)
+          const syncedItems = []
+          for (const item of items) {
+            if (item.menu_id) {
+              const { data: menuItem } = await supabase
+                .from('menu')
+                .select('price, image_url, description, name')
+                .eq('id', item.menu_id)
+                .single()
+              if (menuItem) {
+                syncedItems.push({
+                  ...item,
+                  name: menuItem.name || item.name,
+                  price: menuItem.price,
+                  image_url: menuItem.image_url || item.image_url,
+                  description: menuItem.description || item.description
+                })
+              } else {
+                syncedItems.push(item)
+              }
+            } else {
+              syncedItems.push(item)
+            }
+          }
+          setSpecialMenuItems(syncedItems)
+        } catch (e) {
+          setSpecialMenuItems([])
+        }
+      }
     } catch (err) {
-      console.error('Error loading menu:', err)
+      console.error('Error loading special menu:', err)
     }
   }
 
@@ -275,95 +427,96 @@ function StaffApp() {
     }
   }
 
-  async function loadDrinkOptions() {
+  async function loadMenu() {
     try {
-      const { data } = await supabase
-        .from('drink_options')
-        .select('*')
-      setDrinkOptions(data || [])
+      const { data, error } = await supabase.from('menu').select('*').order('sort_order')
+      if (!error && data) setMenu(data)
     } catch (err) {
-      console.error('Error loading drink options:', err)
-      setDrinkOptions([])
+      console.error('Error:', err)
     }
   }
 
-  async function loadUnpaidOrders() {
-    try {
-      const { data, error } = await supabase
-        .from('customer_orders')
-        .select('*')
-        .eq('payment_status', PAYMENT_STATUS.UNPAID)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      const confirmed = (data || []).filter(order => {
-        const workflowStatus = order.order_status || order.status
-        return [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'preparing', 'ready', 'served'].includes(workflowStatus) ||
-          [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'preparing', 'ready', 'served'].includes(order.status)
-      })
-      setUnpaidOrders(confirmed)
-    } catch (err) {
-      console.error('Error loading unpaid orders:', err)
-      setUnpaidOrders([])
+  async function loadTables() {
+    const { data } = await supabase.from('tables').select('*').order('table_number')
+    if (data && data.length > 0) {
+      setTables(data)
+    } else {
+      const newTables = []
+      for (let i = 1; i <= 23; i++) {
+        newTables.push({ table_number: i, status: 'available' })
+      }
+      setTables(newTables)
     }
   }
 
-  async function loadNewOrders() {
-    try {
-      const { data, error } = await supabase
-        .from('customer_orders')
-        .select('*')
-        .eq('payment_status', PAYMENT_STATUS.UNPAID)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      const pending = (data || []).filter(order => {
-        const workflowStatus = order.order_status || order.status
-        return [ORDER_STATUS.NEW, 'pending'].includes(workflowStatus) || order.status === 'pending'
-      })
-      setNewOrders(pending)
-    } catch (err) {
-      console.error('Error loading new orders:', err)
-      setNewOrders([])
+  async function loadTableOrders(tableNum) {
+    let query = supabase.from('customer_orders').select('*').eq('payment_status', PAYMENT_STATUS.UNPAID).order('created_at', { ascending: false })
+    if (tableNum === 'takeaway') {
+      query = query.eq('order_type', 'take_away')
+    } else if (tableNum === 'all') {
+      // No filter
+    } else if (tableNum && tableNum !== 'all' && tableNum !== 'takeaway') {
+      query = query.eq('table_number', parseInt(tableNum))
     }
+    const { data } = await query
+    setTableOrders(data || [])
   }
 
-  async function loadOrderHistory() {
-    try {
-      const { data, error } = await supabase
-        .from('customer_orders')
-        .select('*')
-        .eq('payment_status', PAYMENT_STATUS.PAID)
-        .order('created_at', { ascending: false })
-        .limit(200)
-
-      if (error) throw error
-      setOrderHistory(data || [])
-      setHistoryPage(1)
-    } catch (err) {
-      console.error('Error loading order history:', err)
-      setOrderHistory([])
-    }
+  const selectTable = async (tableNum) => {
+    setSelectedTable(tableNum)
+    await loadTableOrders(tableNum)
   }
 
-  async function loadMenuOptions(menuId) {
-    try {
-      const { data } = await supabase
-        .from('menu_options')
-        .select('*')
-        .eq('menu_id', menuId)
-        .order('sort_order')
-      setMenuOptions(data || [])
-    } catch (err) {
-      console.error('Error loading menu options:', err)
-      setMenuOptions([])
-    }
+  const showAllOrders = async () => {
+    setSelectedTable('all')
+    await loadTableOrders('all')
+  }
+
+  const showTakeawayOrders = async () => {
+    setSelectedTable('takeaway')
+    await loadTableOrders('takeaway')
   }
 
   // ============================================================
-  // PROMOTION HELPERS
+  // TOGGLE DISPLAY SETTINGS
+  // ============================================================
+  const toggleDisplay = (key) => {
+    setDisplaySettings(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }))
+  }
+
+  // ============================================================
+  // GET FILTERED MENU
+  // ============================================================
+  const getFilteredDisplayMenu = () => {
+    let filtered = [...menu]
+    
+    const foodSubCategories = ['Makanan', 'Mee', 'Bihup SUP', 'Telur', 'Meggie Sup', 'Sup', 'Nasi']
+    const drinkSubCategories = ['Minuman', 'Teh', 'Kopi', 'Jus', 'Air']
+    
+    if (!displaySettings.showFood) {
+      filtered = filtered.filter(item => !foodSubCategories.includes(item.category))
+    }
+    
+    if (!displaySettings.showDrinks) {
+      filtered = filtered.filter(item => !drinkSubCategories.includes(item.category))
+    }
+    
+    if (!displaySettings.showSpecial) {
+      filtered = filtered.filter(item => !item.is_special && item.category !== 'Istimewa')
+    }
+    
+    if (!displaySettings.showPromos) {
+      filtered = filtered.filter(item => !item.is_promo)
+    }
+    
+    return filtered
+  }
+
+  // ============================================================
+  // GET PROMOTION INFO
   // ============================================================
   function getItemPromotion(item) {
     for (const promo of promotions) {
@@ -395,2288 +548,1753 @@ function StaffApp() {
     return null
   }
 
-  function isItemInBOGO(item) {
-    const promo = getItemPromotion(item)
-    return promo?.type === 'bogo'
-  }
-
-  function getBOGOFreeItem(item) {
-    const promo = getItemPromotion(item)
-    if (promo?.type === 'bogo') {
-      return promo.free
-    }
-    return null
-  }
-
   // ============================================================
-  // GET ITEM PRICE
+  // LOAD SETTINGS FOR PRINT
   // ============================================================
-  function getItemPrice(item, option, size) {
-    let basePrice = item?.price || 0
-    
-    if (option && item) {
-      const drinkOpt = drinkOptions.find(d => 
-        d.drink_name === item.name && 
-        d.option_type === option
-      )
-      if (drinkOpt && drinkOpt.price !== undefined && drinkOpt.price !== null) {
-        basePrice = parseFloat(drinkOpt.price)
-        return parseFloat(basePrice) || 0
-      }
-    }
-    
-    const promoPrice = getPromoPrice(item)
-    if (promoPrice !== null && promoPrice !== undefined) {
-      basePrice = promoPrice
-    }
-    
-    if (size && size.price_adjustment !== undefined && size.price_adjustment !== null) {
-      if (size.is_absolute_price) {
-        basePrice = parseFloat(size.price_adjustment)
-      } else {
-        basePrice += parseFloat(size.price_adjustment)
-      }
-    }
-    
-    return parseFloat(basePrice) || 0
-  }
+  const [printSettings, setPrintSettings] = useState({
+    restaurant_name: 'Restoran Kita',
+    service_charge_percent: 6,
+    tax_percent: 6,
+  })
 
-  // ============================================================
-  // DRINK OPTIONS HELPERS
-  // ============================================================
-  function normalizeText(value) {
-    return String(value || '').trim().toLowerCase()
-  }
-
-  function getDrinkOptionsForItem(item) {
-    if (!item) return []
-    return drinkOptions.filter(opt => normalizeText(opt.drink_name) === normalizeText(item.name))
-  }
-
-  function hasDrinkOptions(item) {
-    if (!item) return false
-    return getDrinkOptionsForItem(item).length > 0
-  }
-
-  function getOptionLabel(option) {
-    if (option === 'Panas') return t('hot')
-    if (option === 'Sejuk') return t('cold')
-    if (option === 'Bungkus') return t('packed')
-    return option
-  }
-
-  function getOptionEmoji(option) {
-    if (option === 'Panas') return '🔥'
-    if (option === 'Sejuk') return '🧊'
-    if (option === 'Bungkus') return '📦'
-    return '☕'
-  }
-
-  // ============================================================
-  // GET CATEGORY ICON - SIMPLIFIED
-  // ============================================================
-  const getCategoryIcon = (cat) => {
-    if (!cat) return '📂'
-    if (cat === 'All' || cat === 'Semua') return '📋'
-    const icons = {
-      'Makanan': '🍚',
-      'Minuman': '🥤',
-      'SUP': '🍜',
-      'Jus': '🧃',
-      'Teh': '🍵',
-      'Kopi': '☕',
-      'Mee': '🍜',
-      'Nasi': '🍚',
-      'Telur': '🥚'
-    }
-    return icons[cat] || '📂'
-  }
-
-  // ===== HELPERS =====
-  const getCategories = () => {
-    return ['All', ...categories.map(c => c.name)]
-  }
-
-  const getFilteredMenu = () => {
-    let filtered = [...menu]
-    if (selectedCategory !== 'All') {
-      filtered = filtered.filter(item => item.category === selectedCategory)
-    }
-    if (searchTerm) {
-      filtered = filtered.filter(item => 
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-    }
-    return filtered
-  }
-
-  const isDrinkCategory = (category) => {
-    const drinkCategories = ['Minuman', 'Jus', 'Teh', 'Kopi', 'Air', 'Milo', 'Nescafe', 'Teh Tarik']
-    return drinkCategories.some(cat => category?.includes(cat))
-  }
-
-  const isSizeCategory = (item) => {
-    return item?.has_options === true
-  }
-
-  // ===== CART FUNCTIONS =====
-  const addToCart = () => {
-    if (!selectedItem) {
-      toast.error(t('please_select_item'))
-      return
-    }
-
-    if (isDrinkCategory(selectedItem.category)) {
-      const availableOptions = getDrinkOptionsForItem(selectedItem)
-      if (availableOptions.length > 0 && !selectedOption) {
-        toast.error(t('please_select_option'))
-        return
-      }
-    }
-
-    if (isSizeCategory(selectedItem) && !selectedSize) {
-      toast.error(t('select_size'))
-      return
-    }
-
-    const price = getItemPrice(selectedItem, selectedOption, selectedSize)
-    const isFree = price === 0
-    const promo = getItemPromotion(selectedItem)
-    
-    const cartItem = {
-      id: selectedItem.id,
-      name: selectedItem.name,
-      category: selectedItem.category,
-      option: selectedOption || null,
-      size: selectedSize?.option_name || null,
-      price: price,
-      originalPrice: selectedItem.price,
-      quantity: quantity,
-      subtotal: price * quantity,
-      image_url: selectedItem.image_url,
-      notes: selectedItem.notes || '',
-      isFree: isFree,
-      promoType: promo?.type || null,
-      promoName: promo?.promo?.name || null,
-      sizeData: selectedSize || null
-    }
-
-    const existingIndex = cart.findIndex(c => 
-      c.id === cartItem.id && 
-      c.option === cartItem.option && 
-      c.size === cartItem.size
-    )
-
-    if (existingIndex >= 0) {
-      const newCart = [...cart]
-      newCart[existingIndex].quantity += quantity
-      newCart[existingIndex].subtotal = newCart[existingIndex].price * newCart[existingIndex].quantity
-      setCart(newCart)
-    } else {
-      setCart([...cart, cartItem])
-    }
-
-    setShowItemModal(false)
-    setSelectedItem(null)
-    setSelectedOption('')
-    setSelectedSize(null)
-    setQuantity(1)
-    setShowCartPopup(true)
-    toast.success(isFree ? `🎁 ${selectedItem.name} FREE!` : t('order_added'))
-  }
-
-  const removeFromCart = (index) => {
-    const newCart = [...cart]
-    newCart.splice(index, 1)
-    setCart(newCart)
-    if (newCart.length === 0) {
-      setShowCartPopup(false)
-    }
-  }
-
-  const clearCart = () => {
-    if (cart.length === 0) {
-      toast.error(t('cart_empty'))
-      return
-    }
-    if (window.confirm(t('confirm_clear_cart'))) {
-      setCart([])
-      setShowCartPopup(false)
-      toast.success(t('order_cancelled'))
-    }
-  }
-
-  // ============================================================
-  // SEND ORDER - Hantar ke New Orders
-  // ============================================================
-  const handleSendOrder = async () => {
-    if (cart.length === 0) {
-      toast.error(t('cart_empty'))
-      return
-    }
-
-    if (orderType === 'dine_in' && !tableNumber) {
-      toast.error('⚠️ Sila masukkan nombor meja!')
-      return
-    }
-
-    const total = cart.reduce((sum, item) => sum + item.subtotal, 0)
-    
-    const orderData = {
-      items: cart.map(item => ({
-        name: item.name,
-        category: item.category || 'Makanan',
-        option: item.option || null,
-        size: item.size || null,
-        price: item.price,
-        originalPrice: item.originalPrice || item.price,
-        quantity: item.quantity,
-        subtotal: item.subtotal,
-        isFree: item.isFree || false,
-        promoType: item.promoType || null,
-        promoName: item.promoName || null,
-        image_url: item.image_url || null
-      })),
-      total: total,
-      customer_name: customerName || 'Guest',
-      table_number: orderType === 'dine_in' ? parseInt(tableNumber) || null : null,
-      order_type: orderType,
-      status: ORDER_STATUS.NEW,
-      order_status: ORDER_STATUS.NEW,
-      payment_status: PAYMENT_STATUS.UNPAID,
-      notes: cart.map(item => item.notes).filter(n => n).join(', ')
-    }
-
+  async function loadPrintSettings() {
     try {
-      const { data, error } = await supabase
-        .from('customer_orders')
-        .insert([normalizeOrderForInsert(orderData)])
-        .select()
-        .single()
-
-      if (error) throw error
-
-      toast.success(t('order_sent'))
-      setCart([])
-      setShowCartPopup(false)
-      setCustomerName('')
-      setTableNumber('')
-      await loadNewOrders()
-      await loadUnpaidOrders()
-
-    } catch (err) {
-      console.error('Send order error:', err)
-      toast.error(t('error_checkout') + ': ' + err.message)
-    }
-  }
-
-  // ============================================================
-  // MARK ORDER AS PAID - WITH PAYMENT METHOD & AUTO PRINT
-  // ============================================================
-  const markOrderAsPaid = async (order, method) => {
-    if (!method) {
-      toast.error('Sila pilih kaedah bayaran!')
-      return
-    }
-
-    try {
-      const { error } = await supabase
-        .from('customer_orders')
-        .update({ 
-          payment_status: PAYMENT_STATUS.PAID,
-          payment_method: method,
-          paid_at: new Date().toISOString(),
-          status: ORDER_STATUS.COMPLETED,
-          order_status: ORDER_STATUS.COMPLETED
+      const { data } = await supabase.from('settings').select('key, value')
+      if (data) {
+        const settings = {}
+        data.forEach(item => {
+          if (item.key === 'service_charge' || item.key === 'tax') {
+            settings[item.key] = parseFloat(item.value) || 0
+          } else {
+            settings[item.key] = item.value
+          }
         })
-        .eq('id', order.id)
+        setPrintSettings({
+          restaurant_name: settings.restaurant_name || 'Restoran Kita',
+          service_charge_percent: settings.service_charge || 6,
+          tax_percent: settings.tax || 6,
+        })
+      }
+    } catch (err) {
+      console.error('Error loading print settings:', err)
+    }
+  }
 
-      if (error) throw error
+  // ============================================================
+  // PAYMENT & PRINT FUNCTIONS - SYNC WITH StaffApp
+  // ============================================================
+  async function markAsPaid(order) {
+    const subtotal = parseFloat(order.subtotal || order.total || 0)
+    const serviceCharge = order.order_type === 'take_away' ? 0 : subtotal * (serviceChargePercent / 100)
+    const tax = subtotal * (taxPercent / 100)
+    const grandTotal = subtotal + serviceCharge + tax
 
-      const methodName = method === 'cash' ? 'Tunai' : method === 'bank' ? 'Bank' : 'Touch n Go'
-      toast.success(`✅ Dibayar dengan ${methodName}!`)
+    const { error } = await supabase.from('customer_orders').update({
+      payment_status: 'paid', 
+      payment_method: paymentMethod, 
+      paid_at: new Date().toISOString(),
+      subtotal, 
+      service_charge: serviceCharge, 
+      tax, 
+      grand_total: grandTotal
+    }).eq('id', order.id)
 
-      // ===== AUTO PRINT IF ENABLED =====
-      if (settings.auto_print) {
-        toast.info('🖨️ Mencetak resit...')
+    if (error) {
+      toast.error(t2('error_updating') + ': ' + error.message)
+      return
+    }
+
+    if (selectedTable === 'takeaway') {
+      await loadTableOrders('takeaway')
+    } else if (selectedTable === 'all') {
+      await loadTableOrders('all')
+    } else {
+      await loadTableOrders(selectedTable)
+    }
+    
+    setShowPaymentModal(false)
+    setSelectedOrder(null)
+    toast.success(`✅ ${t2('payment_received')} RM ${grandTotal.toFixed(2)}!`)
+    
+    // Auto print after payment - SYNC with StaffApp
+    try {
+      const { data: autoPrintData } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'auto_print')
+        .single()
+      
+      const { data: printerTypeData } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'printer_type')
+        .single()
+      
+      if (autoPrintData?.value === 'true' && printerTypeData?.value !== 'none') {
+        const receiptOrder = { 
+          ...order, 
+          payment_method: paymentMethod, 
+          paid_at: new Date().toISOString(), 
+          subtotal, 
+          service_charge: serviceCharge, 
+          tax, 
+          grand_total: grandTotal 
+        }
+        
         setTimeout(() => {
-          printReceipt(order)
+          printReceiptDirect(receiptOrder)
         }, 500)
       }
-      
-      await loadUnpaidOrders()
-      await loadOrderHistory()
-      setViewingOrder(null)
-      setShowUnpaidOrders(false)
-      setPaymentMethod('cash')
-      
     } catch (err) {
-      console.error('Error marking order as paid:', err)
-      toast.error(err.message)
+      console.error('Auto print error:', err)
     }
   }
 
   // ============================================================
-  // CONFIRM / CANCEL NEW ORDER
+  // PRINT RECEIPT - SYNC WITH StaffApp (use generateReceiptHTML)
   // ============================================================
-  const confirmNewOrder = async (order) => {
-    try {
-      const { error } = await supabase
-        .from('customer_orders')
-        .update({ 
-          status: ORDER_STATUS.CONFIRMED, 
-          order_status: ORDER_STATUS.CONFIRMED,
-          confirmed_at: new Date().toISOString()
-        })
-        .eq('id', order.id)
-      if (error) throw error
-      toast.success(t('order_confirmed_kitchen'))
-      await loadNewOrders()
-      await loadUnpaidOrders()
-    } catch (err) {
-      console.error('Error confirming order:', err)
-      toast.error(err.message)
-    }
-  }
-
-  const cancelNewOrder = async (order) => {
-    try {
-      const { error } = await supabase
-        .from('customer_orders')
-        .update({ status: ORDER_STATUS.CANCELLED, order_status: ORDER_STATUS.CANCELLED })
-        .eq('id', order.id)
-      if (error) throw error
-      toast.success(t('order_cancelled'))
-      await loadNewOrders()
-    } catch (err) {
-      toast.error(err.message)
-    }
-  }
-
-  // ============================================================
-  // PRINT RECEIPT
-  // ============================================================
-  const printReceipt = (order) => {
-    const receiptContent = `
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>${t('receipt_title')}</title>
-        <meta charset="UTF-8">
-        <style>
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Courier New', monospace; padding: 20px; background: white; color: black; }
-          .receipt { max-width: 320px; margin: 0 auto; font-size: 12px; }
-          .header { text-align: center; border-bottom: 1px dashed #ccc; padding-bottom: 10px; margin-bottom: 10px; }
-          .header h1 { font-size: 18px; }
-          .header .sub { font-size: 11px; color: #666; }
-          .divider { border-top: 1px dashed #ccc; margin: 8px 0; }
-          .items { width: 100%; margin: 8px 0; border-collapse: collapse; }
-          .items th, .items td { text-align: left; padding: 4px 0; font-size: 12px; }
-          .items th:last-child, .items td:last-child { text-align: right; }
-          .items th { border-bottom: 1px solid #ccc; font-size: 11px; color: #666; }
-          .total-row { font-size: 16px; font-weight: bold; color: #22c55e; }
-          .footer { text-align: center; margin-top: 12px; border-top: 1px dashed #ccc; padding-top: 10px; font-size: 11px; color: #666; }
-          .free-label { color: #ef4444; font-weight: bold; }
-          .promo-label { color: #ef4444; font-size: 10px; }
-          .option-label { font-size: 10px; color: #666; }
-          .payment-method { font-size: 11px; color: #3b82f6; font-weight: bold; margin-top: 4px; }
-          @media print { body { margin: 0; padding: 10px; } }
-        </style>
-      </head>
-      <body>
-        <div class="receipt">
-          <div class="header">
-            <h1>${order.customer_name || t('guest')}</h1>
-            <div class="sub">${order.order_type === 'take_away' ? '🥡 ' + t('take_away') : '🍽️ ' + t('table') + ' ' + (order.table_number || '')}</div>
-            <div class="sub">${new Date(order.created_at).toLocaleString()}</div>
-            <div class="payment-method">💳 ${order.payment_method === 'cash' ? 'Tunai' : order.payment_method === 'bank' ? 'Bank' : 'Touch n Go'}</div>
-          </div>
-          
-          <table class="items">
-            <thead>
-              <tr><th>${t('receipt_item')}</th><th>${t('receipt_qty')}</th><th>${t('receipt_price')}</th></tr>
-            </thead>
-            <tbody>
-              ${order.items?.map(item => `
-                <tr>
-                  <td>
-                    ${item.isFree ? '🎁 ' : ''}${item.name}
-                    ${item.option ? `<div class="option-label">${item.option}</div>` : ''}
-                    ${item.size ? `<div class="option-label">${item.size}</div>` : ''}
-                    ${item.isFree ? `<div class="free-label">${t('free')}</div>` : ''}
-                    ${item.promoName ? `<div class="promo-label">🔥 ${item.promoName}</div>` : ''}
-                  </td>
-                  <td style="text-align:center">${item.quantity}</td>
-                  <td style="text-align:right">${item.isFree ? t('free') : `RM ${(item.price * item.quantity).toFixed(2)}`}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          
-          <div class="divider"></div>
-          
-          <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:bold;padding:4px 0;">
-            <span>${t('receipt_total')}</span>
-            <span style="color:#22c55e">RM ${order.total.toFixed(2)}</span>
-          </div>
-          
-          <div class="footer">
-            <div>⭐ ⭐ ⭐ ⭐ ⭐</div>
-            <div>${t('receipt_thankyou')}</div>
-          </div>
-        </div>
-        <script>
-          window.onload = () => {
-            setTimeout(() => {
-              window.print();
-              setTimeout(() => window.close(), 500);
-            }, 300);
-          }
-        <\/script>
-      </body>
-      </html>
-    `
+  const printReceiptDirect = (order) => {
+    const method = order.payment_method || paymentMethod || 'cash'
+    
+    const receiptHTML = generateReceiptHTML(order, {
+      restaurant_name: printSettings.restaurant_name || 'Restoran Kita',
+      service_charge_percent: printSettings.service_charge_percent || 6,
+      tax_percent: printSettings.tax_percent || 6,
+      payment_method: method,
+      darkMode: darkMode
+    })
+    
     const printWindow = window.open('', '_blank', 'width=400,height=600')
-    printWindow.document.write(receiptContent)
+    printWindow.document.write(receiptHTML)
     printWindow.document.close()
   }
 
-  const downloadReceipt = (order) => {
-    const lines = []
-    lines.push('================================')
-    lines.push(t('receipt_title'))
-    lines.push('================================')
-    lines.push(`${t('receipt_order')}: ${order.order_number || order.id || '-'}`)
-    lines.push(`${t('receipt_customer')}: ${order.customer_name || t('guest')}`)
-    lines.push(`${order.order_type === 'take_away' ? t('take_away') : t('table')}: ${order.table_number || '-'}`)
-    lines.push(`${t('receipt_payment_method')}: ${order.payment_method || '-'}`)
-    lines.push(`${t('receipt_paid')}: ${order.paid_at ? new Date(order.paid_at).toLocaleString() : '-'}`)
-    lines.push('--------------------------------')
-    ;(order.items || []).forEach(item => {
-      const optionText = item.option || item.option_type ? ` (${item.option || item.option_type})` : ''
-      lines.push(`${item.quantity || 1}x ${item.name}${optionText} - RM ${Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}`)
-    })
-    lines.push('--------------------------------')
-    lines.push(`${t('receipt_total')}: RM ${Number(order.total || order.grand_total || 0).toFixed(2)}`)
-    lines.push('================================')
-    lines.push(t('receipt_thankyou'))
+  const printReceipt = (order) => {
+    printReceiptDirect(order)
+  }
 
-    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `receipt-${order.order_number || order.id || Date.now()}.txt`
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    URL.revokeObjectURL(url)
+  const printAllReceipts = () => {
+    if (tableOrders.length === 0) { toast.error(t2('no_orders')); return }
+    tableOrders.forEach(order => printReceipt(order))
+    toast.success(t2('btn_print') + '...')
   }
 
   // ============================================================
-  // RENDER ITEM MODAL
+  // HELPERS
   // ============================================================
-  const renderItemModal = () => {
-    if (!selectedItem) return null
-    
-    const isDrink = isDrinkCategory(selectedItem.category)
-    const hasSize = isSizeCategory(selectedItem)
-    const availableDrinkOptions = getDrinkOptionsForItem(selectedItem)
-    const hasAvailableOptions = availableDrinkOptions.length > 0
-    const sizes = menuOptions
-    
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.85)',
-        backdropFilter: 'blur(8px)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1000,
-        animation: 'fadeIn 0.2s ease',
-        padding: '20px'
-      }}>
-        <div style={{
-          background: cardBg,
-          padding: isMobile ? '24px' : '32px',
-          borderRadius: '28px',
-          maxWidth: '450px',
-          width: '100%',
-          ...glassEffect,
-          animation: 'popIn 0.3s ease',
-          maxHeight: '90vh',
-          overflowY: 'auto'
-        }}>
-          
-          {selectedItem.image_url ? (
-            <img 
-              src={selectedItem.image_url} 
-              alt={selectedItem.name}
-              style={{
-                width: '100%',
-                height: '150px',
-                objectFit: 'contain',
-                objectPosition: 'center',
-                borderRadius: '16px',
-                marginBottom: '16px',
-                backgroundColor: '#ffffff',
-                padding: '8px'
-              }}
-              onError={(e) => { e.currentTarget.style.display = 'none' }}
-            />
-          ) : (
-            <div style={{
-              width: '100%',
-              height: '100px',
-              background: secondaryBg,
-              borderRadius: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontSize: '48px',
-              marginBottom: '16px',
-              border: `1px solid ${borderColor}`
-            }}>
-              {isDrink ? '🥤' : '🍽️'}
-            </div>
-          )}
-          
-          <h2 style={{
-            color: textColor,
-            fontSize: isMobile ? '20px' : '24px',
-            fontWeight: 'bold',
-            marginBottom: '4px'
-          }}>
-            {selectedItem.name}
-          </h2>
-          
-          {getItemPromotion(selectedItem) && (
-            <div style={{
-              background: promoColor,
-              color: 'white',
-              padding: '4px 12px',
-              borderRadius: '20px',
-              fontSize: '11px',
-              fontWeight: 'bold',
-              display: 'inline-block',
-              marginBottom: '12px'
-            }}>
-              {getItemPromotion(selectedItem)?.type === 'bogo' ? '🎁 BOGO' : '🔥 ' + t('promo')}
-            </div>
-          )}
-          
-          {selectedItem.description && (
-            <p style={{
-              color: textMuted,
-              fontSize: isMobile ? '12px' : '14px',
-              marginBottom: '16px'
-            }}>
-              {selectedItem.description}
-            </p>
-          )}
-          
-          {isDrink && (
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                fontWeight: 'bold',
-                color: textColor,
-                fontSize: isMobile ? '12px' : '13px',
-                marginBottom: '8px'
-              }}>
-                {t('select_option')}:
-              </label>
-              
-              {hasAvailableOptions ? (
-                <div style={{
-                  display: 'flex',
-                  gap: '10px',
-                  flexWrap: 'wrap'
-                }}>
-                  {availableDrinkOptions.map(opt => {
-                    const price = parseFloat(opt.price) || 0
-                    const isSelected = selectedOption === opt.option_type
-                    const isFree = price === 0
-                    
-                    return (
-                      <button
-                        key={opt.id}
-                        onClick={() => setSelectedOption(opt.option_type)}
-                        style={{
-                          flex: 1,
-                          minWidth: '80px',
-                          padding: isMobile ? '10px 12px' : '12px 16px',
-                          background: isSelected ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : secondaryBg,
-                          color: isSelected ? 'white' : textColor,
-                          border: isSelected ? 'none' : `1px solid ${borderColor}`,
-                          borderRadius: '12px',
-                          cursor: 'pointer',
-                          fontWeight: isSelected ? 'bold' : 'normal',
-                          fontSize: isMobile ? '12px' : '13px',
-                          transition: 'all 0.2s',
-                          textAlign: 'center'
-                        }}
-                      >
-                        <div style={{ fontSize: isMobile ? '18px' : '22px' }}>
-                          {getOptionEmoji(opt.option_type)}
-                        </div>
-                        <div>{getOptionLabel(opt.option_type)}</div>
-                        <div style={{ 
-                          fontSize: isMobile ? '11px' : '12px', 
-                          color: isSelected ? 'rgba(255,255,255,0.9)' : (isFree ? promoColor : priceColor),
-                          fontWeight: 'bold'
-                        }}>
-                          {isFree ? t('free') : `RM ${price.toFixed(2)}`}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              ) : (
-                <div style={{
-                  background: 'rgba(239,68,68,0.1)',
-                  padding: '10px 14px',
-                  borderRadius: '12px',
-                  border: `1px solid ${promoColor}40`
-                }}>
-                  <span style={{ color: promoColor, fontSize: '13px' }}>
-                    ⚠️ No drink options available.
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-          
-          {hasSize && sizes.length > 0 && (
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                fontWeight: 'bold',
-                color: textColor,
-                fontSize: isMobile ? '12px' : '13px',
-                marginBottom: '8px'
-              }}>
-                {t('select_size')}:
-              </label>
-              <div style={{
-                display: 'flex',
-                gap: '10px',
-                flexWrap: 'wrap'
-              }}>
-                {sizes.map(size => {
-                  const price = getItemPrice(selectedItem, selectedOption, size)
-                  const isSelected = selectedSize?.id === size.id
-                  const isFree = price === 0
-                  return (
-                    <button
-                      key={size.id}
-                      onClick={() => setSelectedSize(size)}
-                      style={{
-                        flex: 1,
-                        minWidth: '70px',
-                        padding: isMobile ? '10px 12px' : '12px 16px',
-                        background: isSelected ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : secondaryBg,
-                        color: isSelected ? 'white' : textColor,
-                        border: isSelected ? 'none' : `1px solid ${borderColor}`,
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        fontWeight: isSelected ? 'bold' : 'normal',
-                        fontSize: isMobile ? '12px' : '13px',
-                        transition: 'all 0.2s',
-                        textAlign: 'center'
-                      }}
-                    >
-                      <div>{size.option_name}</div>
-                      <div style={{ 
-                        fontSize: isMobile ? '11px' : '12px', 
-                        color: isSelected ? 'rgba(255,255,255,0.9)' : (isFree ? promoColor : priceColor),
-                        fontWeight: 'bold'
-                      }}>
-                        {isFree ? t('free') : `RM ${price.toFixed(2)}`}
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
-          
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{
-              display: 'block',
-              fontWeight: 'bold',
-              color: textColor,
-              fontSize: isMobile ? '12px' : '13px',
-              marginBottom: '8px'
-            }}>
-              {t('quantity')}:
-            </label>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px'
-            }}>
-              <button
-                onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  background: secondaryBg,
-                  border: `1px solid ${borderColor}`,
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  fontSize: '20px',
-                  color: textColor,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                -
-              </button>
-              <span style={{
-                fontSize: isMobile ? '18px' : '20px',
-                fontWeight: 'bold',
-                color: textColor,
-                minWidth: '40px',
-                textAlign: 'center'
-              }}>
-                {quantity}
-              </span>
-              <button
-                onClick={() => setQuantity(quantity + 1)}
-                style={{
-                  width: '40px',
-                  height: '40px',
-                  background: secondaryBg,
-                  border: `1px solid ${borderColor}`,
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  fontSize: '20px',
-                  color: textColor,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                +
-              </button>
-            </div>
-          </div>
-          
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{
-              display: 'block',
-              fontWeight: 'bold',
-              color: textColor,
-              fontSize: isMobile ? '12px' : '13px',
-              marginBottom: '8px'
-            }}>
-              {t('notes')}:
-            </label>
-            <input
-              type="text"
-              placeholder={t('special_request')}
-              value={selectedItem.notes || ''}
-              onChange={(e) => setSelectedItem({...selectedItem, notes: e.target.value})}
-              style={{
-                width: '100%',
-                padding: isMobile ? '10px 14px' : '12px 16px',
-                borderRadius: '12px',
-                border: `1px solid ${inputBorder}`,
-                background: inputBg,
-                color: textColor,
-                fontSize: isMobile ? '13px' : '14px',
-                outline: 'none'
-              }}
-            />
-          </div>
-          
-          {isItemInBOGO(selectedItem) && (
-            <div style={{
-              background: 'rgba(239,68,68,0.1)',
-              padding: '10px 14px',
-              borderRadius: '12px',
-              marginBottom: '16px',
-              border: `1px solid ${promoColor}40`
-            }}>
-              <span style={{ color: promoColor, fontWeight: 'bold', fontSize: '13px' }}>
-                🎁 Buy 1 Get 1 FREE!
-              </span>
-              <span style={{ color: textMuted, fontSize: '12px', display: 'block' }}>
-                {getBOGOFreeItem(selectedItem)?.name || 'Free item'} will be added
-              </span>
-            </div>
-          )}
-          
-          <div style={{
-            display: 'flex',
-            gap: '10px'
-          }}>
-            <button
-              onClick={addToCart}
-              style={{
-                flex: 2,
-                padding: isMobile ? '12px' : '14px',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '13px' : '15px',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              🛒 {t('add_order')} (RM {(getItemPrice(selectedItem, selectedOption, selectedSize) * quantity).toFixed(2)})
-            </button>
-            <button
-              onClick={() => {
-                setShowItemModal(false)
-                setSelectedItem(null)
-                setSelectedOption('')
-                setSelectedSize(null)
-                setQuantity(1)
-              }}
-              style={{
-                flex: 1,
-                padding: isMobile ? '12px' : '14px',
-                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '13px' : '15px',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              {t('cancel')}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
+  const getDefaultIcon = (category) => {
+    const foundCat = categories.find(c => c.name === category)
+    if (foundCat) return foundCat.icon
+    switch(category) {
+      case 'Makanan': return '🍚'
+      case 'Minuman': return '🥤'
+      default: return '🍽️'
+    }
   }
 
-  // ============================================================
-  // RENDER CART POPUP
-  // ============================================================
-  const renderCartPopup = () => {
-    if (!showCartPopup || cart.length === 0) return null
-    
-    return (
-      <div style={{
-        position: 'fixed',
-        bottom: isMobile ? '80px' : '90px',
-        right: isMobile ? '10px' : '20px',
-        background: cardBg,
-        borderRadius: '20px',
-        padding: isMobile ? '16px' : '20px',
-        maxWidth: isMobile ? '340px' : '400px',
-        width: '90%',
-        maxHeight: '60vh',
-        overflowY: 'auto',
-        zIndex: 9998,
-        boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-        border: `1px solid ${borderColor}`,
-        animation: 'slideUp 0.3s ease',
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '12px',
-          borderBottom: `1px solid ${borderColor}`,
-          paddingBottom: '10px'
-        }}>
-          <h3 style={{ margin: 0, color: textColor, fontSize: isMobile ? '16px' : '18px' }}>
-            🛒 Cart ({cartItemCount})
-          </h3>
-          <button
-            onClick={() => setShowCartPopup(false)}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: textMuted,
-              cursor: 'pointer',
-              fontSize: '18px',
-              padding: '4px'
-            }}
-          >
-            ✕
-          </button>
-        </div>
-        
-        {cart.map((item, index) => (
-          <div key={index} style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: '6px 0',
-            borderBottom: index !== cart.length - 1 ? `1px solid ${borderColor}` : 'none'
-          }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ color: textColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '14px' }}>
-                {item.name}
-                {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
-              </div>
-              <div style={{ fontSize: '11px', color: textMuted }}>
-                x{item.quantity} × RM {item.price.toFixed(2)}
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '13px' }}>
-                RM {item.subtotal.toFixed(2)}
-              </span>
-              <button
-                onClick={() => removeFromCart(index)}
-                style={{
-                  background: '#ef4444',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '50%',
-                  width: '22px',
-                  height: '22px',
-                  cursor: 'pointer',
-                  fontSize: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-          </div>
-        ))}
-        
-        <div style={{
-          marginTop: '12px',
-          paddingTop: '12px',
-          borderTop: `2px solid ${borderColor}`,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center'
-        }}>
-          <span style={{ fontWeight: 'bold', color: textColor, fontSize: isMobile ? '16px' : '18px' }}>
-            Total:
-          </span>
-          <span style={{ fontWeight: 'bold', color: priceColor, fontSize: isMobile ? '20px' : '24px' }}>
-            RM {totalCart.toFixed(2)}
-          </span>
-        </div>
-        
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          marginTop: '12px'
-        }}>
-          <button
-            onClick={clearCart}
-            style={{
-              flex: 1,
-              padding: isMobile ? '10px' : '12px',
-              background: '#ef4444',
-              color: 'white',
-              border: 'none',
-              borderRadius: '40px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: isMobile ? '12px' : '14px'
-            }}
-          >
-            🗑️ {t('clear_cart')}
-          </button>
-          <button
-            onClick={() => {
-              setShowCartPopup(false)
-              handleSendOrder()
-            }}
-            style={{
-              flex: 2,
-              padding: isMobile ? '10px' : '12px',
-              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '40px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: isMobile ? '12px' : '14px',
-              boxShadow: '0 4px 16px rgba(37,99,235,0.3)'
-            }}
-          >
-            📤 {t('send_order')}
-          </button>
-        </div>
-      </div>
-    )
+  const getPromoTypeLabel = (type) => {
+    if (type === 'bogo') return t2('bogo')
+    if (type === 'bundle') return t2('bundle')
+    if (type === 'set_menu') return t2('set_menu')
+    return t2('promo')
   }
 
-  // ============================================================
-  // RENDER UNPAID ORDERS MODAL - WITH PAYMENT METHOD
-  // ============================================================
-  const renderUnpaidOrdersModal = () => {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.85)',
-        backdropFilter: 'blur(8px)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 2000,
-        animation: 'fadeIn 0.2s ease',
-        padding: '20px'
-      }}>
-        <div style={{
-          background: cardBg,
-          borderRadius: '28px',
-          padding: isMobile ? '20px' : '28px',
-          maxWidth: '600px',
-          width: '100%',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          ...glassEffect,
-          animation: 'popIn 0.3s ease'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '20px'
-          }}>
-            <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>
-              💰 {t('unpaid_orders')} ({unpaidOrders.length})
-            </h2>
-            <button 
-              onClick={() => {
-                setShowUnpaidOrders(false)
-                setViewingOrder(null)
-              }}
-              style={{
-                background: '#ef4444',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                transition: 'all 0.2s'
-              }}
-            >
-              ✕
-            </button>
-          </div>
+  // Get categories for filter
+  const categoryNames = ['All', ...categories.map(cat => cat.name)]
 
-          {unpaidOrders.length === 0 ? (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: '40px 20px',
-              color: textMuted
-            }}>
-              <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>📭</span>
-              {t('no_unpaid_orders')}
-            </div>
-          ) : viewingOrder ? (
-            <div>
-              <button 
-                onClick={() => setViewingOrder(null)}
-                style={{
-                  background: '#64748b',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '30px',
-                  padding: '6px 16px',
-                  cursor: 'pointer',
-                  fontSize: '12px',
-                  marginBottom: '16px'
-                }}
-              >
-                ← {t('back')}
-              </button>
-              
-              <div style={{
-                background: secondaryBg,
-                borderRadius: '16px',
-                padding: '16px',
-                marginBottom: '16px'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                  <span style={{ fontWeight: 'bold', color: textColor }}>👤 {viewingOrder.customer_name || t('guest')}</span>
-                  <span style={{ color: textMuted, fontSize: '12px' }}>
-                    {viewingOrder.order_type === 'take_away' ? '🥡' : `🍽️ ${t('table')} ${viewingOrder.table_number}`}
-                  </span>
-                </div>
-                <div style={{ fontSize: '12px', color: textMuted, marginBottom: '12px' }}>
-                  🕐 {new Date(viewingOrder.created_at).toLocaleString()}
-                </div>
-                
-                {viewingOrder.items?.map((item, idx) => (
-                  <div key={idx} style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    padding: '6px 0',
-                    borderBottom: idx !== viewingOrder.items.length - 1 ? `1px solid ${borderColor}` : 'none'
-                  }}>
-                    <span style={{ color: textColor }}>
-                      {item.name}
-                      {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
-                      {item.isFree && <span style={{ color: priceColor, fontSize: '10px', marginLeft: '4px' }}>({t('free')})</span>}
-                      <span style={{ fontSize: '11px', color: textMuted, marginLeft: '4px' }}>x{item.quantity}</span>
-                    </span>
-                    <span style={{ color: priceColor, fontWeight: 'bold' }}>
-                      {item.isFree ? t('free') : `RM ${(item.price * item.quantity).toFixed(2)}`}
-                    </span>
-                  </div>
-                ))}
-                
-                <div style={{
-                  borderTop: `2px solid ${borderColor}`,
-                  marginTop: '12px',
-                  paddingTop: '12px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  fontWeight: 'bold',
-                  fontSize: '18px'
-                }}>
-                  <span>{t('total')}:</span>
-                  <span style={{ color: priceColor }}>RM {viewingOrder.total?.toFixed(2) || '0.00'}</span>
-                </div>
-              </div>
+  // Filter menu for display
+  const displayMenu = getFilteredDisplayMenu()
+  
+  // Filter menu by category and search
+  const filteredMenu = displayMenu.filter(item => {
+    const matchCategory = selectedCategory === 'All' || item.category === selectedCategory
+    const matchSearch = item.name.toLowerCase().includes(searchMenu.toLowerCase())
+    return matchCategory && matchSearch
+  })
 
-              {/* ===== PAYMENT METHOD SELECTION ===== */}
-              <div style={{ 
-                display: 'flex', 
-                gap: '10px', 
-                marginBottom: '16px',
-                flexWrap: 'wrap'
-              }}>
-                <span style={{ color: textColor, fontWeight: 'bold', fontSize: '14px', width: '100%' }}>
-                  💳 Kaedah Bayaran:
-                </span>
-                {['cash', 'bank', 'tng'].map(method => (
-                  <button
-                    key={method}
-                    onClick={() => setPaymentMethod(method)}
-                    style={{
-                      flex: 1,
-                      minWidth: '80px',
-                      padding: '10px 16px',
-                      background: paymentMethod === method ? 'linear-gradient(135deg, #22c55e, #16a34a)' : secondaryBg,
-                      color: paymentMethod === method ? 'white' : textColor,
-                      border: paymentMethod === method ? 'none' : `1px solid ${borderColor}`,
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      fontWeight: paymentMethod === method ? 'bold' : 'normal',
-                      fontSize: isMobile ? '12px' : '14px',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    {method === 'cash' ? '💵 Tunai' : 
-                     method === 'bank' ? '🏦 Bank' : 
-                     '📱 Touch n Go'}
-                  </button>
-                ))}
-              </div>
-              
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button 
-                  onClick={() => printReceipt(viewingOrder)}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: '#0ea5e9',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '40px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  🧾 Preview Resit
-                </button>
-                {viewingOrder.payment_status === PAYMENT_STATUS.PAID && (
-                  <button
-                    onClick={() => downloadReceipt(viewingOrder)}
-                    style={{
-                      flex: 1,
-                      padding: '12px',
-                      background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '40px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    ⬇️ {t('download_receipt')}
-                  </button>
-                )}
-                <button 
-                  onClick={() => {
-                    if (!paymentMethod) {
-                      toast.error('Sila pilih kaedah bayaran!')
-                      return
-                    }
-                    markOrderAsPaid(viewingOrder, paymentMethod)
-                  }}
-                  style={{
-                    flex: 1,
-                    padding: '12px',
-                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '40px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    boxShadow: '0 4px 16px rgba(34,197,94,0.3)',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  💰 {t('mark_paid')} 
-                  {paymentMethod && ` (${paymentMethod === 'cash' ? 'Tunai' : paymentMethod === 'bank' ? 'Bank' : 'TnG'})`}
-                </button>
-              </div>
-
-              {settings.auto_print && (
-                <div style={{
-                  marginTop: '12px',
-                  padding: '8px 14px',
-                  background: 'rgba(14,165,233,0.1)',
-                  borderRadius: '10px',
-                  border: `1px solid rgba(14,165,233,0.2)`,
-                  textAlign: 'center',
-                  fontSize: '12px',
-                  color: '#0ea5e9'
-                }}>
-                  🖨️ Auto print: ON (resit akan cetak automatik)
-                </div>
-              )}
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {unpaidOrders.map(order => (
-                <div key={order.id} style={{
-                  background: secondaryBg,
-                  borderRadius: '16px',
-                  padding: '14px 16px',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  border: `1px solid ${borderColor}`,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onClick={() => setViewingOrder(order)}
-                onMouseEnter={e => e.currentTarget.style.borderColor = '#3b82f6'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = borderColor}
-                >
-                  <div>
-                    <div style={{ fontWeight: 'bold', color: textColor }}>
-                      👤 {order.customer_name || t('guest')}
-                    </div>
-                    <div style={{ fontSize: '12px', color: textMuted }}>
-                      {order.order_type === 'take_away' ? '🥡 ' + t('take_away') : '🍽️ ' + t('table') + ' ' + (order.table_number || '-')} • 
-                      {order.items?.length || 0} {t('items')}
-                    </div>
-                    <div style={{ fontSize: '11px', color: textMuted }}>
-                      🕐 {new Date(order.created_at).toLocaleString()}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '18px', color: priceColor }}>
-                      RM {order.total?.toFixed(2) || '0.00'}
-                    </div>
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setViewingOrder(order)
-                      }}
-                      style={{
-                        background: '#3b82f6',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '20px',
-                        padding: '4px 14px',
-                        cursor: 'pointer',
-                        fontSize: '11px',
-                        fontWeight: 'bold',
-                        marginTop: '4px'
-                      }}
-                    >
-                      {t('view_order')}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-
-  // ============================================================
-  // RENDER NEW ORDERS MODAL
-  // ============================================================
-  const renderNewOrdersModal = () => (
-    <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.85)', backdropFilter:'blur(8px)', display:'flex', justifyContent:'center', alignItems:'center', zIndex:2000, padding:'20px' }}>
-      <div style={{ ...glassEffect, background: cardBg, borderRadius:'28px', padding:isMobile ? '20px' : '28px', maxWidth:'720px', width:'100%', maxHeight:'90vh', overflowY:'auto' }}>
-        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'20px' }}>
-          <h2 style={{ margin:0, color:textColor, fontSize:isMobile ? '18px' : '22px' }}>🆕 {t('new_orders_title')} ({newOrders.length})</h2>
-          <button onClick={() => setShowNewOrders(false)} style={{ background:'#ef4444', color:'white', border:'none', borderRadius:'50%', width:'32px', height:'32px', cursor:'pointer' }}>✕</button>
-        </div>
-        {newOrders.length === 0 ? (
-          <div style={{ textAlign:'center', padding:'40px 20px', color:textMuted }}>📭 {t('no_new_orders')}</div>
-        ) : newOrders.map(order => (
-          <div key={order.id} style={{ background: secondaryBg, border:`1px solid ${borderColor}`, borderRadius:'18px', padding:'16px', marginBottom:'12px' }}>
-            <div style={{ display:'flex', justifyContent:'space-between', gap:'10px', flexWrap:'wrap', marginBottom:'10px' }}>
-              <strong style={{ color:textColor }}>{order.customer_name || 'Guest'} {order.table_number ? `• ${t('table')} ${order.table_number}` : '• ' + t('take_away')}</strong>
-              <span style={{ color:textMuted, fontSize:'12px' }}>{new Date(order.created_at).toLocaleString()}</span>
-            </div>
-            <div style={{ color:textColor, marginBottom:'12px' }}>
-              {order.items?.map((item, idx) => (
-                <div key={idx} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:`1px solid ${borderColor}` }}>
-                  <span>{item.quantity}x {item.name}{item.option || item.option_type ? ` (${item.option || item.option_type})` : ''}</span>
-                  <strong>RM {Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}</strong>
-                </div>
-              ))}
-            </div>
-            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', gap:'10px', flexWrap:'wrap' }}>
-              <strong style={{ color:priceColor }}>{t('total')}: RM {Number(order.total || order.subtotal || 0).toFixed(2)}</strong>
-              <div style={{ display:'flex', gap:'8px' }}>
-                <button onClick={() => confirmNewOrder(order)} style={{ background:'linear-gradient(135deg,#22c55e,#16a34a)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>✅ {t('confirm_order')}</button>
-                <button onClick={() => cancelNewOrder(order)} style={{ background:'linear-gradient(135deg,#ef4444,#dc2626)', color:'white', border:'none', borderRadius:'30px', padding:'10px 16px', cursor:'pointer', fontWeight:'bold' }}>{t('cancel')}</button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-
-  // ============================================================
-  // RENDER HISTORY MODAL
-  // ============================================================
-  const renderHistoryModal = () => {
-    const totalPages = Math.ceil(orderHistory.length / historyItemsPerPage)
-    
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0,0,0,0.85)',
-        backdropFilter: 'blur(8px)',
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 2000,
-        animation: 'fadeIn 0.2s ease',
-        padding: '20px'
-      }}>
-        <div style={{
-          background: cardBg,
-          borderRadius: '28px',
-          padding: isMobile ? '20px' : '28px',
-          maxWidth: '900px',
-          width: '100%',
-          maxHeight: '90vh',
-          overflowY: 'auto',
-          ...glassEffect,
-          animation: 'popIn 0.3s ease'
-        }}>
-          <div style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '20px'
-          }}>
-            <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>
-              📜 {t('history_orders')} ({orderHistory.length})
-            </h2>
-            <button 
-              onClick={() => setShowHistoryModal(false)}
-              style={{
-                background: '#ef4444',
-                color: 'white',
-                border: 'none',
-                borderRadius: '50%',
-                width: '32px',
-                height: '32px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                transition: 'all 0.2s'
-              }}
-            >
-              ✕
-            </button>
-          </div>
-
-          {orderHistory.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: textMuted }}>
-              <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>📭</span>
-              {t('no_history_orders')}
-            </div>
-          ) : (
-            <>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ background: darkMode ? 'rgba(30,30,46,0.8)' : '#f1f5f9' }}>
-                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('id')}</th>
-                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('customer_name')}</th>
-                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('order_type')}</th>
-                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('total')}</th>
-                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('payment_method_label')}</th>
-                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('date')}</th>
-                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('action')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orderHistory.slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage).map(order => (
-                      <tr key={order.id} style={{ borderBottom: `1px solid ${borderColor}` }}>
-                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>{order.order_number || `ORD-${order.id}`}</td>
-                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>{order.customer_name || 'Walk-in'}</td>
-                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>
-                          {order.order_type === 'take_away' ? '🥡 ' + t('take_away') : '🍽️ ' + t('table') + ' ' + (order.table_number || '')}
-                        </td>
-                        <td style={{ padding: '10px', color: priceColor, fontWeight: 'bold', fontSize: '13px' }}>
-                          RM {Number(order.grand_total || order.total || 0).toFixed(2)}
-                        </td>
-                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>
-                          {order.payment_method === 'cash' ? '💵 ' + t('cash') : 
-                           order.payment_method === 'tng' ? '📱 ' + t('tng') : 
-                           order.payment_method === 'bank' ? '🏦 ' + t('bank') : '-'}
-                        </td>
-                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>
-                          {new Date(order.created_at).toLocaleString()}
-                        </td>
-                        <td style={{ padding: '10px' }}>
-                          <button 
-                            onClick={() => {
-                              setViewingOrder(order)
-                              setShowHistoryModal(false)
-                              setShowUnpaidOrders(true)
-                            }}
-                            style={{
-                              background: '#3b82f6',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '30px',
-                              padding: '4px 14px',
-                              cursor: 'pointer',
-                              fontSize: '11px',
-                              fontWeight: 'bold'
-                            }}
-                          >
-                            👁️ {t('view_order')}
-                          </button>
-                          <button 
-                            onClick={() => downloadReceipt(order)}
-                            style={{
-                              background: '#8b5cf6',
-                              color: 'white',
-                              border: 'none',
-                              borderRadius: '30px',
-                              padding: '4px 14px',
-                              cursor: 'pointer',
-                              fontSize: '11px',
-                              fontWeight: 'bold',
-                              marginLeft: '4px'
-                            }}
-                          >
-                            ⬇️
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              
-              {totalPages > 1 && (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '16px', flexWrap: 'wrap' }}>
-                  <button 
-                    onClick={() => setHistoryPage(1)} 
-                    disabled={historyPage === 1}
-                    style={{ padding: '6px 12px', background: historyPage === 1 ? secondaryBg : '#3b82f6', color: historyPage === 1 ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-                  >
-                    « {t('first')}
-                  </button>
-                  <button 
-                    onClick={() => setHistoryPage(prev => Math.max(1, prev - 1))} 
-                    disabled={historyPage === 1}
-                    style={{ padding: '6px 12px', background: historyPage === 1 ? secondaryBg : '#3b82f6', color: historyPage === 1 ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-                  >
-                    ‹ {t('prev')}
-                  </button>
-                  <span style={{ padding: '4px 14px', background: cardBg, borderRadius: '30px', color: textColor, fontSize: '13px', border: `1px solid ${borderColor}` }}>
-                    {historyPage} / {totalPages}
-                  </span>
-                  <button 
-                    onClick={() => setHistoryPage(prev => Math.min(totalPages, prev + 1))} 
-                    disabled={historyPage === totalPages}
-                    style={{ padding: '6px 12px', background: historyPage === totalPages ? secondaryBg : '#3b82f6', color: historyPage === totalPages ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === totalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-                  >
-                    {t('next')} ›
-                  </button>
-                  <button 
-                    onClick={() => setHistoryPage(totalPages)} 
-                    disabled={historyPage === totalPages}
-                    style={{ padding: '6px 12px', background: historyPage === totalPages ? secondaryBg : '#3b82f6', color: historyPage === totalPages ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === totalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-                  >
-                    {t('last')} »
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-    )
-  }
+  // Filter orders
+  const filteredOrders = tableOrders.filter(order => {
+    if (!searchOrder) return true
+    return order.customer_name?.toLowerCase().includes(searchOrder.toLowerCase()) ||
+           order.order_number?.toLowerCase().includes(searchOrder.toLowerCase())
+  })
 
   // ============================================================
   // LOADING STATE
   // ============================================================
   if (loading) {
     return (
-      <Sidebar>
-        <div style={{
-          padding: '24px',
-          maxWidth: '1200px',
-          margin: '0 auto',
-          background: bgColor,
-          minHeight: '100vh',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center'
-        }}>
-          <div className="spinner"></div>
-        </div>
-      </Sidebar>
+      <div style={{ 
+        minHeight: '100vh', 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        background: bgColor 
+      }}>
+        <div className="spinner"></div>
+      </div>
     )
   }
 
   // ============================================================
-  // MAIN RENDER
+  // RENDER
   // ============================================================
-  const filteredMenu = getFilteredMenu()
-  const totalCart = cart.reduce((sum, item) => sum + item.subtotal, 0)
-  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
-
   return (
-    <Sidebar>
-      <div style={{
-        padding: isMobile ? '12px' : '24px',
-        maxWidth: '1400px',
-        margin: '0 auto',
-        background: bgColor,
-        minHeight: '100vh',
-        position: 'relative',
+    <div style={{ 
+      padding: '16px 24px', 
+      background: bgColor, 
+      minHeight: '100vh',
+      height: '100vh',
+      maxHeight: '100vh',
+      overflow: 'hidden',
+      display: 'flex',
+      flexDirection: 'column'
+    }}>
+      
+      {/* ===== HEADER ===== */}
+      <div style={{ 
+        ...glassEffect, 
+        borderRadius: '20px', 
+        padding: '12px 24px', 
+        marginBottom: '16px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexShrink: 0
       }}>
-        
-        {/* HEADER */}
-        <div style={{
-          ...glassEffect,
-          borderRadius: '24px',
-          padding: isMobile ? '16px 20px' : '20px 28px',
-          marginBottom: '20px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '12px'
-        }}>
-          <div>
-            <h1 style={{
-              margin: 0,
-              color: textColor,
-              fontSize: isMobile ? '20px' : '26px',
-              fontWeight: 'bold'
+        {/* Left: Clock & Status */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ 
+            background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', 
+            padding: '8px 20px', 
+            borderRadius: '60px',
+            boxShadow: '0 4px 20px rgba(37,99,235,0.4)',
+            minWidth: '160px',
+            textAlign: 'center'
+          }}>
+            <div style={{ 
+              fontSize: '32px', 
+              fontWeight: 'bold', 
+              color: 'white', 
+              letterSpacing: '2px', 
+              fontFamily: 'monospace' 
             }}>
-              {t('pos_title')}
-            </h1>
-            <p style={{
-              margin: 0,
-              color: textMuted,
-              fontSize: isMobile ? '11px' : '13px'
-            }}>
-              {t('pos_subtitle')}
-            </p>
+              {formatMalaysiaTime(currentTime)}
+            </div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.85)' }}>
+              📅 {formatMalaysiaDate(currentTime)}
+            </div>
           </div>
           
-          <div style={{
-            display: 'flex',
-            gap: '10px',
-            flexWrap: 'wrap'
+          <div style={{ 
+            background: isOpen ? 'rgba(34,197,94,0.15)' : 'rgba(239,68,68,0.15)',
+            padding: '6px 14px',
+            borderRadius: '40px',
+            border: `1px solid ${isOpen ? '#22c55e' : '#ef4444'}`
           }}>
-            <button
-              onClick={() => {
-                setCart([])
-                setCustomerName('')
-                setTableNumber('')
-                setShowCartPopup(false)
-                toast(t('new_order_started'))
-              }}
-              style={{
-                padding: isMobile ? '8px 16px' : '10px 20px',
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '30px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '11px' : '13px',
-                boxShadow: '0 4px 16px rgba(245,158,11,0.3)',
-                transition: 'all 0.2s'
-              }}
-            >
-              {t('new_cart')}
-            </button>
-            
-            <button
-              onClick={() => { setShowNewOrders(true); loadNewOrders() }}
-              style={{
-                padding: isMobile ? '8px 16px' : '10px 20px',
-                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '30px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '11px' : '13px',
-                boxShadow: '0 4px 16px rgba(37,99,235,0.3)',
-                transition: 'all 0.2s',
-                position: 'relative'
-              }}
-            >
-              {t('new_orders_title')}
-              {newOrders.length > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  top: '-6px',
-                  right: '-6px',
-                  background: '#ef4444',
-                  color: 'white',
-                  borderRadius: '50%',
-                  width: '20px',
-                  height: '20px',
-                  fontSize: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold'
-                }}>
-                  {newOrders.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => {
-                setShowUnpaidOrders(true)
-                setViewingOrder(null)
-                loadUnpaidOrders()
-              }}
-              style={{
-                padding: isMobile ? '8px 16px' : '10px 20px',
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '30px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '11px' : '13px',
-                boxShadow: '0 4px 16px rgba(245,158,11,0.3)',
-                transition: 'all 0.2s',
-                position: 'relative'
-              }}
-            >
-              {t('unpaid_orders')}
-              {unpaidOrders.length > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  top: '-6px',
-                  right: '-6px',
-                  background: '#ef4444',
-                  color: 'white',
-                  borderRadius: '50%',
-                  width: '20px',
-                  height: '20px',
-                  fontSize: '10px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 'bold'
-                }}>
-                  {unpaidOrders.length}
-                </span>
-              )}
-            </button>
-
-            <button
-              onClick={() => { setShowHistoryModal(true); loadOrderHistory() }}
-              style={{
-                padding: isMobile ? '8px 16px' : '10px 20px',
-                background: 'linear-gradient(135deg, #6c757d, #495057)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '30px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '11px' : '13px',
-                boxShadow: '0 4px 16px rgba(108,117,125,0.3)',
-                transition: 'all 0.2s'
-              }}
-            >
-              {t('history_orders')}
-            </button>
+            <span style={{ 
+              color: isOpen ? '#22c55e' : '#ef4444',
+              fontSize: '13px',
+              fontWeight: 'bold',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}>
+              <span style={{ 
+                width: '8px', 
+                height: '8px', 
+                background: isOpen ? '#22c55e' : '#ef4444', 
+                borderRadius: '50%', 
+                display: 'inline-block',
+                animation: isOpen ? 'pulse 1.5s infinite' : 'none'
+              }}></span>
+              {isOpen ? t2('open') : t2('closed')} • {businessHoursStart}-{businessHoursEnd}
+            </span>
           </div>
         </div>
-        
-        {/* ORDER TYPE DETAILS */}
-        <div style={{
-          ...glassEffect,
-          borderRadius: '16px',
-          padding: isMobile ? '12px 16px' : '16px 20px',
-          marginBottom: '20px',
-          display: 'flex',
-          gap: '16px',
-          flexWrap: 'wrap'
+
+        {/* Center: Logo */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '14px',
+          flex: 1,
+          justifyContent: 'center'
         }}>
-          <div style={{ flex: 1, minWidth: '150px' }}>
-            <label style={{
-              display: 'block',
-              fontWeight: 'bold',
-              color: textColor,
-              fontSize: isMobile ? '11px' : '12px',
-              marginBottom: '4px'
-            }}>
-              👤 {t('customer_name')}
-            </label>
-            <input
-              type="text"
-              value={customerName}
-              onChange={(e) => setCustomerName(e.target.value)}
-              placeholder={t('guest')}
-              style={{
-                width: '100%',
-                padding: isMobile ? '8px 12px' : '10px 14px',
-                borderRadius: '10px',
-                border: `1px solid ${inputBorder}`,
-                background: inputBg,
-                color: textColor,
-                fontSize: isMobile ? '13px' : '14px',
-                outline: 'none'
-              }}
+          {logoUrl ? (
+            <img 
+              src={logoUrl} 
+              alt={restaurantName} 
+              style={{ 
+                height: '70px', 
+                width: 'auto', 
+                maxWidth: '220px',
+                objectFit: 'contain',
+                borderRadius: '12px',
+                filter: darkMode ? 'brightness(0.95)' : 'none'
+              }} 
             />
-          </div>
-          
-          {orderType === 'dine_in' && (
-            <div style={{ flex: 1, minWidth: '100px' }}>
-              <label style={{
-                display: 'block',
-                fontWeight: 'bold',
-                color: textColor,
-                fontSize: isMobile ? '11px' : '12px',
-                marginBottom: '4px'
-              }}>
-                🪑 {t('table_number')}
-              </label>
-              <input
-                type="number"
-                value={tableNumber}
-                onChange={(e) => setTableNumber(e.target.value)}
-                placeholder="1"
-                min="1"
-                style={{
-                  width: '100%',
-                  padding: isMobile ? '8px 12px' : '10px 14px',
-                  borderRadius: '10px',
-                  border: `1px solid ${inputBorder}`,
-                  background: inputBg,
-                  color: textColor,
-                  fontSize: isMobile ? '13px' : '14px',
-                  outline: 'none'
-                }}
-              />
+          ) : (
+            <div style={{ 
+              width: '70px', 
+              height: '70px', 
+              background: 'linear-gradient(135deg, #f59e0b, #ea580c)', 
+              borderRadius: '16px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              fontSize: '36px',
+              boxShadow: '0 4px 20px rgba(245,158,11,0.3)'
+            }}>
+              🏪
             </div>
           )}
-          
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button
-              onClick={() => setOrderType('dine_in')}
-              style={{
-                padding: '6px 14px',
-                background: orderType === 'dine_in' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
-                color: orderType === 'dine_in' ? 'white' : textColor,
-                border: orderType === 'dine_in' ? 'none' : `1px solid ${borderColor}`,
-                borderRadius: '30px',
-                cursor: 'pointer',
-                fontSize: isMobile ? '10px' : '12px',
-                transition: 'all 0.2s'
-              }}
-            >
-              🍽️ {t('dine_in')}
-            </button>
-            <button
-              onClick={() => setOrderType('take_away')}
-              style={{
-                padding: '6px 14px',
-                background: orderType === 'take_away' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
-                color: orderType === 'take_away' ? 'white' : textColor,
-                border: orderType === 'take_away' ? 'none' : `1px solid ${borderColor}`,
-                borderRadius: '30px',
-                cursor: 'pointer',
-                fontSize: isMobile ? '10px' : '12px',
-                transition: 'all 0.2s'
-              }}
-            >
-              🥡 {t('take_away')}
-            </button>
+          <div>
+            <h1 style={{ 
+              margin: 0, 
+              fontSize: '26px', 
+              fontWeight: 'bold', 
+              color: textColor,
+              letterSpacing: '0.5px'
+            }}>
+              {restaurantName}
+            </h1>
+            <p style={{ 
+              margin: 0, 
+              fontSize: '12px', 
+              color: textMuted,
+              textAlign: 'center'
+            }}>
+              {t2('menu_pricing')}
+            </p>
           </div>
         </div>
-        
-        {/* SEARCH */}
-        <div style={{
-          ...glassEffect,
-          borderRadius: '60px',
-          padding: '4px 20px',
-          marginBottom: '16px',
-          display: 'flex',
-          alignItems: 'center'
-        }}>
-          <span style={{ fontSize: '18px', marginRight: '12px', color: textMuted }}>🔍</span>
-          <input
-            type="text"
-            placeholder={t('search_menu')}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              padding: isMobile ? '10px 0' : '12px 0',
-              border: 'none',
-              background: 'transparent',
-              color: textColor,
-              fontSize: isMobile ? '13px' : '14px',
-              outline: 'none'
+
+        {/* Right: Controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+          <button 
+            onClick={toggleDarkMode} 
+            style={{ 
+              background: secondaryBg, 
+              border: `1px solid ${borderColor}`, 
+              borderRadius: '40px', 
+              padding: '8px 12px', 
+              cursor: 'pointer', 
+              fontSize: '18px',
+              transition: 'all 0.2s'
             }}
-          />
-          {searchTerm && (
-            <button
-              onClick={() => setSearchTerm('')}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: textMuted,
-                cursor: 'pointer',
-                fontSize: '16px',
-                padding: '4px'
-              }}
-            >
-              ✕
-            </button>
+            title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+          >
+            {darkMode ? '☀️' : '🌙'}
+          </button>
+          
+          <button 
+            onClick={() => setLanguage(language === 'bm' ? 'en' : 'bm')} 
+            style={{ 
+              background: secondaryBg, 
+              border: `1px solid ${borderColor}`, 
+              borderRadius: '40px', 
+              padding: '8px 14px', 
+              cursor: 'pointer', 
+              fontSize: '12px', 
+              fontWeight: 'bold',
+              color: textColor,
+              transition: 'all 0.2s'
+            }}
+          >
+            {language === 'bm' ? '🇺🇸 EN' : '🇲🇾 BM'}
+          </button>
+          
+          <button 
+            onClick={forceRefreshMenu} 
+            disabled={refreshing} 
+            style={{ 
+              background: '#22c55e', 
+              color: 'white', 
+              border: 'none', 
+              borderRadius: '40px', 
+              padding: '8px 14px', 
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              opacity: refreshing ? 0.6 : 1,
+              fontSize: '16px'
+            }}
+            title="Refresh Menu"
+          >
+            🔄
+          </button>
+        </div>
+      </div>
+
+      {/* ===== PROMOTIONS BANNER ===== */}
+      {promotions.length > 0 && displaySettings.showPromos && (
+        <div style={{ 
+          background: 'linear-gradient(135deg, #ef4444, #dc2626, #b91c1c)',
+          borderRadius: '20px',
+          padding: isMobile ? '16px 20px' : '24px 32px',
+          marginBottom: '16px',
+          boxShadow: '0 8px 32px rgba(239,68,68,0.4)',
+          border: '2px solid #fca5a5',
+          position: 'relative',
+          overflow: 'hidden',
+          flexShrink: 0,
+          animation: 'pulseGlow 2s ease-in-out infinite'
+        }}>
+          <div style={{
+            position: 'absolute',
+            top: '-50%',
+            right: '-20%',
+            width: '400px',
+            height: '400px',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%)',
+            borderRadius: '50%',
+            pointerEvents: 'none'
+          }} />
+          
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            marginBottom: '12px',
+            flexWrap: 'wrap',
+            gap: '10px',
+            position: 'relative',
+            zIndex: 1
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{
+                fontSize: isMobile ? '40px' : '56px',
+                animation: 'pulse 1.5s ease-in-out infinite'
+              }}>
+                🔥
+              </div>
+              <div>
+                <div style={{ 
+                  fontSize: isMobile ? '22px' : '34px', 
+                  fontWeight: 'bold', 
+                  color: 'white',
+                  textShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                  letterSpacing: '1px'
+                }}>
+                  {t2('promo')}
+                </div>
+                <div style={{ 
+                  fontSize: isMobile ? '11px' : '14px', 
+                  color: '#fca5a5',
+                  fontWeight: '500'
+                }}>
+                  {promotions.length} {language === 'bm' ? 'promosi aktif' : 'active promotions'}
+                </div>
+              </div>
+            </div>
+            
+            <div style={{
+              background: 'rgba(255,255,255,0.2)',
+              color: 'white',
+              padding: '6px 20px',
+              borderRadius: '30px',
+              fontSize: isMobile ? '11px' : '14px',
+              fontWeight: 'bold',
+              backdropFilter: 'blur(4px)',
+              border: '1px solid rgba(255,255,255,0.2)'
+            }}>
+              🎉 {language === 'bm' ? 'JANGAN LEPASKAN!' : "DON'T MISS OUT!"}
+            </div>
+          </div>
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile 
+              ? '1fr' 
+              : 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: isMobile ? '12px' : '16px',
+            position: 'relative',
+            zIndex: 1
+          }}>
+            {promotions.slice(0, 6).map((promo, idx) => {
+              const itemCount = promo.bundle_items?.length || 0
+              const isBOGO = promo.type === 'bogo'
+              const triggerName = promo.trigger_items?.[0]?.name || ''
+              const freeName = promo.free_items?.[0]?.name || ''
+              
+              return (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    background: 'rgba(255,255,255,0.15)',
+                    backdropFilter: 'blur(8px)',
+                    borderRadius: '16px', 
+                    padding: isMobile ? '14px 18px' : '18px 24px', 
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.1)',
+                    transition: 'all 0.3s ease'
+                  }}
+                >
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    marginBottom: '6px'
+                  }}>
+                    <span style={{
+                      background: 'rgba(255,255,255,0.25)',
+                      color: 'white',
+                      padding: '2px 12px',
+                      borderRadius: '20px',
+                      fontSize: isMobile ? '9px' : '11px',
+                      fontWeight: 'bold',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      {getPromoTypeLabel(promo.type)}
+                    </span>
+                    {promo.bundle_price > 0 && (
+                      <span style={{
+                        color: '#fcd34d',
+                        fontWeight: 'bold',
+                        fontSize: isMobile ? '14px' : '18px'
+                      }}>
+                        RM {promo.bundle_price}
+                      </span>
+                    )}
+                  </div>
+                  
+                  <div style={{ 
+                    fontWeight: 'bold', 
+                    fontSize: isMobile ? '14px' : '18px', 
+                    color: 'white',
+                    textShadow: '0 1px 4px rgba(0,0,0,0.2)'
+                  }}>
+                    {promo.name}
+                  </div>
+                  
+                  <div style={{ 
+                    fontSize: isMobile ? '11px' : '13px', 
+                    color: '#fca5a5',
+                    marginTop: '4px'
+                  }}>
+                    {isBOGO ? (
+                      `🎁 ${triggerName} → ${freeName || 'FREE'}`
+                    ) : (
+                      `${itemCount} ${language === 'bm' ? 'item termasuk' : 'items included'}`
+                    )}
+                  </div>
+                  
+                  {promo.image_url && (
+                    <div style={{ marginTop: '8px' }}>
+                      <img 
+                        src={promo.image_url} 
+                        alt={promo.name}
+                        style={{
+                          width: '100%',
+                          height: isMobile ? '60px' : '80px',
+                          objectFit: 'cover',
+                          borderRadius: '10px',
+                          opacity: 0.9
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          
+          {promotions.length > 6 && (
+            <div style={{ 
+              textAlign: 'center', 
+              marginTop: '10px',
+              color: '#fca5a5',
+              fontSize: isMobile ? '11px' : '13px',
+              position: 'relative',
+              zIndex: 1
+            }}>
+              + {promotions.length - 6} {language === 'bm' ? 'lagi promosi' : 'more promotions'} 🔥
+            </div>
           )}
         </div>
-        
-        {/* CATEGORIES TABS */}
-        <div style={{
-          display: 'flex',
-          gap: '8px',
-          overflowX: 'auto',
+      )}
+
+      {/* ===== SPECIAL MENU BANNER ===== */}
+      {specialMenuEnabled && specialMenuItems.length > 0 && displaySettings.showSpecial && (
+        <div style={{ 
+          background: 'linear-gradient(135deg, #fef3c7, #fde68a, #f59e0b, #d97706)',
+          borderRadius: '20px', 
+          padding: isMobile ? '16px 20px' : '24px 32px', 
           marginBottom: '16px',
-          paddingBottom: '4px',
+          boxShadow: '0 8px 32px rgba(245, 158, 11, 0.35)',
+          border: '2px solid #f59e0b',
+          position: 'relative',
+          overflow: 'hidden',
           flexShrink: 0
         }}>
-          {getCategories().map(cat => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              style={{
-                padding: isMobile ? '6px 14px' : '8px 20px',
-                background: selectedCategory === cat ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
-                color: selectedCategory === cat ? 'white' : textColor,
-                border: selectedCategory === cat ? 'none' : `1px solid ${borderColor}`,
-                borderRadius: '30px',
-                cursor: 'pointer',
-                fontWeight: selectedCategory === cat ? 'bold' : 'normal',
-                fontSize: isMobile ? '11px' : '13px',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.2s'
-              }}
-            >
-              {cat === 'All' ? t('all_categories') : `${getCategoryIcon(cat)} ${cat}`}
-            </button>
-          ))}
-        </div>
-        
-        {/* ===== MENU GRID ===== */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(160px, 1fr))',
-          gap: isMobile ? '10px' : '14px',
-          marginBottom: '10px'
-        }}>
-          {filteredMenu.map(item => {
-            const promo = getItemPromotion(item)
-            const promoPrice = getPromoPrice(item)
-            const isBOGO = isItemInBOGO(item)
-            const drinkOpts = getDrinkOptionsForItem(item)
-            const hasDrinkOpts = drinkOpts.length > 0
+          <div style={{
+            position: 'absolute',
+            top: '-50%',
+            right: '-20%',
+            width: '400px',
+            height: '400px',
+            background: 'radial-gradient(circle, rgba(255,255,255,0.2) 0%, transparent 70%)',
+            borderRadius: '50%',
+            pointerEvents: 'none'
+          }} />
+          
+          <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            marginBottom: '12px',
+            flexWrap: 'wrap',
+            gap: '10px',
+            position: 'relative',
+            zIndex: 1
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+              <div style={{
+                fontSize: isMobile ? '40px' : '56px',
+                animation: 'pulse 2s ease-in-out infinite'
+              }}>
+                ⭐
+              </div>
+              <div>
+                <div style={{ 
+                  fontSize: isMobile ? '22px' : '34px', 
+                  fontWeight: 'bold', 
+                  color: '#92400e',
+                  textShadow: '0 2px 8px rgba(245,158,11,0.2)',
+                  letterSpacing: '1px'
+                }}>
+                  {specialMenuTitle}
+                </div>
+                <div style={{ 
+                  fontSize: isMobile ? '11px' : '14px', 
+                  color: '#78350f',
+                  opacity: 0.8
+                }}>
+                  🌟 {t2('special_today')}
+                </div>
+              </div>
+            </div>
             
-            return (
-              <div
-                key={item.id}
-                onClick={() => {
-                  setSelectedItem(item)
-                  setSelectedOption('')
-                  setSelectedSize(null)
-                  setQuantity(1)
-                  
-                  if (item.has_options) {
-                    loadMenuOptions(item.id)
-                  }
-                  
-                  setShowItemModal(true)
-                }}
-                style={{
-                  ...glassEffect,
-                  borderRadius: '16px',
-                  padding: isMobile ? '12px' : '16px',
-                  textAlign: 'center',
-                  cursor: 'pointer',
-                  transition: 'transform 0.2s, box-shadow 0.2s',
-                  position: 'relative'
-                }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.transform = 'translateY(-4px)'
-                  e.currentTarget.style.boxShadow = darkMode 
-                    ? '0 12px 32px rgba(0,0,0,0.5)' 
-                    : '0 12px 32px rgba(0,0,0,0.1)'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.transform = 'translateY(0)'
-                  e.currentTarget.style.boxShadow = 'none'
+            <div style={{
+              background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+              color: 'white',
+              padding: '6px 24px',
+              borderRadius: '30px',
+              fontSize: isMobile ? '12px' : '16px',
+              fontWeight: 'bold',
+              boxShadow: '0 4px 16px rgba(239,68,68,0.4)',
+              animation: 'pulse 1.5s ease-in-out infinite'
+            }}>
+              🔥 {language === 'bm' ? 'ISTIMEWA' : 'SPECIAL'}
+            </div>
+          </div>
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile 
+              ? 'repeat(2, 1fr)' 
+              : 'repeat(auto-fill, minmax(250px, 1fr))',
+            gap: isMobile ? '10px' : '14px',
+            position: 'relative',
+            zIndex: 1
+          }}>
+            {specialMenuItems.slice(0, isMobile ? 4 : 8).map((item, idx) => (
+              <div 
+                key={idx} 
+                style={{ 
+                  background: 'rgba(255,255,255,0.9)',
+                  backdropFilter: 'blur(8px)',
+                  borderRadius: '16px', 
+                  padding: isMobile ? '12px 16px' : '16px 20px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '12px',
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
+                  border: '1px solid rgba(255,255,255,0.8)',
+                  transition: 'all 0.3s ease',
+                  cursor: 'default',
+                  minHeight: isMobile ? '70px' : '90px'
                 }}
               >
-                {/* Promo Badge */}
-                {promo && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '-8px',
-                    right: '-8px',
-                    background: promoColor,
-                    color: 'white',
-                    padding: '3px 10px',
-                    borderRadius: '20px',
-                    fontSize: '9px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
-                    zIndex: 5
-                  }}>
-                    {promo.type === 'bogo' ? '🎁 BOGO' : 
-                     promo.type === 'bundle' ? '📦 Bundle' : 
-                     promo.type === 'set_menu' ? '🍽️ Set' : '🔥 ' + t('promo')}
-                  </div>
-                )}
-                
-                {/* Drink Options Indicator */}
-                {hasDrinkOpts && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '-8px',
-                    left: '-8px',
-                    background: '#3b82f6',
-                    color: 'white',
-                    padding: '2px 8px',
-                    borderRadius: '20px',
-                    fontSize: '8px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
-                    zIndex: 5,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '3px'
-                  }}>
-                    ☕ {drinkOpts.length}
-                  </div>
-                )}
-                
-                {item.image_url ? (
-                  <img
-                    src={item.image_url}
-                    alt={item.name}
-                    style={{
-                      width: '100%',
-                      height: isMobile ? '82px' : '104px',
-                      maxWidth: '140px',
-                      objectFit: 'contain',
-                      objectPosition: 'center',
-                      borderRadius: '14px',
-                      margin: '0 auto 8px auto',
-                      display: 'block',
-                      backgroundColor: '#ffffff',
-                      padding: '6px',
-                      boxSizing: 'border-box'
-                    }}
-                    onError={(e) => { e.currentTarget.style.display = 'none' }}
-                  />
-                ) : (
-                  <div style={{
-                    fontSize: isMobile ? '36px' : '48px',
-                    marginBottom: '4px'
-                  }}>
-                    {isDrinkCategory(item.category) ? '🥤' : '🍽️'}
-                  </div>
-                )}
-                <div style={{
-                  fontWeight: 'bold',
-                  color: textColor,
-                  fontSize: isMobile ? '12px' : '14px',
-                  marginBottom: '4px',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis'
-                }}>
-                  {item.name}
-                </div>
-                
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  flexWrap: 'wrap'
-                }}>
-                  {promoPrice !== null && promoPrice !== item.price ? (
-                    <>
-                      <span style={{
-                        color: promoColor,
-                        fontWeight: 'bold',
-                        fontSize: isMobile ? '14px' : '16px'
-                      }}>
-                        RM {promoPrice.toFixed(2)}
-                      </span>
-                      <span style={{
-                        color: textMuted,
-                        fontSize: isMobile ? '10px' : '11px',
-                        textDecoration: 'line-through'
-                      }}>
-                        RM {item.price.toFixed(2)}
-                      </span>
-                      {isBOGO && (
-                        <span style={{
-                          background: promoColor,
-                          color: 'white',
-                          padding: '1px 6px',
-                          borderRadius: '10px',
-                          fontSize: '7px',
-                          fontWeight: 'bold'
-                        }}>
-                          BOGO
-                        </span>
-                      )}
-                    </>
+                <div style={{ flexShrink: 0 }}>
+                  {item.image_url ? (
+                    <img 
+                      src={item.image_url} 
+                      alt={item.name} 
+                      style={{ 
+                        width: isMobile ? '48px' : '64px', 
+                        height: isMobile ? '48px' : '64px', 
+                        borderRadius: '12px', 
+                        objectFit: 'cover',
+                        border: '2px solid #f59e0b'
+                      }} 
+                    />
                   ) : (
-                    <span style={{
-                      color: priceColor,
-                      fontWeight: 'bold',
-                      fontSize: isMobile ? '14px' : '16px'
+                    <div style={{ 
+                      width: isMobile ? '48px' : '64px', 
+                      height: isMobile ? '48px' : '64px', 
+                      background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
+                      borderRadius: '12px', 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      fontSize: isMobile ? '24px' : '32px',
+                      border: '2px solid #f59e0b'
                     }}>
-                      RM {item.price.toFixed(2)}
-                    </span>
+                      ⭐
+                    </div>
                   )}
                 </div>
                 
-                {item.has_options && (
-                  <div style={{
-                    fontSize: '9px',
-                    color: '#8b5cf6',
-                    marginTop: '2px'
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ 
+                    fontWeight: 'bold', 
+                    fontSize: isMobile ? '13px' : '16px', 
+                    color: '#1e293b',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis'
                   }}>
-                    ⚙️ Multiple sizes
+                    {item.name}
                   </div>
-                )}
+                  {item.description && (
+                    <div style={{ 
+                      fontSize: isMobile ? '9px' : '11px', 
+                      color: '#64748b', 
+                      fontStyle: 'italic',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      📝 {item.description}
+                    </div>
+                  )}
+                </div>
+                
+                <div style={{ 
+                  flexShrink: 0,
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                  color: 'white',
+                  padding: isMobile ? '4px 12px' : '6px 18px',
+                  borderRadius: '30px',
+                  fontWeight: 'bold',
+                  fontSize: isMobile ? '14px' : '18px',
+                  boxShadow: '0 2px 12px rgba(34,197,94,0.3)',
+                  minWidth: isMobile ? '60px' : '80px',
+                  textAlign: 'center'
+                }}>
+                  RM {item.price}
+                </div>
               </div>
-            )
-          })}
+            ))}
+          </div>
+          
+          {specialMenuItems.length > (isMobile ? 4 : 8) && (
+            <div style={{ 
+              textAlign: 'center', 
+              marginTop: '10px',
+              color: '#78350f',
+              fontSize: isMobile ? '11px' : '13px',
+              opacity: 0.7,
+              position: 'relative',
+              zIndex: 1
+            }}>
+              + {specialMenuItems.length - (isMobile ? 4 : 8)} {language === 'bm' ? 'lagi item istimewa' : 'more special items'} 🎉
+            </div>
+          )}
         </div>
+      )}
+
+      {/* ===== DISPLAY TOGGLE CONTROLS ===== */}
+      <div style={{ 
+        ...glassEffect, 
+        borderRadius: '16px', 
+        padding: isMobile ? '10px 14px' : '12px 20px', 
+        marginBottom: '16px',
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '8px'
+      }}>
+        <span style={{ 
+          color: textColor, 
+          fontWeight: 'bold', 
+          fontSize: isMobile ? '12px' : '14px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px'
+        }}>
+          ⚙️ {t2('display_settings')}
+        </span>
         
-        {/* ===== FLOATING CART BUTTON ===== */}
-        {cart.length > 0 && (
-          <div style={{
-            position: 'fixed',
-            bottom: isMobile ? '20px' : '30px',
-            right: isMobile ? '20px' : '30px',
-            zIndex: 9999,
+        <div style={{ 
+          display: 'flex', 
+          gap: isMobile ? '8px' : '16px', 
+          flexWrap: 'wrap',
+          alignItems: 'center'
+        }}>
+          <label style={{
             display: 'flex',
-            flexDirection: 'column',
             alignItems: 'center',
-            gap: '10px',
+            gap: '6px',
+            cursor: 'pointer',
+            color: textColor,
+            fontSize: isMobile ? '11px' : '13px'
           }}>
-            <button
-              onClick={() => setShowCartPopup(!showCartPopup)}
-              style={{
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '60px',
-                padding: isMobile ? '14px 20px' : '18px 28px',
+            <input
+              type="checkbox"
+              checked={displaySettings.showFood}
+              onChange={() => toggleDisplay('showFood')}
+              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+            />
+            {t2('show_food')}
+          </label>
+          
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            color: textColor,
+            fontSize: isMobile ? '11px' : '13px'
+          }}>
+            <input
+              type="checkbox"
+              checked={displaySettings.showDrinks}
+              onChange={() => toggleDisplay('showDrinks')}
+              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+            />
+            {t2('show_drinks')}
+          </label>
+          
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            color: textColor,
+            fontSize: isMobile ? '11px' : '13px'
+          }}>
+            <input
+              type="checkbox"
+              checked={displaySettings.showSpecial}
+              onChange={() => toggleDisplay('showSpecial')}
+              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+            />
+            {t2('show_special')}
+          </label>
+          
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            cursor: 'pointer',
+            color: textColor,
+            fontSize: isMobile ? '11px' : '13px'
+          }}>
+            <input
+              type="checkbox"
+              checked={displaySettings.showPromos}
+              onChange={() => toggleDisplay('showPromos')}
+              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+            />
+            {t2('show_promos')}
+          </label>
+          
+          <span style={{
+            fontSize: isMobile ? '10px' : '12px',
+            color: textMuted,
+            padding: '4px 12px',
+            background: secondaryBg,
+            borderRadius: '20px'
+          }}>
+            {t2('showing_items')} {filteredMenu.length} {t2('of_items')} {displayMenu.length} {t2('items_count')}
+          </span>
+        </div>
+      </div>
+
+      {/* ===== MAIN CONTENT ===== */}
+      <div style={{ 
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden'
+      }}>
+        
+        {/* Category Tabs */}
+        <div style={{ 
+          display: 'flex', 
+          gap: '8px', 
+          overflowX: 'auto', 
+          paddingBottom: '10px',
+          marginBottom: '12px',
+          scrollbarWidth: 'thin',
+          flexShrink: 0
+        }}>
+          {categoryNames.map(cat => (
+            <button 
+              key={cat} 
+              onClick={() => setSelectedCategory(cat)} 
+              style={{ 
+                padding: '8px 20px', 
+                background: selectedCategory === cat ? 'linear-gradient(135deg, #f59e0b, #ea580c)' : 'transparent', 
+                color: selectedCategory === cat ? 'white' : textColor, 
+                border: selectedCategory === cat ? 'none' : `1px solid ${borderColor}`, 
+                borderRadius: '40px', 
+                cursor: 'pointer', 
+                fontWeight: selectedCategory === cat ? 'bold' : '500', 
+                fontSize: '13px',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s',
+                flexShrink: 0
+              }}
+            >
+              {cat === 'All' ? `🍽️ ${t2('all')}` : `${getDefaultIcon(cat)} ${cat}`}
+            </button>
+          ))}
+        </div>
+
+        {/* ===== MENU GRID ===== */}
+        <div style={{ 
+          flex: 1,
+          overflowY: 'auto',
+          paddingRight: '4px'
+        }}>
+          {filteredMenu.length === 0 ? (
+            <div style={{ 
+              textAlign: 'center', 
+              padding: isMobile ? '40px 20px' : '80px 20px', 
+              ...glassEffect, 
+              borderRadius: '24px' 
+            }}>
+              <span style={{ fontSize: isMobile ? '48px' : '64px', opacity: 0.5 }}>📭</span>
+              <p style={{ color: textMuted, marginTop: '12px', fontSize: isMobile ? '14px' : '16px' }}>
+                {t2('no_items_to_display')}
+              </p>
+            </div>
+          ) : (
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(180px, 1fr))', 
+              gap: '14px'
+            }}>
+              {filteredMenu.map(item => {
+                const hasImage = item.image_url && item.image_url.trim() !== ''
+                const promo = getItemPromotion(item)
+                const promoPrice = getPromoPrice(item)
+                
+                const drinkOpts = getDrinkOptionsForItem(item)
+                const hasDrinkOpts = drinkOpts.length > 0
+                
+                return (
+                  <div 
+                    key={item.id} 
+                    style={{ 
+                      background: cardBg,
+                      borderRadius: '16px',
+                      padding: '14px',
+                      textAlign: 'center',
+                      border: `1px solid ${borderColor}`,
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                      cursor: 'default',
+                      position: 'relative'
+                    }}
+                    onMouseEnter={e => {
+                      e.currentTarget.style.transform = 'translateY(-4px)'
+                      e.currentTarget.style.boxShadow = darkMode 
+                        ? '0 8px 32px rgba(0,0,0,0.4)' 
+                        : '0 8px 32px rgba(0,0,0,0.1)'
+                    }}
+                    onMouseLeave={e => {
+                      e.currentTarget.style.transform = 'translateY(0)'
+                      e.currentTarget.style.boxShadow = 'none'
+                    }}
+                  >
+                    {/* Promo Badge */}
+                    {promo && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-6px',
+                        right: '-6px',
+                        background: promoColor,
+                        color: 'white',
+                        padding: '2px 10px',
+                        borderRadius: '20px',
+                        fontSize: '9px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
+                        zIndex: 5
+                      }}>
+                        {promo.type === 'bogo' ? '🎁 BOGO' : 
+                         promo.type === 'bundle' ? '📦 Bundle' : 
+                         promo.type === 'set_menu' ? '🍽️ Set' : '🔥 Promo'}
+                      </div>
+                    )}
+                    
+                    {/* Drink Options Indicator */}
+                    {hasDrinkOpts && (
+                      <div style={{
+                        position: 'absolute',
+                        top: '-6px',
+                        left: '-6px',
+                        background: '#3b82f6',
+                        color: 'white',
+                        padding: '2px 8px',
+                        borderRadius: '20px',
+                        fontSize: '7px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
+                        zIndex: 5,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '3px'
+                      }}>
+                        ☕ {drinkOpts.length}
+                      </div>
+                    )}
+                    
+                    {/* Image */}
+                    {hasImage ? (
+                      <img 
+                        src={item.image_url} 
+                        alt={item.name} 
+                        style={{ 
+                          width: '70px', 
+                          height: '70px', 
+                          objectFit: 'cover', 
+                          borderRadius: '14px', 
+                          margin: '0 auto 10px auto',
+                          display: 'block'
+                        }}
+                        onError={(e) => { e.target.style.display = 'none' }}
+                      />
+                    ) : (
+                      <div style={{ fontSize: '40px', marginBottom: '6px' }}>{getDefaultIcon(item.category)}</div>
+                    )}
+                    
+                    <div style={{ 
+                      fontWeight: 'bold', 
+                      fontSize: '14px', 
+                      color: textColor, 
+                      marginBottom: '6px',
+                      whiteSpace: 'nowrap',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis'
+                    }}>
+                      {item.name}
+                    </div>
+                    
+                    {/* Price */}
+                    <div style={{ 
+                      color: darkMode ? '#4ade80' : '#22c55e', 
+                      fontWeight: 'bold', 
+                      fontSize: '18px',
+                      background: secondaryBg,
+                      display: 'inline-block',
+                      padding: '2px 14px',
+                      borderRadius: '30px'
+                    }}>
+                      {promoPrice !== null ? (
+                        <span style={{ color: promoColor }}>
+                          RM {promoPrice}
+                        </span>
+                      ) : (
+                        `RM ${item.price}`
+                      )}
+                    </div>
+                    
+                    {/* Drink Options */}
+                    {hasDrinkOpts && (
+                      <div style={{
+                        marginTop: '8px',
+                        paddingTop: '8px',
+                        borderTop: `1px solid ${borderColor}`,
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        flexWrap: 'wrap'
+                      }}>
+                        {drinkOpts.slice(0, 3).map(opt => (
+                          <span key={opt.id} style={{
+                            fontSize: '9px',
+                            background: secondaryBg,
+                            padding: '2px 8px',
+                            borderRadius: '12px',
+                            color: textMuted,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '3px',
+                            border: `1px solid ${borderColor}`
+                          }}>
+                            {getOptionEmoji(opt.option_type)}
+                            {getOptionLabel(opt.option_type)}
+                            <span style={{ color: priceColor, fontWeight: 'bold' }}>
+                              RM {parseFloat(opt.price).toFixed(2)}
+                            </span>
+                          </span>
+                        ))}
+                        {drinkOpts.length > 3 && (
+                          <span style={{
+                            fontSize: '8px',
+                            color: textMuted,
+                            padding: '2px 6px'
+                          }}>
+                            +{drinkOpts.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    
+                    {item.description && (
+                      <div style={{ 
+                        fontSize: '10px', 
+                        color: textMuted, 
+                        fontStyle: 'italic',
+                        marginTop: '6px',
+                        background: secondaryBg,
+                        padding: '3px 8px',
+                        borderRadius: '6px'
+                      }}>
+                        📝 {item.description}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ===== BILLING BUTTON ===== */}
+      <button 
+        onClick={() => setShowBillingModal(true)} 
+        style={{ 
+          position: 'fixed', 
+          bottom: '24px', 
+          right: '24px', 
+          width: '64px', 
+          height: '64px', 
+          borderRadius: '32px', 
+          background: 'linear-gradient(135deg, #f59e0b, #ea580c)', 
+          color: 'white', 
+          border: 'none', 
+          fontSize: '28px', 
+          cursor: 'pointer', 
+          boxShadow: '0 8px 30px rgba(245,158,11,0.5)', 
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          transition: 'transform 0.2s'
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        💰
+      </button>
+
+      {/* ===== BILLING MODAL ===== */}
+      {showBillingModal && (
+        <div style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', 
+          display: 'flex', justifyContent: 'center', alignItems: 'center', 
+          zIndex: 2000, animation: 'fadeIn 0.25s ease' 
+        }}>
+          <div style={{ 
+            background: modalBg, borderRadius: '28px', padding: '24px', 
+            maxWidth: '900px', width: '92%', maxHeight: '85vh', 
+            overflowY: 'auto', 
+            ...glassEffect, animation: 'popIn 0.3s ease' 
+          }}>
+            
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '20px' 
+            }}>
+              <h2 style={{ 
+                fontSize: '22px', 
+                color: textColor, 
+                fontWeight: 'bold',
                 display: 'flex',
                 alignItems: 'center',
-                gap: isMobile ? '10px' : '14px',
-                cursor: 'pointer',
-                boxShadow: '0 8px 32px rgba(34,197,94,0.4)',
-                transition: 'all 0.3s ease',
-                fontSize: isMobile ? '14px' : '18px',
-                fontWeight: 'bold',
-                position: 'relative',
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              🛒
-              <span>RM {totalCart.toFixed(2)}</span>
-              <span style={{
-                background: '#ef4444',
-                color: 'white',
-                borderRadius: '50%',
-                padding: '2px 8px',
-                fontSize: isMobile ? '11px' : '13px',
-                marginLeft: '4px'
+                gap: '10px'
               }}>
-                {cartItemCount}
-              </span>
-            </button>
-            
-            {/* Auto print status indicator */}
-            {settings.auto_print && (
-              <div style={{
-                fontSize: '10px',
-                color: '#0ea5e9',
-                background: 'rgba(14,165,233,0.15)',
-                padding: '4px 12px',
-                borderRadius: '20px',
-                border: '1px solid rgba(14,165,233,0.2)',
-                textAlign: 'center'
+                💰 {t2('billing')}
+              </h2>
+              <button 
+                onClick={() => { setShowBillingModal(false); setSelectedTable(null); }} 
+                style={{ 
+                  background: '#ef4444', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '40px', 
+                  padding: '8px 20px', 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.96)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {t2('close')}
+              </button>
+            </div>
+
+            {/* Order Type Filters */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '10px', 
+              marginBottom: '20px', 
+              flexWrap: 'wrap' 
+            }}>
+              <button 
+                onClick={showTakeawayOrders} 
+                style={{ 
+                  padding: '8px 20px', 
+                  background: selectedTable === 'takeaway' ? 'linear-gradient(135deg, #22c55e, #16a34a)' : secondaryBg, 
+                  color: selectedTable === 'takeaway' ? 'white' : textColor, 
+                  border: `1px solid ${borderColor}`, 
+                  borderRadius: '40px', 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s'
+                }}
+              >
+                🥡 {t2('take_away')}
+              </button>
+              <button 
+                onClick={showAllOrders} 
+                style={{ 
+                  padding: '8px 20px', 
+                  background: selectedTable === 'all' ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : secondaryBg, 
+                  color: selectedTable === 'all' ? 'white' : textColor, 
+                  border: `1px solid ${borderColor}`, 
+                  borderRadius: '40px', 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s'
+                }}
+              >
+                📋 {t2('all_orders')}
+              </button>
+            </div>
+
+            {/* Table Selection Grid */}
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{ 
+                fontWeight: 'bold', 
+                marginBottom: '10px', 
+                color: textMuted, 
+                fontSize: '13px' 
               }}>
-                🖨️ Auto print ON
+                {t2('select_table')}:
+              </div>
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(auto-fill, minmax(60px, 1fr))', 
+                gap: '8px' 
+              }}>
+                {tables.slice(0, 23).map(table => (
+                  <button 
+                    key={table.table_number} 
+                    onClick={() => selectTable(table.table_number)} 
+                    style={{ 
+                      padding: '10px 0', 
+                      background: selectedTable === table.table_number ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : secondaryBg, 
+                      color: selectedTable === table.table_number ? 'white' : textColor, 
+                      border: `1px solid ${borderColor}`, 
+                      borderRadius: '10px', 
+                      cursor: 'pointer', 
+                      fontWeight: 'bold',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {table.table_number}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Orders List */}
+            {selectedTable && (
+              <div>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center', 
+                  marginBottom: '14px', 
+                  paddingBottom: '10px', 
+                  borderBottom: `2px solid ${borderColor}` 
+                }}>
+                  <h3 style={{ 
+                    fontSize: '16px', 
+                    margin: 0, 
+                    color: textColor, 
+                    fontWeight: 'bold' 
+                  }}>
+                    {selectedTable === 'takeaway' ? `🥡 ${t2('take_away')}` : 
+                     selectedTable === 'all' ? `🧾 ${t2('all_orders')}` : 
+                     `🧾 ${t2('table_number')} ${selectedTable}`}
+                  </h3>
+                  {tableOrders.length > 0 && (
+                    <button 
+                      onClick={printAllReceipts} 
+                      style={{ 
+                        background: '#0ea5e9', 
+                        color: 'white', 
+                        padding: '6px 16px', 
+                        border: 'none', 
+                        borderRadius: '30px', 
+                        cursor: 'pointer', 
+                        fontWeight: 'bold', 
+                        fontSize: '11px',
+                        transition: 'all 0.2s'
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.96)'}
+                      onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                    >
+                      🖨️ {t2('print_all')}
+                    </button>
+                  )}
+                </div>
+
+                {/* Search Orders */}
+                <div style={{ position: 'relative', marginBottom: '16px' }}>
+                  <span style={{ 
+                    position: 'absolute', 
+                    left: '14px', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)', 
+                    fontSize: '13px', 
+                    color: textMuted 
+                  }}>
+                    🔍
+                  </span>
+                  <input 
+                    type="text" 
+                    placeholder={t2('find_order')} 
+                    value={searchOrder} 
+                    onChange={(e) => setSearchOrder(e.target.value)} 
+                    style={{ 
+                      width: '100%', 
+                      padding: '10px 16px 10px 40px', 
+                      borderRadius: '40px', 
+                      border: `1px solid ${borderColor}`, 
+                      background: inputBg, 
+                      color: textColor, 
+                      outline: 'none', 
+                      fontSize: '13px' 
+                    }} 
+                  />
+                </div>
+
+                {/* Orders */}
+                {filteredOrders.length === 0 ? (
+                  <div style={{ 
+                    textAlign: 'center', 
+                    padding: '40px 20px', 
+                    ...glassEffect, 
+                    borderRadius: '20px' 
+                  }}>
+                    <span style={{ fontSize: '40px', opacity: 0.5 }}>📋</span>
+                    <p style={{ color: textMuted, marginTop: '8px' }}>{t2('no_orders')}</p>
+                  </div>
+                ) : (
+                  filteredOrders.map(order => {
+                    const subtotal = order.subtotal || order.total
+                    const sc = order.service_charge || (subtotal * (serviceChargePercent / 100))
+                    const tax = order.tax || (subtotal * (taxPercent / 100))
+                    const grandTotal = order.grand_total || (subtotal + sc + tax)
+                    return (
+                      <div key={order.id} style={{ 
+                        ...glassEffect, 
+                        borderRadius: '18px', 
+                        marginBottom: '14px', 
+                        overflow: 'hidden' 
+                      }}>
+                        <div style={{ 
+                          padding: '12px 18px', 
+                          background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', 
+                          color: 'white', 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center', 
+                          flexWrap: 'wrap', 
+                          gap: '6px' 
+                        }}>
+                          <div>
+                            <span style={{ fontSize: '18px', marginRight: '6px' }}>
+                              {order.order_type === 'take_away' ? '🥡' : '🍽️'}
+                            </span>
+                            <strong>{order.customer_name || 'Guest'}</strong>
+                            <span style={{ fontSize: '12px', opacity: 0.85, marginLeft: '6px' }}>
+                              - {order.order_type === 'take_away' ? t2('take_away') : `${t2('table_number')} ${order.table_number}`}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '10px', opacity: 0.85 }}>
+                            🕐 {formatOrderTime(order.created_at)}
+                          </div>
+                        </div>
+                        <div style={{ padding: '12px 18px' }}>
+                          {order.items?.map((item, idx) => (
+                            <div key={idx} style={{ 
+                              display: 'flex', 
+                              justifyContent: 'space-between', 
+                              padding: '6px 0', 
+                              borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none' 
+                            }}>
+                              <span style={{ color: textColor, fontSize: '13px' }}>
+                                {item.name}
+                                {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
+                                {item.size && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>• {item.size}</span>}
+                                {' x' + item.quantity}
+                              </span>
+                              <span style={{ 
+                                color: darkMode ? '#4ade80' : '#22c55e', 
+                                fontWeight: 'bold', 
+                                fontSize: '13px' 
+                              }}>
+                                {item.isFree ? 'FREE' : `RM ${(item.price * item.quantity).toFixed(2)}`}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ 
+                          padding: '10px 18px', 
+                          background: secondaryBg, 
+                          borderTop: `1px solid ${borderColor}`, 
+                          borderBottom: `1px solid ${borderColor}` 
+                        }}>
+                          <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            fontSize: '12px', 
+                            marginBottom: '2px' 
+                          }}>
+                            <span>{t2('subtotal')}:</span>
+                            <span>RM {subtotal.toFixed(2)}</span>
+                          </div>
+                          <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            fontSize: '12px', 
+                            marginBottom: '2px' 
+                          }}>
+                            <span>{t2('service_charge')} ({serviceChargePercent}%):</span>
+                            <span>RM {sc.toFixed(2)}</span>
+                          </div>
+                          <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            fontSize: '12px', 
+                            marginBottom: '2px' 
+                          }}>
+                            <span>{t2('tax')} ({taxPercent}%):</span>
+                            <span>RM {tax.toFixed(2)}</span>
+                          </div>
+                          <div style={{ 
+                            borderTop: `1px solid ${borderColor}`, 
+                            marginTop: '6px', 
+                            paddingTop: '6px', 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            fontWeight: 'bold', 
+                            fontSize: '16px' 
+                          }}>
+                            <span>{t2('total')}:</span>
+                            <span style={{ color: '#22c55e' }}>RM {grandTotal.toFixed(2)}</span>
+                          </div>
+                        </div>
+                        <div style={{ 
+                          padding: '10px 18px', 
+                          display: 'flex', 
+                          gap: '10px', 
+                          justifyContent: 'flex-end' 
+                        }}>
+                          <button 
+                            onClick={() => printReceipt(order)} 
+                            style={{ 
+                              background: '#0ea5e9', 
+                              color: 'white', 
+                              border: 'none', 
+                              borderRadius: '30px', 
+                              padding: '6px 20px', 
+                              cursor: 'pointer', 
+                              fontWeight: 'bold', 
+                              fontSize: '12px',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.96)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            🧾 {t2('preview_receipt')}
+                          </button>
+                          <button 
+                            onClick={() => { setSelectedOrder(order); setShowPaymentModal(true) }} 
+                            style={{ 
+                              background: '#22c55e', 
+                              color: 'white', 
+                              border: 'none', 
+                              borderRadius: '30px', 
+                              padding: '6px 24px', 
+                              cursor: 'pointer', 
+                              fontWeight: 'bold', 
+                              fontSize: '12px',
+                              transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.96)'}
+                            onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                          >
+                            💰 {t2('btn_pay')}
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
               </div>
             )}
           </div>
-        )}
-        
-        {/* CART POPUP */}
-        {renderCartPopup()}
-        
-        {/* ITEM MODAL */}
-        {showItemModal && renderItemModal()}
-        
-        {/* NEW ORDERS MODAL */}
-        {showNewOrders && renderNewOrdersModal()}
+        </div>
+      )}
 
-        {/* UNPAID ORDERS MODAL */}
-        {showUnpaidOrders && renderUnpaidOrdersModal()}
-        
-        {/* HISTORY MODAL */}
-        {showHistoryModal && renderHistoryModal()}
-        
-        {/* STYLES */}
-        <style>
-          {`
-            .spinner {
-              width: 40px;
-              height: 40px;
-              border: 3px solid rgba(59,130,246,0.15);
-              border-top-color: #3b82f6;
-              border-radius: 50%;
-              animation: spin 1s linear infinite;
-            }
+      {/* ===== PAYMENT MODAL ===== */}
+      {showPaymentModal && selectedOrder && (
+        <div style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', 
+          display: 'flex', justifyContent: 'center', alignItems: 'center', 
+          zIndex: 3000, animation: 'fadeIn 0.25s ease' 
+        }}>
+          <div style={{ 
+            background: modalBg, borderRadius: '28px', padding: '28px', 
+            maxWidth: '380px', width: '90%', ...glassEffect, animation: 'popIn 0.3s ease' 
+          }}>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+              <div style={{ 
+                width: '56px', height: '56px', 
+                background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', 
+                borderRadius: '28px', display: 'flex', 
+                alignItems: 'center', justifyContent: 'center', 
+                margin: '0 auto 10px auto' 
+              }}>
+                <span style={{ fontSize: '26px' }}>💰</span>
+              </div>
+              <h2 style={{ 
+                fontSize: '20px', 
+                color: textColor, 
+                fontWeight: 'bold' 
+              }}>
+                {t2('record_payment')}
+              </h2>
+            </div>
             
-            @keyframes spin {
-              to { transform: rotate(360deg); }
-            }
+            {(() => {
+              const subtotal = selectedOrder.subtotal || selectedOrder.total
+              const sc = selectedOrder.service_charge || (subtotal * (serviceChargePercent / 100))
+              const tax = selectedOrder.tax || (subtotal * (taxPercent / 100))
+              const grandTotal = selectedOrder.grand_total || (subtotal + sc + tax)
+              return (
+                <>
+                  <div style={{ 
+                    background: secondaryBg, 
+                    padding: '16px', 
+                    borderRadius: '16px', 
+                    margin: '12px 0' 
+                  }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      marginBottom: '6px', 
+                      fontSize: '12px' 
+                    }}>
+                      <span>{t2('subtotal')}:</span>
+                      <span>RM {subtotal.toFixed(2)}</span>
+                    </div>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      marginBottom: '6px', 
+                      fontSize: '12px' 
+                    }}>
+                      <span>{t2('service_charge')} ({serviceChargePercent}%):</span>
+                      <span>RM {sc.toFixed(2)}</span>
+                    </div>
+                    <div style={{ 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      marginBottom: '6px', 
+                      fontSize: '12px' 
+                    }}>
+                      <span>{t2('tax')} ({taxPercent}%):</span>
+                      <span>RM {tax.toFixed(2)}</span>
+                    </div>
+                    <div style={{ 
+                      borderTop: `1px solid ${borderColor}`, 
+                      marginTop: '10px', 
+                      paddingTop: '10px', 
+                      display: 'flex', 
+                      justifyContent: 'space-between', 
+                      fontWeight: 'bold', 
+                      fontSize: '18px' 
+                    }}>
+                      <span>{t2('total')}:</span>
+                      <span style={{ color: '#22c55e' }}>RM {grandTotal.toFixed(2)}</span>
+                    </div>
+                  </div>
+                  
+                  <div style={{ marginBottom: '20px' }}>
+                    <label style={{ 
+                      display: 'block', 
+                      marginBottom: '8px', 
+                      fontWeight: 'bold', 
+                      color: textColor, 
+                      fontSize: '12px' 
+                    }}>
+                      {t2('payment_method')}:
+                    </label>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      {['cash', 'tng', 'bank'].map(method => (
+                        <button 
+                          key={method} 
+                          onClick={() => setPaymentMethod(method)} 
+                          style={{ 
+                            flex: 1, 
+                            padding: '10px', 
+                            background: paymentMethod === method ? 'linear-gradient(135deg, #2563eb, #1d4ed8)' : secondaryBg, 
+                            color: paymentMethod === method ? 'white' : textColor, 
+                            border: `1px solid ${borderColor}`, 
+                            borderRadius: '14px', 
+                            cursor: 'pointer', 
+                            fontWeight: 'bold', 
+                            fontSize: '12px',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          {method === 'cash' ? '💵 ' + t2('cash') : 
+                           method === 'tng' ? '📱 ' + t2('tng') : 
+                           '🏦 ' + t2('bank')}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )
+            })()}
             
-            @keyframes fadeIn {
-              from { opacity: 0; }
-              to { opacity: 1; }
-            }
-            
-            @keyframes popIn {
-              0% { opacity: 0; transform: scale(0.95) translateY(10px); }
-              100% { opacity: 1; transform: scale(1) translateY(0); }
-            }
-            
-            @keyframes slideUp {
-              from {
-                opacity: 0;
-                transform: translateY(20px) scale(0.95);
-              }
-              to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-              }
-            }
-            
-            ::-webkit-scrollbar {
-              width: 6px;
-              height: 6px;
-            }
-            
-            ::-webkit-scrollbar-track {
-              background: ${darkMode ? '#1a1a2e' : '#e2e8f0'};
-              border-radius: 10px;
-            }
-            
-            ::-webkit-scrollbar-thumb {
-              background: ${darkMode ? '#3d3d5c' : '#94a3b8'};
-              border-radius: 10px;
-            }
-            
-            input, button {
-              transition: all 0.2s ease;
-            }
-            
-            input:focus {
-              outline: none;
-              border-color: #3b82f6;
-              box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
-            }
-            
-            button:hover:not(:disabled) {
-              opacity: 0.9;
-              transform: scale(0.97);
-            }
-            
-            button:active:not(:disabled) {
-              transform: scale(0.93);
-            }
-          `}
-        </style>
-      </div>
-    </Sidebar>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={() => markAsPaid(selectedOrder)} 
+                style={{ 
+                  flex: 1, 
+                  background: '#22c55e', 
+                  color: 'white', 
+                  padding: '12px', 
+                  border: 'none', 
+                  borderRadius: '50px', 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.96)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                ✅ {t2('btn_save')}
+              </button>
+              <button 
+                onClick={() => { setShowPaymentModal(false); setSelectedOrder(null) }} 
+                style={{ 
+                  flex: 1, 
+                  background: '#ef4444', 
+                  color: 'white', 
+                  padding: '12px', 
+                  border: 'none', 
+                  borderRadius: '50px', 
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.96)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                ❌ {t2('cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {/* ===== STYLES ===== */}
+      <style>
+        {`
+          .spinner { 
+            width: 48px; 
+            height: 48px; 
+            border: 4px solid rgba(59,130,246,0.15); 
+            border-top-color: #3b82f6; 
+            border-radius: 50%; 
+            animation: spin 1s linear infinite; 
+            margin: 0 auto; 
+          }
+          
+          @keyframes spin { 
+            to { transform: rotate(360deg); } 
+          }
+          
+          @keyframes fadeIn { 
+            from { opacity: 0; } 
+            to { opacity: 1; } 
+          }
+          
+          @keyframes popIn { 
+            0% { opacity: 0; transform: scale(0.95) translateY(10px); } 
+            100% { opacity: 1; transform: scale(1) translateY(0); } 
+          }
+          
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+          }
+          
+          @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 8px 32px rgba(239,68,68,0.4); }
+            50% { box-shadow: 0 8px 48px rgba(239,68,68,0.6); }
+          }
+          
+          ::-webkit-scrollbar { 
+            width: 6px; 
+            height: 6px; 
+          }
+          
+          ::-webkit-scrollbar-track { 
+            background: ${darkMode ? '#1a1a2e' : '#e2e8f0'}; 
+            border-radius: 10px; 
+          }
+          
+          ::-webkit-scrollbar-thumb { 
+            background: ${darkMode ? '#3d3d5c' : '#94a3b8'}; 
+            border-radius: 10px; 
+          }
+          
+          button, input { 
+            transition: all 0.2s ease; 
+          }
+          
+          input:focus { 
+            outline: none; 
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
+          }
+        `}
+      </style>
+    </div>
   )
 }
 
-export default StaffApp
+export default CustomerDisplay

@@ -1,6 +1,4 @@
 // lib/receipt.js
-// Shared receipt generator for StaffApp and CustomerDisplay
-
 export function generateReceiptHTML(order, settings = {}) {
   const { 
     restaurant_name = 'Restoran Kita',

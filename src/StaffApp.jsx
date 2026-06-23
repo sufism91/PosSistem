@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
 import Sidebar from './components/Sidebar'
@@ -76,6 +76,7 @@ function StaffApp() {
     payment_method: { en: 'Payment Method', ms: 'Kaedah Bayaran' },
     download_receipt: { en: 'Download', ms: 'Muat Turun' },
     print_all: { en: 'Print All', ms: 'Cetak Semua' },
+    new_order_notification: { en: 'New order received!', ms: 'Pesanan baru diterima!' },
   }
 
   const t = (key) => {
@@ -115,6 +116,11 @@ function StaffApp() {
   const historyItemsPerPage = 10
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [showCartPopup, setShowCartPopup] = useState(false)
+
+  // ===== NOTIFICATION STATE =====
+  const [notifiedOrderIds, setNotifiedOrderIds] = useState([])
+  const [soundEnabled, setSoundEnabled] = useState(true)
+  const audioRef = useRef(null)
 
   // ===== SETTINGS =====
   const [settings, setSettings] = useState({
@@ -158,6 +164,46 @@ function StaffApp() {
     boxShadow: darkMode 
       ? '0 8px 40px rgba(0,0,0,0.5)' 
       : '0 8px 40px rgba(0,0,0,0.06)'
+  }
+
+  // ============================================================
+  // PLAY NOTIFICATION SOUND
+  // ============================================================
+  const playNotificationSound = () => {
+    if (!settings.notification_sound) return
+    
+    try {
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)()
+      
+      // First beep
+      const oscillator = audioCtx.createOscillator()
+      const gainNode = audioCtx.createGain()
+      oscillator.connect(gainNode)
+      gainNode.connect(audioCtx.destination)
+      oscillator.frequency.value = 800
+      oscillator.type = 'sine'
+      gainNode.gain.setValueAtTime(0.3, audioCtx.currentTime)
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3)
+      oscillator.start(audioCtx.currentTime)
+      oscillator.stop(audioCtx.currentTime + 0.3)
+      
+      // Second beep - higher pitch
+      setTimeout(() => {
+        const osc2 = audioCtx.createOscillator()
+        const gain2 = audioCtx.createGain()
+        osc2.connect(gain2)
+        gain2.connect(audioCtx.destination)
+        osc2.frequency.value = 1000
+        osc2.type = 'sine'
+        gain2.gain.setValueAtTime(0.3, audioCtx.currentTime)
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.2)
+        osc2.start(audioCtx.currentTime)
+        osc2.stop(audioCtx.currentTime + 0.2)
+      }, 200)
+      
+    } catch (err) {
+      console.log('Audio not supported:', err)
+    }
   }
 
   // ============================================================
@@ -233,6 +279,35 @@ function StaffApp() {
     }
   }, [])
 
+  // ============================================================
+  // NOTIFICATION - CHECK NEW ORDERS EVERY 5 SECONDS
+  // ============================================================
+  useEffect(() => {
+    // Initial load
+    loadNewOrders()
+    
+    const interval = setInterval(async () => {
+      await loadNewOrders()
+      
+      const pendingOrders = newOrders.filter(order => 
+        !notifiedOrderIds.includes(order.id) && 
+        (order.status === 'pending' || order.order_status === 'pending' || order.status === ORDER_STATUS.NEW)
+      )
+      
+      if (pendingOrders.length > 0) {
+        playNotificationSound()
+        setNotifiedOrderIds(prev => [...prev, ...pendingOrders.map(o => o.id)])
+        toast.info(`🔔 ${pendingOrders.length} ${t('new_order_notification')}`, {
+          duration: 5000,
+          icon: '🔔'
+        })
+      }
+      
+    }, 5000)
+    
+    return () => clearInterval(interval)
+  }, [newOrders, notifiedOrderIds])
+
   async function loadAllData() {
     setLoading(true)
     await Promise.all([
@@ -244,9 +319,6 @@ function StaffApp() {
     setLoading(false)
   }
 
-  // ============================================================
-  // LOAD CATEGORIES - FIXED with parent_id
-  // ============================================================
   async function loadCategories() {
     try {
       const { data } = await supabase
@@ -498,28 +570,21 @@ function StaffApp() {
     let filtered = [...menu]
     
     if (selectedCategory !== 'All') {
-      // Cari category yang dipilih
       const selectedCat = categories.find(c => c.name === selectedCategory)
       
       if (selectedCat) {
-        // Check sama ada ia parent category (parent_id = null)
         const isParent = selectedCat.parent_id === null || selectedCat.parent_id === undefined
         
         if (isParent) {
-          // Jika parent, dapatkan semua sub-category names
           const subCategoryNames = categories
             .filter(c => c.parent_id === selectedCat.id)
             .map(c => c.name)
-          
-          // Include parent + semua sub-categories
           const allRelatedCategories = [selectedCategory, ...subCategoryNames]
           filtered = filtered.filter(item => allRelatedCategories.includes(item.category))
         } else {
-          // Jika sub-category, filter macam biasa
           filtered = filtered.filter(item => item.category === selectedCategory)
         }
       } else {
-        // Fallback - filter macam biasa
         filtered = filtered.filter(item => item.category === selectedCategory)
       }
     }
@@ -539,11 +604,9 @@ function StaffApp() {
     if (!cat) return '📂'
     if (cat === 'All' || cat === 'Semua') return '📋'
     
-    // Cari category dalam list categories
     const found = categories.find(c => c.name === cat)
     if (found?.icon) return found.icon
     
-    // Fallback icons
     const icons = {
       'Makanan': '🍚',
       'Minuman': '🥤',
@@ -766,7 +829,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // CONFIRM / CANCEL NEW ORDER
+  // CONFIRM / CANCEL NEW ORDER - WITH NOTIFICATION CLEAR
   // ============================================================
   const confirmNewOrder = async (order) => {
     try {
@@ -779,6 +842,10 @@ function StaffApp() {
         })
         .eq('id', order.id)
       if (error) throw error
+      
+      // Remove from notified list
+      setNotifiedOrderIds(prev => prev.filter(id => id !== order.id))
+      
       toast.success(t('order_confirmed_kitchen'))
       await loadNewOrders()
       await loadUnpaidOrders()
@@ -795,6 +862,10 @@ function StaffApp() {
         .update({ status: ORDER_STATUS.CANCELLED, order_status: ORDER_STATUS.CANCELLED })
         .eq('id', order.id)
       if (error) throw error
+      
+      // Remove from notified list
+      setNotifiedOrderIds(prev => prev.filter(id => id !== order.id))
+      
       toast.success(t('order_cancelled'))
       await loadNewOrders()
     } catch (err) {
@@ -853,7 +924,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RENDER ITEM MODAL
+  // RENDER ITEM MODAL - WITH DRINK OPTION IMAGES
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
@@ -980,6 +1051,7 @@ function StaffApp() {
                     const price = parseFloat(opt.price) || 0
                     const isSelected = selectedOption === opt.option_type
                     const isFree = price === 0
+                    const emoji = opt.option_type === 'Panas' ? '🔥' : opt.option_type === 'Sejuk' ? '🧊' : '📦'
 
                     return (
                       <button
@@ -1000,9 +1072,25 @@ function StaffApp() {
                           textAlign: 'center'
                         }}
                       >
-                        <div style={{ fontSize: isMobile ? '18px' : '22px' }}>
-                          {getOptionEmoji(opt.option_type)}
-                        </div>
+                        {opt.image_url ? (
+                          <img 
+                            src={opt.image_url} 
+                            alt={opt.option_type}
+                            style={{
+                              width: '50px',
+                              height: '50px',
+                              objectFit: 'cover',
+                              borderRadius: '8px',
+                              margin: '0 auto 4px auto',
+                              display: 'block',
+                              border: isSelected ? '2px solid white' : `1px solid ${borderColor}`
+                            }}
+                          />
+                        ) : (
+                          <div style={{ fontSize: isMobile ? '18px' : '22px' }}>
+                            {emoji}
+                          </div>
+                        )}
                         <div>{getOptionLabel(opt.option_type)}</div>
                         <div style={{ 
                           fontSize: isMobile ? '11px' : '12px', 
@@ -1408,16 +1496,23 @@ function StaffApp() {
       <div style={{ ...glassEffect, background: cardBg, borderRadius: '28px', padding: isMobile ? '20px' : '28px', maxWidth: '720px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>
-            🆕 {t('new_orders_title')} ({newOrders.length})
+            🔔 {t('new_orders_title')} ({newOrders.length})
           </h2>
           <button onClick={() => setShowNewOrders(false)} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
         </div>
         {newOrders.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 20px', color: textMuted }}>📭 {t('no_new_orders')}</div>
         ) : newOrders.map(order => (
-          <div key={order.id} style={{ background: secondaryBg, border: `1px solid ${borderColor}`, borderRadius: '18px', padding: '16px', marginBottom: '12px' }}>
+          <div key={order.id} style={{ 
+            background: secondaryBg, 
+            border: `2px solid ${borderColor}`,
+            borderRadius: '18px', 
+            padding: '16px', 
+            marginBottom: '12px',
+            animation: 'pulseGlow 1.5s ease-in-out infinite'
+          }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
-              <strong style={{ color: textColor }}>{order.customer_name || 'Guest'} {order.table_number ? `• ${t('table')} ${order.table_number}` : '• ' + t('take_away')}</strong>
+              <strong style={{ color: textColor }}>🆕 {order.customer_name || 'Guest'} {order.table_number ? `• ${t('table')} ${order.table_number}` : '• ' + t('take_away')}</strong>
               <span style={{ color: textMuted, fontSize: '12px' }}>{new Date(order.created_at).toLocaleString()}</span>
             </div>
             <div style={{ color: textColor, marginBottom: '12px' }}>
@@ -1442,7 +1537,7 @@ function StaffApp() {
   )
 
   // ============================================================
-  // RENDER UNPAID ORDERS MODAL
+  // RENDER UNPAID ORDERS MODAL - WITH PAYMENT METHOD
   // ============================================================
   const renderUnpaidOrdersModal = () => {
     return (
@@ -1574,7 +1669,7 @@ function StaffApp() {
                 </div>
               </div>
 
-              {/* PAYMENT METHOD */}
+              {/* PAYMENT METHOD SELECTION */}
               <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
                 <span style={{ color: textColor, fontWeight: 'bold', fontSize: '14px', width: '100%' }}>
                   💳 {t('payment_method')}:
@@ -2037,10 +2132,11 @@ function StaffApp() {
                 fontWeight: 'bold',
                 fontSize: isMobile ? '11px' : '13px',
                 boxShadow: '0 4px 16px rgba(37,99,235,0.3)',
-                position: 'relative'
+                position: 'relative',
+                animation: newOrders.length > 0 ? 'pulse 1s ease-in-out infinite' : 'none'
               }}
             >
-              🆕 {t('new_orders_title')}
+              🔔 {t('new_orders_title')}
               {newOrders.length > 0 && (
                 <span style={{
                   position: 'absolute',
@@ -2055,7 +2151,8 @@ function StaffApp() {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontWeight: 'bold'
+                  fontWeight: 'bold',
+                  animation: 'bounce 0.5s ease-in-out infinite alternate'
                 }}>
                   {newOrders.length}
                 </span>
@@ -2592,6 +2689,27 @@ function StaffApp() {
               to {
                 opacity: 1;
                 transform: translateY(0) scale(1);
+              }
+            }
+
+            @keyframes pulse {
+              0%, 100% { transform: scale(1); }
+              50% { transform: scale(1.05); }
+            }
+
+            @keyframes bounce {
+              0% { transform: scale(1); }
+              100% { transform: scale(1.3); }
+            }
+
+            @keyframes pulseGlow {
+              0%, 100% { 
+                box-shadow: 0 0 0 0 rgba(59,130,246,0.4);
+                border-color: ${borderColor};
+              }
+              50% { 
+                box-shadow: 0 0 20px 5px rgba(59,130,246,0.6);
+                border-color: #3b82f6;
               }
             }
 

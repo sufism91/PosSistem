@@ -14,11 +14,8 @@ function StaffApp() {
   // ✅ COMPLETE TRANSLATIONS - ENGLISH & MALAY
   // ============================================================
   const translations = {
-    // Header
     pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
     pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
-    
-    // Buttons
     new_order: { en: '➕ New Order', ms: '➕ Pesanan Baru' },
     new_orders_title: { en: '🆕 New Orders', ms: '🆕 Pesanan Baru' },
     unpaid_orders: { en: '💰 Unpaid', ms: '💰 Belum Bayar' },
@@ -38,13 +35,9 @@ function StaffApp() {
     edit: { en: 'Edit', ms: 'Edit' },
     delete: { en: 'Delete', ms: 'Hapus' },
     add: { en: 'Add', ms: 'Tambah' },
-    
-    // Order types
     table_service: { en: '🍽️ Table Service', ms: '🍽️ Perkhidmatan Meja' },
     take_away: { en: '🥡 Take Away', ms: '🥡 Bungkus' },
     dine_in: { en: 'Dine In', ms: 'Makan di Sini' },
-    
-    // Form labels
     customer_name: { en: 'Customer Name', ms: 'Nama Pelanggan' },
     table_number: { en: 'Table Number', ms: 'Nombor Meja' },
     select_table: { en: 'Select Table', ms: 'Pilih Meja' },
@@ -66,20 +59,14 @@ function StaffApp() {
     total_items: { en: 'Total Items', ms: 'Jumlah Item' },
     order_status: { en: 'Order Status', ms: 'Status Pesanan' },
     payment_status: { en: 'Payment Status', ms: 'Status Bayaran' },
-    
-    // Drink options
     hot: { en: 'Hot', ms: 'Panas' },
     cold: { en: 'Cold', ms: 'Sejuk' },
     packed: { en: 'Packed', ms: 'Bungkus' },
-    
-    // Promotions
     promo: { en: '🔥 Promo', ms: '🔥 Promosi' },
     bogo: { en: 'Buy 1 Free 1', ms: 'Beli 1 Percuma 1' },
     free: { en: '🎁 FREE', ms: '🎁 PERCUMA' },
     original_price: { en: 'Original', ms: 'Asal' },
     promo_price: { en: 'Promo Price', ms: 'Harga Promosi' },
-    
-    // Messages
     order_added: { en: '✅ Order added!', ms: '✅ Pesanan ditambah!' },
     order_updated: { en: '✅ Order updated!', ms: '✅ Pesanan dikemaskini!' },
     order_cancelled: { en: '❌ Order cancelled', ms: '❌ Pesanan dibatalkan' },
@@ -98,24 +85,16 @@ function StaffApp() {
     order_created_pending: { en: '📝 Order created. Please confirm it in New Orders.', ms: '📝 Pesanan dibuat. Sila sahkan di Pesanan Baru.' },
     error_loading: { en: '❌ Error loading data', ms: '❌ Ralat memuat data' },
     error_checkout: { en: '❌ Checkout error', ms: '❌ Ralat bayaran' },
-    
-    // Search
     search_menu: { en: '🔍 Search menu...', ms: '🔍 Cari menu...' },
     all_categories: { en: '📋 All', ms: '📋 Semua' },
-    
-    // Empty states
     no_menu_items: { en: 'No menu items found', ms: 'Tiada item menu dijumpai' },
     no_orders: { en: 'No orders', ms: 'Tiada pesanan' },
     empty_cart: { en: 'Your cart is empty', ms: 'Keranjang anda kosong' },
-    
-    // Modal titles
     order_details: { en: '📋 Order Details', ms: '📋 Butiran Pesanan' },
     unpaid_orders_title: { en: '💰 Unpaid Orders', ms: '💰 Pesanan Belum Bayar' },
     select_drink_option: { en: 'Select Drink Option', ms: 'Pilih Pilihan Minuman' },
     select_size_option: { en: 'Select Size', ms: 'Pilih Saiz' },
     history_title: { en: '📜 Order History', ms: '📜 Sejarah Pesanan' },
-    
-    // Receipt
     receipt_title: { en: '🧾 RECEIPT', ms: '🧾 RESIT' },
     receipt_thankyou: { en: 'Thank you for dining with us!', ms: 'Terima kasih kerana makan di sini!' },
     receipt_order: { en: 'Order', ms: 'Pesanan' },
@@ -131,43 +110,29 @@ function StaffApp() {
     receipt_tng: { en: 'TnG', ms: 'TnG' },
     receipt_bank: { en: 'Bank', ms: 'Bank' },
     receipt_payment_method: { en: 'Payment Method', ms: 'Kaedah Bayaran' },
-    
-    // Table
     table: { en: 'Table', ms: 'Meja' },
     customer: { en: 'Customer', ms: 'Pelanggan' },
     guest: { en: 'Guest', ms: 'Tetamu' },
-    
-    // Payment methods
     cash: { en: 'Cash', ms: 'Tunai' },
     tng: { en: 'TnG', ms: 'TnG' },
     bank: { en: 'Bank', ms: 'Bank' },
-    
-    // Workflow / Dashboard
     kitchen_queue: { en: 'Kitchen Queue', ms: 'Giliran Dapur' },
     confirm_order: { en: 'Confirm Order', ms: 'Sahkan Pesanan' },
     cancel_order: { en: 'Cancel Order', ms: 'Batalkan Pesanan' },
     download_receipt: { en: 'Download Receipt', ms: 'Muat Turun Resit' },
-    
-    // Pagination
     first: { en: 'First', ms: 'Pertama' },
     prev: { en: 'Prev', ms: 'Sebelum' },
     next: { en: 'Next', ms: 'Seterus' },
     last: { en: 'Last', ms: 'Terakhir' },
-    
-    // Sizes
     size_small: { en: 'Small', ms: 'Kecil' },
     size_medium: { en: 'Medium', ms: 'Sederhana' },
     size_large: { en: 'Large', ms: 'Besar' },
-    
-    // Action
     action: { en: 'Action', ms: 'Tindakan' },
     date: { en: 'Date', ms: 'Tarikh' },
     id: { en: 'ID', ms: 'ID' },
     order_type: { en: 'Type', ms: 'Jenis' },
     payment_method_label: { en: 'Payment', ms: 'Bayaran' },
     btn_receipt: { en: 'Receipt', ms: 'Resit' },
-    
-    // POS
     pos: { en: '🧾 POS', ms: '🧾 Jualan' },
     kitchen: { en: 'Kitchen', ms: 'Dapur' },
     refresh: { en: 'Refresh', ms: 'Segar' },
@@ -2011,7 +1976,11 @@ function StaffApp() {
         maxWidth: '1400px',
         margin: '0 auto',
         background: bgColor,
-        minHeight: '100vh'
+        minHeight: '100vh',
+        position: 'relative', // ← FIX: untuk absolute cart bar
+        display: 'flex',
+        flexDirection: 'column',
+        paddingBottom: isMobile ? '100px' : '80px', // ← FIX: ruang untuk cart bar
       }}>
         
         {/* HEADER */}
@@ -2363,7 +2332,7 @@ function StaffApp() {
           display: 'grid',
           gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(160px, 1fr))',
           gap: isMobile ? '10px' : '14px',
-          marginBottom: isMobile ? '160px' : '0px'
+          flex: 1, // ← FIX: untuk expand
         }}>
           {filteredMenu.map(item => {
             const promo = getItemPromotion(item)
@@ -2553,88 +2522,92 @@ function StaffApp() {
           })}
         </div>
         
-        {/* ===== CART BOTTOM BAR ===== */}
-        <div style={{
-          position: 'fixed',
-          bottom: 0,
-          left: isMobile ? 0 : '260px',
-          right: 0,
-          background: cardBg,
-          borderTop: `2px solid ${borderColor}`,
-          padding: isMobile ? '12px 16px' : '16px 24px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '10px',
-          zIndex: 100,
-          backdropFilter: 'blur(16px)',
-          boxShadow: '0 -4px 20px rgba(0,0,0,0.15)'
-        }}>
+        {/* ===== CART BOTTOM BAR - FIXED VISIBILITY ===== */}
+        {cart.length > 0 && (
           <div style={{
+            position: 'absolute', // ← FIX: guna absolute instead of fixed
+            bottom: 0,
+            left: 0,
+            right: 0,
+            background: cardBg,
+            borderTop: `2px solid ${borderColor}`,
+            padding: isMobile ? '12px 16px' : '16px 24px',
             display: 'flex',
             alignItems: 'center',
-            gap: '12px'
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '10px',
+            zIndex: 100,
+            backdropFilter: 'blur(16px)',
+            boxShadow: '0 -4px 20px rgba(0,0,0,0.15)',
+            borderRadius: '16px 16px 0 0',
           }}>
-            <span style={{
-              fontWeight: 'bold',
-              color: textColor,
-              fontSize: isMobile ? '14px' : '16px'
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
             }}>
-              🛒 {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'}
-            </span>
-            <span style={{
-              fontWeight: 'bold',
-              color: priceColor,
-              fontSize: isMobile ? '16px' : '20px'
+              <span style={{
+                fontWeight: 'bold',
+                color: textColor,
+                fontSize: isMobile ? '14px' : '16px'
+              }}>
+                🛒 {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'}
+              </span>
+              <span style={{
+                fontWeight: 'bold',
+                color: priceColor,
+                fontSize: isMobile ? '16px' : '20px'
+              }}>
+                RM {totalCart.toFixed(2)}
+              </span>
+            </div>
+            
+            <div style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap'
             }}>
-              RM {totalCart.toFixed(2)}
-            </span>
+              <button
+                onClick={clearCart}
+                style={{
+                  padding: isMobile ? '8px 16px' : '10px 20px',
+                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '30px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: isMobile ? '11px' : '13px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.97)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {t('clear_cart')}
+              </button>
+              <button
+                onClick={handleCheckout}
+                style={{
+                  padding: isMobile ? '8px 16px' : '10px 20px',
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '30px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: isMobile ? '11px' : '13px',
+                  boxShadow: '0 4px 16px rgba(34,197,94,0.3)',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.97)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                💳 {t('checkout')}
+              </button>
+            </div>
           </div>
-          
-          <div style={{
-            display: 'flex',
-            gap: '8px',
-            flexWrap: 'wrap'
-          }}>
-            <button
-              onClick={clearCart}
-              style={{
-                padding: isMobile ? '8px 16px' : '10px 20px',
-                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '30px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '11px' : '13px',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.97)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              {t('clear_cart')}
-            </button>
-            <button
-              onClick={handleCheckout}
-              disabled={cart.length === 0}
-              style={{
-                padding: isMobile ? '8px 16px' : '10px 20px',
-                background: cart.length === 0 ? '#cbd5e1' : 'linear-gradient(135deg, #22c55e, #16a34a)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '30px',
-                cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '11px' : '13px',
-                boxShadow: cart.length === 0 ? 'none' : '0 4px 16px rgba(34,197,94,0.3)',
-                transition: 'all 0.2s'
-              }}
-            >
-              💳 {t('checkout')}
-            </button>
-          </div>
-        </div>
+        )}
         
         {/* ITEM MODAL */}
         {showItemModal && renderItemModal()}

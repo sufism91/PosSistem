@@ -287,3 +287,363 @@ body.dark {
 .dark *:focus-visible {
   ring-offset-color: #0f0f1a;
 }
+
+/* ============================================
+   ============================================
+   ⭐ NEW: STICKY BOTTOM ACTION BAR - FIX
+   ============================================
+   ============================================ */
+
+/* Container utama untuk layout dengan footer sticky */
+.app-layout {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  height: 100%;
+}
+
+/* Content area - boleh scroll */
+.app-content {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 80px; /* Ruang untuk footer */
+}
+
+/* ============================================
+   STICKY CART FOOTER - SENTIASA NAMPAK
+   ============================================ */
+
+.cart-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  padding: 12px 16px;
+  border-top: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.08);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  transition: all 0.3s ease;
+}
+
+/* Dark mode */
+.dark .cart-footer {
+  background: rgba(26, 26, 46, 0.95);
+  border-top-color: rgba(45, 45, 68, 0.8);
+  box-shadow: 0 -4px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* ============================================
+   CART FOOTER - LEFT SIDE (Item & Price)
+   ============================================ */
+
+.cart-footer .cart-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cart-footer .total-items {
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+}
+
+.dark .cart-footer .total-items {
+  color: #94a3b8;
+}
+
+.cart-footer .total-items span {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.dark .cart-footer .total-items span {
+  color: #f1f5f9;
+}
+
+.cart-footer .total-price {
+  font-size: 18px;
+  font-weight: 700;
+  color: #3b82f6;
+}
+
+.cart-footer .total-price span {
+  font-size: 14px;
+  font-weight: 400;
+  color: #94a3b8;
+}
+
+/* ============================================
+   CART FOOTER - RIGHT SIDE (Buttons)
+   ============================================ */
+
+.cart-footer .cart-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* Clear Cart Button */
+.cart-footer .btn-clear {
+  background: transparent;
+  color: #ef4444;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  min-width: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.cart-footer .btn-clear:hover {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
+  transform: scale(0.96);
+}
+
+.cart-footer .btn-clear:active {
+  transform: scale(0.92);
+}
+
+.dark .cart-footer .btn-clear {
+  color: #f87171;
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+.dark .cart-footer .btn-clear:hover {
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.3);
+}
+
+/* Pay / Checkout Button */
+.cart-footer .btn-pay {
+  background: #3b82f6;
+  color: white;
+  padding: 10px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-height: 44px;
+  min-width: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  white-space: nowrap;
+}
+
+.cart-footer .btn-pay:hover {
+  background: #2563eb;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+.cart-footer .btn-pay:active {
+  transform: scale(0.96);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.cart-footer .btn-pay:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.dark .cart-footer .btn-pay:disabled {
+  background: #475569;
+}
+
+/* ============================================
+   RESPONSIVE - TABLET (768px ke atas)
+   ============================================ */
+
+@media (min-width: 768px) {
+  .cart-footer {
+    padding: 16px 24px;
+    gap: 16px;
+  }
+  
+  .cart-footer .total-items {
+    font-size: 15px;
+  }
+  
+  .cart-footer .total-price {
+    font-size: 22px;
+  }
+  
+  .cart-footer .btn-pay {
+    padding: 12px 36px;
+    font-size: 16px;
+    min-height: 52px;
+    min-width: 100px;
+  }
+  
+  .cart-footer .btn-clear {
+    padding: 12px 18px;
+    font-size: 14px;
+    min-height: 52px;
+  }
+  
+  .app-content {
+    padding-bottom: 100px;
+  }
+}
+
+/* ============================================
+   RESPONSIVE - PHONE (bawah 768px)
+   ============================================ */
+
+@media (max-width: 767px) {
+  .cart-footer {
+    padding: 10px 12px;
+    gap: 6px;
+  }
+  
+  .cart-footer .cart-info {
+    gap: 6px;
+  }
+  
+  .cart-footer .total-items {
+    font-size: 12px;
+  }
+  
+  .cart-footer .total-price {
+    font-size: 16px;
+  }
+  
+  .cart-footer .btn-pay {
+    padding: 8px 16px;
+    font-size: 13px;
+    min-height: 40px;
+    min-width: 60px;
+  }
+  
+  .cart-footer .btn-pay .btn-icon {
+    display: none;
+  }
+  
+  .cart-footer .btn-clear {
+    padding: 8px 10px;
+    font-size: 12px;
+    min-height: 40px;
+    min-width: 40px;
+  }
+  
+  .cart-footer .btn-clear .btn-text {
+    display: none;
+  }
+  
+  .app-content {
+    padding-bottom: 70px;
+  }
+}
+
+/* ============================================
+   RESPONSIVE - VERY SMALL PHONE (< 400px)
+   ============================================ */
+
+@media (max-width: 400px) {
+  .cart-footer {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+  
+  .cart-footer .total-items {
+    font-size: 10px;
+  }
+  
+  .cart-footer .total-price {
+    font-size: 14px;
+  }
+  
+  .cart-footer .btn-pay {
+    padding: 6px 12px;
+    font-size: 11px;
+    min-height: 36px;
+    min-width: 50px;
+  }
+  
+  .cart-footer .btn-clear {
+    padding: 6px 8px;
+    font-size: 11px;
+    min-height: 36px;
+    min-width: 36px;
+  }
+  
+  .app-content {
+    padding-bottom: 60px;
+  }
+}
+
+/* ============================================
+   SAFE AREA - Untuk iPhone Notch
+   ============================================ */
+
+@supports (padding: max(0px)) {
+  .cart-footer {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+  
+  @media (min-width: 768px) {
+    .cart-footer {
+      padding-bottom: max(16px, env(safe-area-inset-bottom));
+    }
+  }
+}
+
+/* ============================================
+   ANIMATION UNTUK CART FOOTER
+   ============================================ */
+
+.cart-footer {
+  animation: slideUp 0.3s ease forwards;
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Badge untuk quantity */
+.cart-footer .badge {
+  background: #ef4444;
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  margin-left: 4px;
+}
+
+/* ============================================
+   END OF FIX
+   ============================================ */

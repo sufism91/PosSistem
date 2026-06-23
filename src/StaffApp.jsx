@@ -10,7 +10,7 @@ import toast from 'react-hot-toast'
 function StaffApp() {
   const { darkMode } = useTheme()
   const { language } = useLanguage()
-  
+
   // ============================================================
   // TRANSLATIONS
   // ============================================================
@@ -27,7 +27,7 @@ function StaffApp() {
     confirm_order: { en: '✅ Confirm', ms: '✅ Sahkan' },
     cancel: { en: 'Cancel', ms: 'Batal' },
     print_receipt: { en: '🖨️ Print', ms: '🖨️ Cetak' },
-    preview_receipt: { en: '🧾 Preview Receipt', ms: '🧾 Preview Resit' },
+    preview_receipt: { en: '🧾 Preview', ms: '🧾 Preview' },
     back: { en: 'Back', ms: 'Kembali' },
     view_order: { en: 'View', ms: 'Lihat' },
     search_menu: { en: '🔍 Search menu...', ms: '🔍 Cari menu...' },
@@ -74,6 +74,8 @@ function StaffApp() {
     tng: { en: 'TnG', ms: 'TnG' },
     bank: { en: 'Bank', ms: 'Bank' },
     payment_method: { en: 'Payment Method', ms: 'Kaedah Bayaran' },
+    download_receipt: { en: 'Download', ms: 'Muat Turun' },
+    print_all: { en: 'Print All', ms: 'Cetak Semua' },
   }
 
   const t = (key) => {
@@ -81,7 +83,9 @@ function StaffApp() {
     return language === 'en' ? translations[key].en : translations[key].ms
   }
 
-  // ===== STATE =====
+  // ============================================================
+  // STATE
+  // ============================================================
   const [menu, setMenu] = useState([])
   const [categories, setCategories] = useState([])
   const [promotions, setPromotions] = useState([])
@@ -109,12 +113,10 @@ function StaffApp() {
   const [viewingOrder, setViewingOrder] = useState(null)
   const [historyPage, setHistoryPage] = useState(1)
   const historyItemsPerPage = 10
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
-  const [selectedOrder, setSelectedOrder] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [showCartPopup, setShowCartPopup] = useState(false)
-  
-  // ===== SETTINGS STATE =====
+
+  // ===== SETTINGS =====
   const [settings, setSettings] = useState({
     auto_print: true,
     printer_type: 'thermal',
@@ -125,7 +127,9 @@ function StaffApp() {
     notification_sound: true
   })
 
-  // ===== CHECK MOBILE =====
+  // ============================================================
+  // CHECK MOBILE
+  // ============================================================
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
     checkMobile()
@@ -133,7 +137,9 @@ function StaffApp() {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  // ===== THEME COLORS =====
+  // ============================================================
+  // THEME COLORS
+  // ============================================================
   const bgColor = darkMode ? '#07111f' : '#eff6ff'
   const cardBg = darkMode ? 'rgba(20,20,40,0.95)' : 'rgba(255,255,255,0.95)'
   const textColor = darkMode ? '#e8edf5' : '#1e293b'
@@ -144,7 +150,7 @@ function StaffApp() {
   const secondaryBg = darkMode ? 'rgba(30,30,50,0.6)' : 'rgba(248,250,252,0.8)'
   const inputBg = darkMode ? '#1a1a2e' : '#ffffff'
   const inputBorder = darkMode ? '#3d3d5c' : '#cbd5e1'
-  
+
   const glassEffect = {
     background: cardBg,
     backdropFilter: 'blur(16px)',
@@ -162,9 +168,9 @@ function StaffApp() {
       const { data, error } = await supabase
         .from('settings')
         .select('key, value')
-      
+
       if (error) throw error
-      
+
       const settingsObj = {}
       data?.forEach(item => {
         if (item.key === 'service_charge' || item.key === 'tax') {
@@ -175,9 +181,8 @@ function StaffApp() {
           settingsObj[item.key] = item.value
         }
       })
-      
+
       setSettings(prev => ({ ...prev, ...settingsObj }))
-      console.log('✅ Settings loaded:', settingsObj)
     } catch (err) {
       console.error('Error loading settings:', err)
     }
@@ -192,7 +197,7 @@ function StaffApp() {
     loadNewOrders()
     loadOrderHistory()
     loadSettings()
-    
+
     const menuSub = supabase
       .channel('staff_menu')
       .on('postgres_changes', 
@@ -200,7 +205,7 @@ function StaffApp() {
         () => { loadMenu() }
       )
       .subscribe()
-    
+
     const drinkSub = supabase
       .channel('staff_drink')
       .on('postgres_changes', 
@@ -208,7 +213,7 @@ function StaffApp() {
         () => { loadDrinkOptions() }
       )
       .subscribe()
-    
+
     const orderSub = supabase
       .channel('staff_orders')
       .on('postgres_changes', 
@@ -220,7 +225,7 @@ function StaffApp() {
         }
       )
       .subscribe()
-    
+
     return () => {
       menuSub.unsubscribe()
       drinkSub.unsubscribe()
@@ -416,7 +421,7 @@ function StaffApp() {
   // ============================================================
   function getItemPrice(item, option, size) {
     let basePrice = item?.price || 0
-    
+
     if (option && item) {
       const drinkOpt = drinkOptions.find(d => 
         d.drink_name === item.name && 
@@ -427,12 +432,12 @@ function StaffApp() {
         return parseFloat(basePrice) || 0
       }
     }
-    
+
     const promoPrice = getPromoPrice(item)
     if (promoPrice !== null && promoPrice !== undefined) {
       basePrice = promoPrice
     }
-    
+
     if (size && size.price_adjustment !== undefined && size.price_adjustment !== null) {
       if (size.is_absolute_price) {
         basePrice = parseFloat(size.price_adjustment)
@@ -440,7 +445,7 @@ function StaffApp() {
         basePrice += parseFloat(size.price_adjustment)
       }
     }
-    
+
     return parseFloat(basePrice) || 0
   }
 
@@ -522,7 +527,9 @@ function StaffApp() {
     return item?.has_options === true
   }
 
-  // ===== CART FUNCTIONS =====
+  // ============================================================
+  // CART FUNCTIONS
+  // ============================================================
   const addToCart = () => {
     if (!selectedItem) {
       toast.error(t('please_select_item'))
@@ -545,7 +552,7 @@ function StaffApp() {
     const price = getItemPrice(selectedItem, selectedOption, selectedSize)
     const isFree = price === 0
     const promo = getItemPromotion(selectedItem)
-    
+
     const cartItem = {
       id: selectedItem.id,
       name: selectedItem.name,
@@ -624,7 +631,7 @@ function StaffApp() {
     }
 
     const total = cart.reduce((sum, item) => sum + item.subtotal, 0)
-    
+
     const orderData = {
       items: cart.map(item => ({
         name: item.name,
@@ -699,20 +706,19 @@ function StaffApp() {
       const methodName = method === 'cash' ? 'Tunai' : method === 'bank' ? 'Bank' : 'Touch n Go'
       toast.success(`✅ Dibayar dengan ${methodName}!`)
 
-      // ===== AUTO PRINT =====
       if (settings.auto_print) {
         toast.info('🖨️ Mencetak resit...')
         setTimeout(() => {
           printReceipt(order, method)
         }, 500)
       }
-      
+
       await loadUnpaidOrders()
       await loadOrderHistory()
       setViewingOrder(null)
       setShowUnpaidOrders(false)
       setPaymentMethod('cash')
-      
+
     } catch (err) {
       console.error('Error marking order as paid:', err)
       toast.error(err.message)
@@ -757,11 +763,11 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PRINT RECEIPT - SYNC WITH CustomerDisplay
+  // PRINT RECEIPT
   // ============================================================
   const printReceipt = (order, method) => {
     const paymentMethod = method || order.payment_method || 'cash'
-    
+
     const receiptHTML = generateReceiptHTML(order, {
       restaurant_name: settings.restaurant_name || 'Restoran Kita',
       service_charge_percent: settings.service_charge || 6,
@@ -769,7 +775,7 @@ function StaffApp() {
       payment_method: paymentMethod,
       darkMode: darkMode
     })
-    
+
     const printWindow = window.open('', '_blank', 'width=400,height=600')
     printWindow.document.write(receiptHTML)
     printWindow.document.close()
@@ -807,11 +813,1078 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RENDER FUNCTIONS (Item Modal, Cart Popup, etc.)
+  // RENDER ITEM MODAL
   // ============================================================
-  // ... (all render functions remain the same as before)
-  // I'll include the full render functions in the complete code
-  
+  const renderItemModal = () => {
+    if (!selectedItem) return null
+
+    const isDrink = isDrinkCategory(selectedItem.category)
+    const hasSize = isSizeCategory(selectedItem)
+    const availableDrinkOptions = getDrinkOptionsForItem(selectedItem)
+    const hasAvailableOptions = availableDrinkOptions.length > 0
+    const sizes = menuOptions
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1000,
+        animation: 'fadeIn 0.2s ease',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: cardBg,
+          padding: isMobile ? '24px' : '32px',
+          borderRadius: '28px',
+          maxWidth: '450px',
+          width: '100%',
+          ...glassEffect,
+          animation: 'popIn 0.3s ease',
+          maxHeight: '90vh',
+          overflowY: 'auto'
+        }}>
+          {selectedItem.image_url ? (
+            <img 
+              src={selectedItem.image_url} 
+              alt={selectedItem.name}
+              style={{
+                width: '100%',
+                height: '150px',
+                objectFit: 'contain',
+                objectPosition: 'center',
+                borderRadius: '16px',
+                marginBottom: '16px',
+                backgroundColor: '#ffffff',
+                padding: '8px'
+              }}
+              onError={(e) => { e.currentTarget.style.display = 'none' }}
+            />
+          ) : (
+            <div style={{
+              width: '100%',
+              height: '100px',
+              background: secondaryBg,
+              borderRadius: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '48px',
+              marginBottom: '16px',
+              border: `1px solid ${borderColor}`
+            }}>
+              {isDrink ? '🥤' : '🍽️'}
+            </div>
+          )}
+
+          <h2 style={{
+            color: textColor,
+            fontSize: isMobile ? '20px' : '24px',
+            fontWeight: 'bold',
+            marginBottom: '4px'
+          }}>
+            {selectedItem.name}
+          </h2>
+
+          {getItemPromotion(selectedItem) && (
+            <div style={{
+              background: promoColor,
+              color: 'white',
+              padding: '4px 12px',
+              borderRadius: '20px',
+              fontSize: '11px',
+              fontWeight: 'bold',
+              display: 'inline-block',
+              marginBottom: '12px'
+            }}>
+              {getItemPromotion(selectedItem)?.type === 'bogo' ? '🎁 BOGO' : '🔥 ' + t('promo')}
+            </div>
+          )}
+
+          {selectedItem.description && (
+            <p style={{
+              color: textMuted,
+              fontSize: isMobile ? '12px' : '14px',
+              marginBottom: '16px'
+            }}>
+              {selectedItem.description}
+            </p>
+          )}
+
+          {isDrink && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                fontWeight: 'bold',
+                color: textColor,
+                fontSize: isMobile ? '12px' : '13px',
+                marginBottom: '8px'
+              }}>
+                {t('select_option')}:
+              </label>
+
+              {hasAvailableOptions ? (
+                <div style={{
+                  display: 'flex',
+                  gap: '10px',
+                  flexWrap: 'wrap'
+                }}>
+                  {availableDrinkOptions.map(opt => {
+                    const price = parseFloat(opt.price) || 0
+                    const isSelected = selectedOption === opt.option_type
+                    const isFree = price === 0
+
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => setSelectedOption(opt.option_type)}
+                        style={{
+                          flex: 1,
+                          minWidth: '80px',
+                          padding: isMobile ? '10px 12px' : '12px 16px',
+                          background: isSelected ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : secondaryBg,
+                          color: isSelected ? 'white' : textColor,
+                          border: isSelected ? 'none' : `1px solid ${borderColor}`,
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: isSelected ? 'bold' : 'normal',
+                          fontSize: isMobile ? '12px' : '13px',
+                          transition: 'all 0.2s',
+                          textAlign: 'center'
+                        }}
+                      >
+                        <div style={{ fontSize: isMobile ? '18px' : '22px' }}>
+                          {getOptionEmoji(opt.option_type)}
+                        </div>
+                        <div>{getOptionLabel(opt.option_type)}</div>
+                        <div style={{ 
+                          fontSize: isMobile ? '11px' : '12px', 
+                          color: isSelected ? 'rgba(255,255,255,0.9)' : (isFree ? promoColor : priceColor),
+                          fontWeight: 'bold'
+                        }}>
+                          {isFree ? t('free') : `RM ${price.toFixed(2)}`}
+                        </div>
+                      </button>
+                    )
+                  })}
+                </div>
+              ) : (
+                <div style={{
+                  background: 'rgba(239,68,68,0.1)',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: `1px solid ${promoColor}40`
+                }}>
+                  <span style={{ color: promoColor, fontSize: '13px' }}>
+                    ⚠️ No drink options available.
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {hasSize && sizes.length > 0 && (
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{
+                display: 'block',
+                fontWeight: 'bold',
+                color: textColor,
+                fontSize: isMobile ? '12px' : '13px',
+                marginBottom: '8px'
+              }}>
+                {t('select_size')}:
+              </label>
+              <div style={{
+                display: 'flex',
+                gap: '10px',
+                flexWrap: 'wrap'
+              }}>
+                {sizes.map(size => {
+                  const price = getItemPrice(selectedItem, selectedOption, size)
+                  const isSelected = selectedSize?.id === size.id
+                  const isFree = price === 0
+                  return (
+                    <button
+                      key={size.id}
+                      onClick={() => setSelectedSize(size)}
+                      style={{
+                        flex: 1,
+                        minWidth: '70px',
+                        padding: isMobile ? '10px 12px' : '12px 16px',
+                        background: isSelected ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : secondaryBg,
+                        color: isSelected ? 'white' : textColor,
+                        border: isSelected ? 'none' : `1px solid ${borderColor}`,
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: isSelected ? 'bold' : 'normal',
+                        fontSize: isMobile ? '12px' : '13px',
+                        transition: 'all 0.2s',
+                        textAlign: 'center'
+                      }}
+                    >
+                      <div>{size.option_name}</div>
+                      <div style={{ 
+                        fontSize: isMobile ? '11px' : '12px', 
+                        color: isSelected ? 'rgba(255,255,255,0.9)' : (isFree ? promoColor : priceColor),
+                        fontWeight: 'bold'
+                      }}>
+                        {isFree ? t('free') : `RM ${price.toFixed(2)}`}
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{
+              display: 'block',
+              fontWeight: 'bold',
+              color: textColor,
+              fontSize: isMobile ? '12px' : '13px',
+              marginBottom: '8px'
+            }}>
+              {t('quantity')}:
+            </label>
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px'
+            }}>
+              <button
+                onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  background: secondaryBg,
+                  border: `1px solid ${borderColor}`,
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontSize: '20px',
+                  color: textColor,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                -
+              </button>
+              <span style={{
+                fontSize: isMobile ? '18px' : '20px',
+                fontWeight: 'bold',
+                color: textColor,
+                minWidth: '40px',
+                textAlign: 'center'
+              }}>
+                {quantity}
+              </span>
+              <button
+                onClick={() => setQuantity(quantity + 1)}
+                style={{
+                  width: '40px',
+                  height: '40px',
+                  background: secondaryBg,
+                  border: `1px solid ${borderColor}`,
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontSize: '20px',
+                  color: textColor,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                +
+              </button>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{
+              display: 'block',
+              fontWeight: 'bold',
+              color: textColor,
+              fontSize: isMobile ? '12px' : '13px',
+              marginBottom: '8px'
+            }}>
+              {t('notes')}:
+            </label>
+            <input
+              type="text"
+              placeholder={t('special_request')}
+              value={selectedItem.notes || ''}
+              onChange={(e) => setSelectedItem({...selectedItem, notes: e.target.value})}
+              style={{
+                width: '100%',
+                padding: isMobile ? '10px 14px' : '12px 16px',
+                borderRadius: '12px',
+                border: `1px solid ${inputBorder}`,
+                background: inputBg,
+                color: textColor,
+                fontSize: isMobile ? '13px' : '14px',
+                outline: 'none'
+              }}
+            />
+          </div>
+
+          {isItemInBOGO(selectedItem) && (
+            <div style={{
+              background: 'rgba(239,68,68,0.1)',
+              padding: '10px 14px',
+              borderRadius: '12px',
+              marginBottom: '16px',
+              border: `1px solid ${promoColor}40`
+            }}>
+              <span style={{ color: promoColor, fontWeight: 'bold', fontSize: '13px' }}>
+                🎁 Buy 1 Get 1 FREE!
+              </span>
+              <span style={{ color: textMuted, fontSize: '12px', display: 'block' }}>
+                {getBOGOFreeItem(selectedItem)?.name || 'Free item'} will be added
+              </span>
+            </div>
+          )}
+
+          <div style={{
+            display: 'flex',
+            gap: '10px'
+          }}>
+            <button
+              onClick={addToCart}
+              style={{
+                flex: 2,
+                padding: isMobile ? '12px' : '14px',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '13px' : '15px',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              🛒 {t('add_order')} (RM {(getItemPrice(selectedItem, selectedOption, selectedSize) * quantity).toFixed(2)})
+            </button>
+            <button
+              onClick={() => {
+                setShowItemModal(false)
+                setSelectedItem(null)
+                setSelectedOption('')
+                setSelectedSize(null)
+                setQuantity(1)
+              }}
+              style={{
+                flex: 1,
+                padding: isMobile ? '12px' : '14px',
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '13px' : '15px',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              {t('cancel')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ============================================================
+  // RENDER CART POPUP
+  // ============================================================
+  const renderCartPopup = () => {
+    if (!showCartPopup || cart.length === 0) return null
+
+    return (
+      <div style={{
+        position: 'fixed',
+        bottom: isMobile ? '80px' : '90px',
+        right: isMobile ? '10px' : '20px',
+        background: cardBg,
+        borderRadius: '20px',
+        padding: isMobile ? '16px' : '20px',
+        maxWidth: isMobile ? '340px' : '400px',
+        width: '90%',
+        maxHeight: '60vh',
+        overflowY: 'auto',
+        zIndex: 9998,
+        boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+        border: `1px solid ${borderColor}`,
+        animation: 'slideUp 0.3s ease',
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '12px',
+          borderBottom: `1px solid ${borderColor}`,
+          paddingBottom: '10px'
+        }}>
+          <h3 style={{ margin: 0, color: textColor, fontSize: isMobile ? '16px' : '18px' }}>
+            🛒 Cart ({cartItemCount})
+          </h3>
+          <button
+            onClick={() => setShowCartPopup(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: textMuted,
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '4px'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+
+        {cart.map((item, index) => (
+          <div key={index} style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '6px 0',
+            borderBottom: index !== cart.length - 1 ? `1px solid ${borderColor}` : 'none'
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: textColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '14px' }}>
+                {item.name}
+                {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
+              </div>
+              <div style={{ fontSize: '11px', color: textMuted }}>
+                x{item.quantity} × RM {item.price.toFixed(2)}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '13px' }}>
+                RM {item.subtotal.toFixed(2)}
+              </span>
+              <button
+                onClick={() => removeFromCart(index)}
+                style={{
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '22px',
+                  height: '22px',
+                  cursor: 'pointer',
+                  fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
+
+        <div style={{
+          marginTop: '12px',
+          paddingTop: '12px',
+          borderTop: `2px solid ${borderColor}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span style={{ fontWeight: 'bold', color: textColor, fontSize: isMobile ? '16px' : '18px' }}>
+            Total:
+          </span>
+          <span style={{ fontWeight: 'bold', color: priceColor, fontSize: isMobile ? '20px' : '24px' }}>
+            RM {totalCart.toFixed(2)}
+          </span>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          marginTop: '12px'
+        }}>
+          <button
+            onClick={clearCart}
+            style={{
+              flex: 1,
+              padding: isMobile ? '10px' : '12px',
+              background: '#ef4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: '40px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: isMobile ? '12px' : '14px'
+            }}
+          >
+            🗑️ {t('clear_cart')}
+          </button>
+          <button
+            onClick={() => {
+              setShowCartPopup(false)
+              handleSendOrder()
+            }}
+            style={{
+              flex: 2,
+              padding: isMobile ? '10px' : '12px',
+              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '40px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: isMobile ? '12px' : '14px',
+              boxShadow: '0 4px 16px rgba(37,99,235,0.3)'
+            }}
+          >
+            📤 {t('send_order')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ============================================================
+  // RENDER NEW ORDERS MODAL
+  // ============================================================
+  const renderNewOrdersModal = () => (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
+      <div style={{ ...glassEffect, background: cardBg, borderRadius: '28px', padding: isMobile ? '20px' : '28px', maxWidth: '720px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>🆕 {t('new_orders_title')} ({newOrders.length})</h2>
+          <button onClick={() => setShowNewOrders(false)} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
+        </div>
+        {newOrders.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 20px', color: textMuted }}>📭 {t('no_new_orders')}</div>
+        ) : newOrders.map(order => (
+          <div key={order.id} style={{ background: secondaryBg, border: `1px solid ${borderColor}`, borderRadius: '18px', padding: '16px', marginBottom: '12px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
+              <strong style={{ color: textColor }}>{order.customer_name || 'Guest'} {order.table_number ? `• ${t('table')} ${order.table_number}` : '• ' + t('take_away')}</strong>
+              <span style={{ color: textMuted, fontSize: '12px' }}>{new Date(order.created_at).toLocaleString()}</span>
+            </div>
+            <div style={{ color: textColor, marginBottom: '12px' }}>
+              {order.items?.map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${borderColor}` }}>
+                  <span>{item.quantity}x {item.name}{item.option || item.option_type ? ` (${item.option || item.option_type})` : ''}</span>
+                  <strong>RM {Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}</strong>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              <strong style={{ color: priceColor }}>{t('total')}: RM {Number(order.total || order.subtotal || 0).toFixed(2)}</strong>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={() => confirmNewOrder(order)} style={{ background: 'linear-gradient(135deg,#22c55e,#16a34a)', color: 'white', border: 'none', borderRadius: '30px', padding: '10px 16px', cursor: 'pointer', fontWeight: 'bold' }}>✅ {t('confirm_order')}</button>
+                <button onClick={() => cancelNewOrder(order)} style={{ background: 'linear-gradient(135deg,#ef4444,#dc2626)', color: 'white', border: 'none', borderRadius: '30px', padding: '10px 16px', cursor: 'pointer', fontWeight: 'bold' }}>{t('cancel')}</button>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+
+  // ============================================================
+  // RENDER UNPAID ORDERS MODAL
+  // ============================================================
+  const renderUnpaidOrdersModal = () => {
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 2000,
+        animation: 'fadeIn 0.2s ease',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: cardBg,
+          borderRadius: '28px',
+          padding: isMobile ? '20px' : '28px',
+          maxWidth: '600px',
+          width: '100%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          ...glassEffect,
+          animation: 'popIn 0.3s ease'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px'
+          }}>
+            <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>
+              💰 {t('unpaid_orders')} ({unpaidOrders.length})
+            </h2>
+            <button 
+              onClick={() => {
+                setShowUnpaidOrders(false)
+                setViewingOrder(null)
+              }}
+              style={{
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                transition: 'all 0.2s'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {unpaidOrders.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: textMuted }}>
+              <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>📭</span>
+              {t('no_unpaid_orders')}
+            </div>
+          ) : viewingOrder ? (
+            <div>
+              <button 
+                onClick={() => setViewingOrder(null)}
+                style={{
+                  background: '#64748b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '30px',
+                  padding: '6px 16px',
+                  cursor: 'pointer',
+                  fontSize: '12px',
+                  marginBottom: '16px'
+                }}
+              >
+                ← {t('back')}
+              </button>
+
+              <div style={{
+                background: secondaryBg,
+                borderRadius: '16px',
+                padding: '16px',
+                marginBottom: '16px'
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ fontWeight: 'bold', color: textColor }}>👤 {viewingOrder.customer_name || t('guest')}</span>
+                  <span style={{ color: textMuted, fontSize: '12px' }}>
+                    {viewingOrder.order_type === 'take_away' ? '🥡' : `🍽️ ${t('table')} ${viewingOrder.table_number}`}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12px', color: textMuted, marginBottom: '12px' }}>
+                  🕐 {new Date(viewingOrder.created_at).toLocaleString()}
+                </div>
+
+                {viewingOrder.items?.map((item, idx) => (
+                  <div key={idx} style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    padding: '6px 0',
+                    borderBottom: idx !== viewingOrder.items.length - 1 ? `1px solid ${borderColor}` : 'none'
+                  }}>
+                    <span style={{ color: textColor }}>
+                      {item.name}
+                      {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
+                      {item.isFree && <span style={{ color: priceColor, fontSize: '10px', marginLeft: '4px' }}>({t('free')})</span>}
+                      <span style={{ fontSize: '11px', color: textMuted, marginLeft: '4px' }}>x{item.quantity}</span>
+                    </span>
+                    <span style={{ color: priceColor, fontWeight: 'bold' }}>
+                      {item.isFree ? t('free') : `RM ${(item.price * item.quantity).toFixed(2)}`}
+                    </span>
+                  </div>
+                ))}
+
+                <div style={{
+                  borderTop: `2px solid ${borderColor}`,
+                  marginTop: '12px',
+                  paddingTop: '12px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontWeight: 'bold',
+                  fontSize: '18px'
+                }}>
+                  <span>{t('total')}:</span>
+                  <span style={{ color: priceColor }}>RM {viewingOrder.total?.toFixed(2) || '0.00'}</span>
+                </div>
+              </div>
+
+              {/* PAYMENT METHOD */}
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
+                <span style={{ color: textColor, fontWeight: 'bold', fontSize: '14px', width: '100%' }}>
+                  💳 {t('payment_method')}:
+                </span>
+                {['cash', 'bank', 'tng'].map(method => (
+                  <button
+                    key={method}
+                    onClick={() => setPaymentMethod(method)}
+                    style={{
+                      flex: 1,
+                      minWidth: '80px',
+                      padding: '10px 16px',
+                      background: paymentMethod === method ? 'linear-gradient(135deg, #22c55e, #16a34a)' : secondaryBg,
+                      color: paymentMethod === method ? 'white' : textColor,
+                      border: paymentMethod === method ? 'none' : `1px solid ${borderColor}`,
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      fontWeight: paymentMethod === method ? 'bold' : 'normal',
+                      fontSize: isMobile ? '12px' : '14px',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {method === 'cash' ? '💵 ' + t('cash') : 
+                     method === 'bank' ? '🏦 ' + t('bank') : 
+                     '📱 ' + t('tng')}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  onClick={() => printReceipt(viewingOrder, paymentMethod)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: '#0ea5e9',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  🧾 {t('preview_receipt')}
+                </button>
+                {viewingOrder.payment_status === PAYMENT_STATUS.PAID && (
+                  <button
+                    onClick={() => downloadReceipt(viewingOrder)}
+                    style={{
+                      flex: 1,
+                      padding: '12px',
+                      background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '40px',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    ⬇️ {t('download_receipt')}
+                  </button>
+                )}
+                <button 
+                  onClick={() => {
+                    if (!paymentMethod) {
+                      toast.error('Sila pilih kaedah bayaran!')
+                      return
+                    }
+                    markOrderAsPaid(viewingOrder, paymentMethod)
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 16px rgba(34,197,94,0.3)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  💰 {t('mark_paid')} {paymentMethod && `(${paymentMethod === 'cash' ? 'Tunai' : paymentMethod === 'bank' ? 'Bank' : 'TnG'})`}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {unpaidOrders.map(order => (
+                <div key={order.id} style={{
+                  background: secondaryBg,
+                  borderRadius: '16px',
+                  padding: '14px 16px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  border: `1px solid ${borderColor}`,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onClick={() => setViewingOrder(order)}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#3b82f6'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = borderColor}
+                >
+                  <div>
+                    <div style={{ fontWeight: 'bold', color: textColor }}>
+                      👤 {order.customer_name || t('guest')}
+                    </div>
+                    <div style={{ fontSize: '12px', color: textMuted }}>
+                      {order.order_type === 'take_away' ? '🥡 ' + t('take_away') : '🍽️ ' + t('table') + ' ' + (order.table_number || '-')} • 
+                      {order.items?.length || 0} {t('items')}
+                    </div>
+                    <div style={{ fontSize: '11px', color: textMuted }}>
+                      🕐 {new Date(order.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 'bold', fontSize: '18px', color: priceColor }}>
+                      RM {order.total?.toFixed(2) || '0.00'}
+                    </div>
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setViewingOrder(order)
+                      }}
+                      style={{
+                        background: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '20px',
+                        padding: '4px 14px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: 'bold',
+                        marginTop: '4px'
+                      }}
+                    >
+                      {t('view_order')}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ============================================================
+  // RENDER HISTORY MODAL
+  // ============================================================
+  const renderHistoryModal = () => {
+    const totalPages = Math.ceil(orderHistory.length / historyItemsPerPage)
+
+    return (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.85)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 2000,
+        animation: 'fadeIn 0.2s ease',
+        padding: '20px'
+      }}>
+        <div style={{
+          background: cardBg,
+          borderRadius: '28px',
+          padding: isMobile ? '20px' : '28px',
+          maxWidth: '900px',
+          width: '100%',
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          ...glassEffect,
+          animation: 'popIn 0.3s ease'
+        }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: '20px'
+          }}>
+            <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>
+              📜 {t('history_orders')} ({orderHistory.length})
+            </h2>
+            <button 
+              onClick={() => setShowHistoryModal(false)}
+              style={{
+                background: '#ef4444',
+                color: 'white',
+                border: 'none',
+                borderRadius: '50%',
+                width: '32px',
+                height: '32px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                transition: 'all 0.2s'
+              }}
+            >
+              ✕
+            </button>
+          </div>
+
+          {orderHistory.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '40px 20px', color: textMuted }}>
+              <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>📭</span>
+              {t('no_history_orders')}
+            </div>
+          ) : (
+            <>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: darkMode ? 'rgba(30,30,46,0.8)' : '#f1f5f9' }}>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('id')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('customer_name')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('order_type')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('total')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('payment_method_label')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('date')}</th>
+                      <th style={{ padding: '12px', textAlign: 'left', color: textColor, fontSize: '13px' }}>{t('action')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orderHistory.slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage).map(order => (
+                      <tr key={order.id} style={{ borderBottom: `1px solid ${borderColor}` }}>
+                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>{order.order_number || `ORD-${order.id}`}</td>
+                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>{order.customer_name || 'Walk-in'}</td>
+                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>
+                          {order.order_type === 'take_away' ? '🥡 ' + t('take_away') : '🍽️ ' + t('table') + ' ' + (order.table_number || '')}
+                        </td>
+                        <td style={{ padding: '10px', color: priceColor, fontWeight: 'bold', fontSize: '13px' }}>
+                          RM {Number(order.grand_total || order.total || 0).toFixed(2)}
+                        </td>
+                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>
+                          {order.payment_method === 'cash' ? '💵 ' + t('cash') : 
+                           order.payment_method === 'tng' ? '📱 ' + t('tng') : 
+                           order.payment_method === 'bank' ? '🏦 ' + t('bank') : '-'}
+                        </td>
+                        <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>
+                          {new Date(order.created_at).toLocaleString()}
+                        </td>
+                        <td style={{ padding: '10px' }}>
+                          <button 
+                            onClick={() => {
+                              setViewingOrder(order)
+                              setShowHistoryModal(false)
+                              setShowUnpaidOrders(true)
+                            }}
+                            style={{
+                              background: '#3b82f6',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '30px',
+                              padding: '4px 14px',
+                              cursor: 'pointer',
+                              fontSize: '11px',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            👁️ {t('view_order')}
+                          </button>
+                          <button 
+                            onClick={() => downloadReceipt(order)}
+                            style={{
+                              background: '#8b5cf6',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '30px',
+                              padding: '4px 14px',
+                              cursor: 'pointer',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              marginLeft: '4px'
+                            }}
+                          >
+                            ⬇️
+                          </button>
+                          <button 
+                            onClick={() => printReceipt(order, order.payment_method)}
+                            style={{
+                              background: '#0ea5e9',
+                              color: 'white',
+                              border: 'none',
+                              borderRadius: '30px',
+                              padding: '4px 14px',
+                              cursor: 'pointer',
+                              fontSize: '11px',
+                              fontWeight: 'bold',
+                              marginLeft: '4px'
+                            }}
+                          >
+                            🧾
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {totalPages > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '6px', marginTop: '16px', flexWrap: 'wrap' }}>
+                  <button 
+                    onClick={() => setHistoryPage(1)} 
+                    disabled={historyPage === 1}
+                    style={{ padding: '6px 12px', background: historyPage === 1 ? secondaryBg : '#3b82f6', color: historyPage === 1 ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                  >
+                    « {t('first')}
+                  </button>
+                  <button 
+                    onClick={() => setHistoryPage(prev => Math.max(1, prev - 1))} 
+                    disabled={historyPage === 1}
+                    style={{ padding: '6px 12px', background: historyPage === 1 ? secondaryBg : '#3b82f6', color: historyPage === 1 ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === 1 ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                  >
+                    ‹ {t('prev')}
+                  </button>
+                  <span style={{ padding: '4px 14px', background: cardBg, borderRadius: '30px', color: textColor, fontSize: '13px', border: `1px solid ${borderColor}` }}>
+                    {historyPage} / {totalPages}
+                  </span>
+                  <button 
+                    onClick={() => setHistoryPage(prev => Math.min(totalPages, prev + 1))} 
+                    disabled={historyPage === totalPages}
+                    style={{ padding: '6px 12px', background: historyPage === totalPages ? secondaryBg : '#3b82f6', color: historyPage === totalPages ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === totalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                  >
+                    {t('next')} ›
+                  </button>
+                  <button 
+                    onClick={() => setHistoryPage(totalPages)} 
+                    disabled={historyPage === totalPages}
+                    style={{ padding: '6px 12px', background: historyPage === totalPages ? secondaryBg : '#3b82f6', color: historyPage === totalPages ? textMuted : 'white', border: 'none', borderRadius: '30px', cursor: historyPage === totalPages ? 'not-allowed' : 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                  >
+                    {t('last')} »
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   // ============================================================
   // LOADING STATE
   // ============================================================
@@ -851,7 +1924,7 @@ function StaffApp() {
         minHeight: '100vh',
         position: 'relative',
       }}>
-        
+
         {/* HEADER */}
         <div style={{
           ...glassEffect,
@@ -881,7 +1954,7 @@ function StaffApp() {
               {t('pos_subtitle')}
             </p>
           </div>
-          
+
           <div style={{
             display: 'flex',
             gap: '10px',
@@ -909,7 +1982,7 @@ function StaffApp() {
             >
               {t('new_cart')}
             </button>
-            
+
             <button
               onClick={() => { setShowNewOrders(true); loadNewOrders() }}
               style={{
@@ -1006,7 +2079,7 @@ function StaffApp() {
             </button>
           </div>
         </div>
-        
+
         {/* ORDER TYPE DETAILS */}
         <div style={{
           ...glassEffect,
@@ -1044,7 +2117,7 @@ function StaffApp() {
               }}
             />
           </div>
-          
+
           {orderType === 'dine_in' && (
             <div style={{ flex: 1, minWidth: '100px' }}>
               <label style={{
@@ -1075,7 +2148,7 @@ function StaffApp() {
               />
             </div>
           )}
-          
+
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button
               onClick={() => setOrderType('dine_in')}
@@ -1087,6 +2160,7 @@ function StaffApp() {
                 borderRadius: '30px',
                 cursor: 'pointer',
                 fontSize: isMobile ? '10px' : '12px',
+                transition: 'all 0.2s'
               }}
             >
               🍽️ {t('dine_in')}
@@ -1101,13 +2175,14 @@ function StaffApp() {
                 borderRadius: '30px',
                 cursor: 'pointer',
                 fontSize: isMobile ? '10px' : '12px',
+                transition: 'all 0.2s'
               }}
             >
               🥡 {t('take_away')}
             </button>
           </div>
         </div>
-        
+
         {/* SEARCH */}
         <div style={{
           ...glassEffect,
@@ -1149,7 +2224,7 @@ function StaffApp() {
             </button>
           )}
         </div>
-        
+
         {/* CATEGORIES TABS */}
         <div style={{
           display: 'flex',
@@ -1173,14 +2248,15 @@ function StaffApp() {
                 fontWeight: selectedCategory === cat ? 'bold' : 'normal',
                 fontSize: isMobile ? '11px' : '13px',
                 whiteSpace: 'nowrap',
+                transition: 'all 0.2s'
               }}
             >
               {cat === 'All' ? t('all_categories') : `${getCategoryIcon(cat)} ${cat}`}
             </button>
           ))}
         </div>
-        
-        {/* ===== MENU GRID ===== */}
+
+        {/* MENU GRID */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(160px, 1fr))',
@@ -1193,7 +2269,7 @@ function StaffApp() {
             const isBOGO = isItemInBOGO(item)
             const drinkOpts = getDrinkOptionsForItem(item)
             const hasDrinkOpts = drinkOpts.length > 0
-            
+
             return (
               <div
                 key={item.id}
@@ -1202,11 +2278,11 @@ function StaffApp() {
                   setSelectedOption('')
                   setSelectedSize(null)
                   setQuantity(1)
-                  
+
                   if (item.has_options) {
                     loadMenuOptions(item.id)
                   }
-                  
+
                   setShowItemModal(true)
                 }}
                 style={{
@@ -1229,7 +2305,6 @@ function StaffApp() {
                   e.currentTarget.style.boxShadow = 'none'
                 }}
               >
-                {/* Promo Badge */}
                 {promo && (
                   <div style={{
                     position: 'absolute',
@@ -1249,7 +2324,7 @@ function StaffApp() {
                      promo.type === 'set_menu' ? '🍽️ Set' : '🔥 ' + t('promo')}
                   </div>
                 )}
-                
+
                 {hasDrinkOpts && (
                   <div style={{
                     position: 'absolute',
@@ -1270,7 +2345,7 @@ function StaffApp() {
                     ☕ {drinkOpts.length}
                   </div>
                 )}
-                
+
                 {item.image_url ? (
                   <img
                     src={item.image_url}
@@ -1309,7 +2384,7 @@ function StaffApp() {
                 }}>
                   {item.name}
                 </div>
-                
+
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -1356,7 +2431,7 @@ function StaffApp() {
                     </span>
                   )}
                 </div>
-                
+
                 {item.has_options && (
                   <div style={{
                     fontSize: '9px',
@@ -1370,8 +2445,8 @@ function StaffApp() {
             )
           })}
         </div>
-        
-        {/* ===== FLOATING CART BUTTON ===== */}
+
+        {/* FLOATING CART BUTTON */}
         {cart.length > 0 && (
           <div style={{
             position: 'fixed',
@@ -1417,7 +2492,7 @@ function StaffApp() {
                 {cartItemCount}
               </span>
             </button>
-            
+
             {settings.auto_print && (
               <div style={{
                 fontSize: '10px',
@@ -1433,337 +2508,14 @@ function StaffApp() {
             )}
           </div>
         )}
-        
-        {/* ===== CART POPUP ===== */}
-        {showCartPopup && cart.length > 0 && (
-          <div style={{
-            position: 'fixed',
-            bottom: isMobile ? '80px' : '90px',
-            right: isMobile ? '10px' : '20px',
-            background: cardBg,
-            borderRadius: '20px',
-            padding: isMobile ? '16px' : '20px',
-            maxWidth: isMobile ? '340px' : '400px',
-            width: '90%',
-            maxHeight: '60vh',
-            overflowY: 'auto',
-            zIndex: 9998,
-            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
-            border: `1px solid ${borderColor}`,
-            animation: 'slideUp 0.3s ease',
-          }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '12px',
-              borderBottom: `1px solid ${borderColor}`,
-              paddingBottom: '10px'
-            }}>
-              <h3 style={{ margin: 0, color: textColor, fontSize: isMobile ? '16px' : '18px' }}>
-                🛒 Cart ({cartItemCount})
-              </h3>
-              <button
-                onClick={() => setShowCartPopup(false)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: textMuted,
-                  cursor: 'pointer',
-                  fontSize: '18px',
-                  padding: '4px'
-                }}
-              >
-                ✕
-              </button>
-            </div>
-            
-            {cart.map((item, index) => (
-              <div key={index} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '6px 0',
-                borderBottom: index !== cart.length - 1 ? `1px solid ${borderColor}` : 'none'
-              }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ color: textColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '14px' }}>
-                    {item.name}
-                    {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
-                  </div>
-                  <div style={{ fontSize: '11px', color: textMuted }}>
-                    x{item.quantity} × RM {item.price.toFixed(2)}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '13px' }}>
-                    RM {item.subtotal.toFixed(2)}
-                  </span>
-                  <button
-                    onClick={() => removeFromCart(index)}
-                    style={{
-                      background: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '50%',
-                      width: '22px',
-                      height: '22px',
-                      cursor: 'pointer',
-                      fontSize: '10px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}
-                  >
-                    ✕
-                  </button>
-                </div>
-              </div>
-            ))}
-            
-            <div style={{
-              marginTop: '12px',
-              paddingTop: '12px',
-              borderTop: `2px solid ${borderColor}`,
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}>
-              <span style={{ fontWeight: 'bold', color: textColor, fontSize: isMobile ? '16px' : '18px' }}>
-                Total:
-              </span>
-              <span style={{ fontWeight: 'bold', color: priceColor, fontSize: isMobile ? '20px' : '24px' }}>
-                RM {totalCart.toFixed(2)}
-              </span>
-            </div>
-            
-            <div style={{
-              display: 'flex',
-              gap: '8px',
-              marginTop: '12px'
-            }}>
-              <button
-                onClick={clearCart}
-                style={{
-                  flex: 1,
-                  padding: isMobile ? '10px' : '12px',
-                  background: '#ef4444',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '40px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: isMobile ? '12px' : '14px'
-                }}
-              >
-                🗑️ {t('clear_cart')}
-              </button>
-              <button
-                onClick={() => {
-                  setShowCartPopup(false)
-                  handleSendOrder()
-                }}
-                style={{
-                  flex: 2,
-                  padding: isMobile ? '10px' : '12px',
-                  background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '40px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: isMobile ? '12px' : '14px',
-                  boxShadow: '0 4px 16px rgba(37,99,235,0.3)'
-                }}
-              >
-                📤 {t('send_order')}
-              </button>
-            </div>
-          </div>
-        )}
-        
-        {/* ===== ITEM MODAL ===== */}
-        {showItemModal && (
-          // ... (item modal code - same as before)
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-            <div style={{ background: cardBg, borderRadius: '28px', padding: isMobile ? '24px' : '32px', maxWidth: '450px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
-              {/* Item modal content */}
-              <h2 style={{ color: textColor, fontSize: '22px', marginBottom: '8px' }}>{selectedItem?.name}</h2>
-              <button onClick={() => { setShowItemModal(false); setSelectedItem(null); }} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '50px', padding: '10px 20px', cursor: 'pointer' }}>Close</button>
-            </div>
-          </div>
-        )}
-        
-        {/* ===== UNPAID ORDERS MODAL ===== */}
-        {showUnpaidOrders && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-            <div style={{ background: cardBg, borderRadius: '28px', padding: isMobile ? '20px' : '28px', maxWidth: '600px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 style={{ color: textColor }}>💰 {t('unpaid_orders')} ({unpaidOrders.length})</h2>
-                <button onClick={() => { setShowUnpaidOrders(false); setViewingOrder(null); }} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
-              </div>
-              
-              {unpaidOrders.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: textMuted }}>📭 {t('no_unpaid_orders')}</div>
-              ) : viewingOrder ? (
-                <div>
-                  <button onClick={() => setViewingOrder(null)} style={{ background: '#64748b', color: 'white', border: 'none', borderRadius: '30px', padding: '6px 16px', cursor: 'pointer', marginBottom: '16px' }}>← {t('back')}</button>
-                  
-                  <div style={{ background: secondaryBg, borderRadius: '16px', padding: '16px', marginBottom: '16px' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                      <span style={{ fontWeight: 'bold', color: textColor }}>👤 {viewingOrder.customer_name || t('guest')}</span>
-                      <span style={{ color: textMuted }}>{viewingOrder.order_type === 'take_away' ? '🥡 Take Away' : '🍽️ Table ' + (viewingOrder.table_number || '')}</span>
-                    </div>
-                    {viewingOrder.items?.map((item, idx) => (
-                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: idx !== viewingOrder.items.length - 1 ? `1px solid ${borderColor}` : 'none' }}>
-                        <span style={{ color: textColor }}>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}</span>
-                        <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
-                      </div>
-                    ))}
-                    <div style={{ borderTop: `2px solid ${borderColor}`, marginTop: '12px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
-                      <span>{t('total')}:</span>
-                      <span style={{ color: priceColor }}>RM {viewingOrder.total?.toFixed(2) || '0.00'}</span>
-                    </div>
-                  </div>
 
-                  {/* ===== PAYMENT METHOD SELECTION ===== */}
-                  <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
-                    <span style={{ color: textColor, fontWeight: 'bold', fontSize: '14px', width: '100%' }}>
-                      💳 {t('payment_method')}:
-                    </span>
-                    {['cash', 'bank', 'tng'].map(method => (
-                      <button
-                        key={method}
-                        onClick={() => setPaymentMethod(method)}
-                        style={{
-                          flex: 1,
-                          minWidth: '80px',
-                          padding: '10px 16px',
-                          background: paymentMethod === method ? 'linear-gradient(135deg, #22c55e, #16a34a)' : secondaryBg,
-                          color: paymentMethod === method ? 'white' : textColor,
-                          border: paymentMethod === method ? 'none' : `1px solid ${borderColor}`,
-                          borderRadius: '12px',
-                          cursor: 'pointer',
-                          fontWeight: paymentMethod === method ? 'bold' : 'normal',
-                          fontSize: isMobile ? '12px' : '14px',
-                        }}
-                      >
-                        {method === 'cash' ? '💵 ' + t('cash') : 
-                         method === 'bank' ? '🏦 ' + t('bank') : 
-                         '📱 ' + t('tng')}
-                      </button>
-                    ))}
-                  </div>
-                  
-                  <div style={{ display: 'flex', gap: '10px' }}>
-                    <button onClick={() => printReceipt(viewingOrder, paymentMethod)} style={{ flex: 1, padding: '12px', background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      🧾 {t('preview_receipt')}
-                    </button>
-                    <button onClick={() => { if (!paymentMethod) { toast.error('Sila pilih kaedah bayaran!'); return; } markOrderAsPaid(viewingOrder, paymentMethod); }} style={{ flex: 1, padding: '12px', background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold' }}>
-                      💰 {t('mark_paid')} {paymentMethod && `(${paymentMethod === 'cash' ? 'Tunai' : paymentMethod === 'bank' ? 'Bank' : 'TnG'})`}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                unpaidOrders.map(order => (
-                  <div key={order.id} onClick={() => setViewingOrder(order)} style={{ background: secondaryBg, border: `1px solid ${borderColor}`, borderRadius: '16px', padding: '14px 16px', marginBottom: '10px', cursor: 'pointer' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontWeight: 'bold', color: textColor }}>👤 {order.customer_name || 'Guest'}</div>
-                        <div style={{ fontSize: '12px', color: textMuted }}>{order.order_type === 'take_away' ? '🥡 Take Away' : '🍽️ Table ' + (order.table_number || '-')} • {order.items?.length || 0} items</div>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '18px', color: priceColor }}>RM {order.total?.toFixed(2) || '0.00'}</div>
-                        <button style={{ background: '#3b82f6', color: 'white', border: 'none', borderRadius: '20px', padding: '4px 14px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>View</button>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-        
-        {/* ===== NEW ORDERS MODAL ===== */}
-        {showNewOrders && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-            <div style={{ background: cardBg, borderRadius: '28px', padding: isMobile ? '20px' : '28px', maxWidth: '720px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 style={{ color: textColor }}>🆕 {t('new_orders_title')} ({newOrders.length})</h2>
-                <button onClick={() => setShowNewOrders(false)} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
-              </div>
-              {newOrders.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: textMuted }}>📭 {t('no_new_orders')}</div>
-              ) : newOrders.map(order => (
-                <div key={order.id} style={{ background: secondaryBg, border: `1px solid ${borderColor}`, borderRadius: '16px', padding: '16px', marginBottom: '12px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <strong style={{ color: textColor }}>{order.customer_name || 'Guest'} {order.table_number ? `• Table ${order.table_number}` : ''}</strong>
-                    <span style={{ color: textMuted, fontSize: '12px' }}>{new Date(order.created_at).toLocaleString()}</span>
-                  </div>
-                  {order.items?.map((item, idx) => (
-                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none' }}>
-                      <span style={{ color: textColor }}>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}</span>
-                      <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
-                    </div>
-                  ))}
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
-                    <strong style={{ color: priceColor, fontSize: '18px' }}>Total: RM {order.total.toFixed(2)}</strong>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button onClick={() => confirmNewOrder(order)} style={{ background: '#22c55e', color: 'white', border: 'none', borderRadius: '30px', padding: '8px 16px', cursor: 'pointer', fontWeight: 'bold' }}>✅ {t('confirm_order')}</button>
-                      <button onClick={() => cancelNewOrder(order)} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '30px', padding: '8px 16px', cursor: 'pointer', fontWeight: 'bold' }}>{t('cancel')}</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-        
-        {/* ===== HISTORY MODAL ===== */}
-        {showHistoryModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', zIndex: 2000, display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '20px' }}>
-            <div style={{ background: cardBg, borderRadius: '28px', padding: isMobile ? '20px' : '28px', maxWidth: '900px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <h2 style={{ color: textColor }}>📜 {t('history_orders')} ({orderHistory.length})</h2>
-                <button onClick={() => setShowHistoryModal(false)} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
-              </div>
-              {orderHistory.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: textMuted }}>📭 {t('no_history_orders')}</div>
-              ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                    <thead>
-                      <tr style={{ background: darkMode ? 'rgba(30,30,46,0.8)' : '#f1f5f9' }}>
-                        <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>Order</th>
-                        <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>Customer</th>
-                        <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>Total</th>
-                        <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>Payment</th>
-                        <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>Date</th>
-                        <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {orderHistory.slice(0, 20).map(order => (
-                        <tr key={order.id} style={{ borderBottom: `1px solid ${borderColor}` }}>
-                          <td style={{ padding: '10px', color: textColor, fontSize: '13px' }}>#{order.id.slice(0, 6)}</td>
-                          <td style={{ padding: '10px', color: textColor }}>{order.customer_name || 'Guest'}</td>
-                          <td style={{ padding: '10px', color: priceColor, fontWeight: 'bold' }}>RM {order.total?.toFixed(2) || '0.00'}</td>
-                          <td style={{ padding: '10px', color: textColor }}>{order.payment_method === 'cash' ? '💵 Cash' : order.payment_method === 'tng' ? '📱 TnG' : '🏦 Bank'}</td>
-                          <td style={{ padding: '10px', color: textColor, fontSize: '12px' }}>{new Date(order.created_at).toLocaleDateString()}</td>
-                          <td style={{ padding: '10px' }}>
-                            <button onClick={() => printReceipt(order, order.payment_method)} style={{ background: '#0ea5e9', color: 'white', border: 'none', borderRadius: '30px', padding: '4px 14px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}>🧾</button>
-                            <button onClick={() => downloadReceipt(order)} style={{ background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '30px', padding: '4px 14px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold', marginLeft: '4px' }}>⬇️</button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-        
+        {/* RENDER ALL MODALS */}
+        {renderCartPopup()}
+        {showItemModal && renderItemModal()}
+        {showNewOrders && renderNewOrdersModal()}
+        {showUnpaidOrders && renderUnpaidOrdersModal()}
+        {showHistoryModal && renderHistoryModal()}
+
         {/* STYLES */}
         <style>
           {`
@@ -1775,11 +2527,21 @@ function StaffApp() {
               border-radius: 50%;
               animation: spin 1s linear infinite;
             }
-            
+
             @keyframes spin {
               to { transform: rotate(360deg); }
             }
-            
+
+            @keyframes fadeIn {
+              from { opacity: 0; }
+              to { opacity: 1; }
+            }
+
+            @keyframes popIn {
+              0% { opacity: 0; transform: scale(0.95) translateY(10px); }
+              100% { opacity: 1; transform: scale(1) translateY(0); }
+            }
+
             @keyframes slideUp {
               from {
                 opacity: 0;
@@ -1790,37 +2552,37 @@ function StaffApp() {
                 transform: translateY(0) scale(1);
               }
             }
-            
+
             ::-webkit-scrollbar {
               width: 6px;
               height: 6px;
             }
-            
+
             ::-webkit-scrollbar-track {
               background: ${darkMode ? '#1a1a2e' : '#e2e8f0'};
               border-radius: 10px;
             }
-            
+
             ::-webkit-scrollbar-thumb {
               background: ${darkMode ? '#3d3d5c' : '#94a3b8'};
               border-radius: 10px;
             }
-            
+
             input, button {
               transition: all 0.2s ease;
             }
-            
+
             input:focus {
               outline: none;
               border-color: #3b82f6;
               box-shadow: 0 0 0 3px rgba(59,130,246,0.12);
             }
-            
+
             button:hover:not(:disabled) {
               opacity: 0.9;
               transform: scale(0.97);
             }
-            
+
             button:active:not(:disabled) {
               transform: scale(0.93);
             }

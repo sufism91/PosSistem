@@ -12,26 +12,26 @@ function StaffApp() {
   const { language } = useLanguage()
 
   // ============================================================
-  // TRANSLATIONS
+  // TRANSLATIONS - TANPA EMOJI (emoji letak kat button)
   // ============================================================
   const translations = {
     pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
     pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
-    new_cart: { en: '🔄 New Cart', ms: '🔄 Keranjang Baru' },
-    new_orders_title: { en: '🆕 New Orders', ms: '🆕 Pesanan Baru' },
-    unpaid_orders: { en: '💰 Unpaid', ms: '💰 Belum Bayar' },
-    history_orders: { en: '📜 History', ms: '📜 Sejarah' },
-    clear_cart: { en: '🗑️ Clear Cart', ms: '🗑️ Kosongkan Keranjang' },
-    send_order: { en: '📤 Send Order', ms: '📤 Hantar Pesanan' },
-    mark_paid: { en: '💰 Mark as Paid', ms: '💰 Tanda Bayar' },
-    confirm_order: { en: '✅ Confirm', ms: '✅ Sahkan' },
+    new_cart: { en: 'New Cart', ms: 'Keranjang Baru' },
+    new_orders_title: { en: 'New Orders', ms: 'Pesanan Baru' },
+    unpaid_orders: { en: 'Unpaid', ms: 'Belum Bayar' },
+    history_orders: { en: 'History', ms: 'Sejarah' },
+    clear_cart: { en: 'Clear Cart', ms: 'Kosongkan Keranjang' },
+    send_order: { en: 'Send Order', ms: 'Hantar Pesanan' },
+    mark_paid: { en: 'Mark as Paid', ms: 'Tanda Bayar' },
+    confirm_order: { en: 'Confirm', ms: 'Sahkan' },
     cancel: { en: 'Cancel', ms: 'Batal' },
-    print_receipt: { en: '🖨️ Print', ms: '🖨️ Cetak' },
-    preview_receipt: { en: '🧾 Preview', ms: '🧾 Preview' },
+    print_receipt: { en: 'Print', ms: 'Cetak' },
+    preview_receipt: { en: 'Preview', ms: 'Preview' },
     back: { en: 'Back', ms: 'Kembali' },
     view_order: { en: 'View', ms: 'Lihat' },
-    search_menu: { en: '🔍 Search menu...', ms: '🔍 Cari menu...' },
-    all_categories: { en: '📋 All', ms: '📋 Semua' },
+    search_menu: { en: 'Search menu...', ms: 'Cari menu...' },
+    all_categories: { en: 'All', ms: 'Semua' },
     customer_name: { en: 'Customer', ms: 'Pelanggan' },
     table_number: { en: 'Table', ms: 'Meja' },
     dine_in: { en: 'Dine In', ms: 'Makan di Sini' },
@@ -41,7 +41,7 @@ function StaffApp() {
     items: { en: 'items', ms: 'item' },
     guest: { en: 'Guest', ms: 'Tetamu' },
     free: { en: 'FREE', ms: 'PERCUMA' },
-    promo: { en: '🔥 Promo', ms: '🔥 Promosi' },
+    promo: { en: 'Promo', ms: 'Promosi' },
     hot: { en: 'Hot', ms: 'Panas' },
     cold: { en: 'Cold', ms: 'Sejuk' },
     packed: { en: 'Packed', ms: 'Bungkus' },
@@ -52,18 +52,18 @@ function StaffApp() {
     no_new_orders: { en: 'No new orders', ms: 'Tiada pesanan baru' },
     no_unpaid_orders: { en: 'No unpaid orders', ms: 'Tiada pesanan belum bayar' },
     no_history_orders: { en: 'No history', ms: 'Tiada sejarah' },
-    order_added: { en: '✅ Added!', ms: '✅ Ditambah!' },
+    order_added: { en: 'Added!', ms: 'Ditambah!' },
     cart_empty: { en: 'Cart is empty', ms: 'Keranjang kosong' },
     order_cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
-    order_confirmed_kitchen: { en: '✅ Order confirmed!', ms: '✅ Pesanan disahkan!' },
-    order_paid_history: { en: '✅ Paid!', ms: '✅ Dibayar!' },
+    order_confirmed_kitchen: { en: 'Order confirmed!', ms: 'Pesanan disahkan!' },
+    order_paid_history: { en: 'Paid!', ms: 'Dibayar!' },
     error_checkout: { en: 'Error', ms: 'Ralat' },
     new_order_started: { en: 'New cart started', ms: 'Keranjang baru dimulakan' },
-    order_sent: { en: '✅ Order sent!', ms: '✅ Pesanan dihantar!' },
+    order_sent: { en: 'Order sent!', ms: 'Pesanan dihantar!' },
     please_select_item: { en: 'Select an item', ms: 'Pilih item' },
     please_select_option: { en: 'Select an option', ms: 'Pilih pilihan' },
     confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
-    receipt_title: { en: '🧾 RECEIPT', ms: '🧾 RESIT' },
+    receipt_title: { en: 'RECEIPT', ms: 'RESIT' },
     receipt_thankyou: { en: 'Thank you!', ms: 'Terima kasih!' },
     receipt_item: { en: 'Item', ms: 'Item' },
     receipt_qty: { en: 'Qty', ms: 'Kuantiti' },
@@ -1307,7 +1307,7 @@ function StaffApp() {
           alignItems: 'center'
         }}>
           <span style={{ fontWeight: 'bold', color: textColor, fontSize: isMobile ? '16px' : '18px' }}>
-            Total:
+            {t('total')}:
           </span>
           <span style={{ fontWeight: 'bold', color: priceColor, fontSize: isMobile ? '20px' : '24px' }}>
             RM {totalCart.toFixed(2)}
@@ -1367,7 +1367,9 @@ function StaffApp() {
     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 2000, padding: '20px' }}>
       <div style={{ ...glassEffect, background: cardBg, borderRadius: '28px', padding: isMobile ? '20px' : '28px', maxWidth: '720px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>🆕 {t('new_orders_title')} ({newOrders.length})</h2>
+          <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>
+            🆕 {t('new_orders_title')} ({newOrders.length})
+          </h2>
           <button onClick={() => setShowNewOrders(false)} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
         </div>
         {newOrders.length === 0 ? (
@@ -1532,7 +1534,7 @@ function StaffApp() {
                 </div>
               </div>
 
-              {/* PAYMENT METHOD */}
+              {/* PAYMENT METHOD - NO EMOJI IN TEXT, ONLY IN BUTTONS */}
               <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
                 <span style={{ color: textColor, fontWeight: 'bold', fontSize: '14px', width: '100%' }}>
                   💳 {t('payment_method')}:
@@ -1980,7 +1982,7 @@ function StaffApp() {
                 boxShadow: '0 4px 16px rgba(245,158,11,0.3)',
               }}
             >
-              {t('new_cart')}
+              🔄 {t('new_cart')}
             </button>
 
             <button
@@ -1998,7 +2000,7 @@ function StaffApp() {
                 position: 'relative'
               }}
             >
-              {t('new_orders_title')}
+              🆕 {t('new_orders_title')}
               {newOrders.length > 0 && (
                 <span style={{
                   position: 'absolute',
@@ -2039,7 +2041,7 @@ function StaffApp() {
                 position: 'relative'
               }}
             >
-              {t('unpaid_orders')}
+              💰 {t('unpaid_orders')}
               {unpaidOrders.length > 0 && (
                 <span style={{
                   position: 'absolute',
@@ -2075,7 +2077,7 @@ function StaffApp() {
                 boxShadow: '0 4px 16px rgba(108,117,125,0.3)',
               }}
             >
-              {t('history_orders')}
+              📜 {t('history_orders')}
             </button>
           </div>
         </div>
@@ -2251,7 +2253,7 @@ function StaffApp() {
                 transition: 'all 0.2s'
               }}
             >
-              {cat === 'All' ? t('all_categories') : `${getCategoryIcon(cat)} ${cat}`}
+              {cat === 'All' ? '📋 ' + t('all_categories') : getCategoryIcon(cat) + ' ' + cat}
             </button>
           ))}
         </div>

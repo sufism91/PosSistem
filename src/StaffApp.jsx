@@ -189,6 +189,7 @@ function StaffApp() {
   const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState(null)
   const [paymentMethod, setPaymentMethod] = useState('cash')
+  const [showCartPopup, setShowCartPopup] = useState(false) // ← TAMBAH
 
   // ===== CHECK MOBILE =====
   useEffect(() => {
@@ -629,6 +630,8 @@ function StaffApp() {
     setSelectedOption('')
     setSelectedSize(null)
     setQuantity(1)
+    // Auto show cart popup
+    setShowCartPopup(true)
     toast.success(isFree ? `🎁 ${selectedItem.name} FREE!` : t('order_added'))
   }
 
@@ -636,6 +639,9 @@ function StaffApp() {
     const newCart = [...cart]
     newCart.splice(index, 1)
     setCart(newCart)
+    if (newCart.length === 0) {
+      setShowCartPopup(false)
+    }
   }
 
   const clearCart = () => {
@@ -645,6 +651,7 @@ function StaffApp() {
     }
     if (window.confirm(t('confirm_clear_cart'))) {
       setCart([])
+      setShowCartPopup(false)
       toast.success(t('order_cancelled'))
     }
   }
@@ -709,6 +716,7 @@ function StaffApp() {
 
       toast.success('✅ Pesanan dihantar! Sila sahkan di New Orders.')
       setCart([])
+      setShowCartPopup(false)
       setCustomerName('')
       setTableNumber('')
       await loadNewOrders()
@@ -1328,6 +1336,163 @@ function StaffApp() {
               {t('cancel')}
             </button>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ============================================================
+  // RENDER CART POPUP
+  // ============================================================
+  const renderCartPopup = () => {
+    if (!showCartPopup || cart.length === 0) return null
+    
+    return (
+      <div style={{
+        position: 'fixed',
+        bottom: isMobile ? '80px' : '90px',
+        right: isMobile ? '10px' : '20px',
+        background: cardBg,
+        borderRadius: '20px',
+        padding: isMobile ? '16px' : '20px',
+        maxWidth: isMobile ? '340px' : '400px',
+        width: '90%',
+        maxHeight: '60vh',
+        overflowY: 'auto',
+        zIndex: 9998,
+        boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+        border: `1px solid ${borderColor}`,
+        animation: 'slideUp 0.3s ease',
+      }}>
+        <div style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: '12px',
+          borderBottom: `1px solid ${borderColor}`,
+          paddingBottom: '10px'
+        }}>
+          <h3 style={{ margin: 0, color: textColor, fontSize: isMobile ? '16px' : '18px' }}>
+            🛒 Cart ({cartItemCount})
+          </h3>
+          <button
+            onClick={() => setShowCartPopup(false)}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: textMuted,
+              cursor: 'pointer',
+              fontSize: '18px',
+              padding: '4px'
+            }}
+          >
+            ✕
+          </button>
+        </div>
+        
+        {/* Cart Items */}
+        {cart.map((item, index) => (
+          <div key={index} style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            padding: '6px 0',
+            borderBottom: index !== cart.length - 1 ? `1px solid ${borderColor}` : 'none'
+          }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ color: textColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '14px' }}>
+                {item.name}
+                {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
+              </div>
+              <div style={{ fontSize: '11px', color: textMuted }}>
+                x{item.quantity} × RM {item.price.toFixed(2)}
+              </div>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '13px' }}>
+                RM {item.subtotal.toFixed(2)}
+              </span>
+              <button
+                onClick={() => removeFromCart(index)}
+                style={{
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '22px',
+                  height: '22px',
+                  cursor: 'pointer',
+                  fontSize: '10px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        ))}
+        
+        {/* Total */}
+        <div style={{
+          marginTop: '12px',
+          paddingTop: '12px',
+          borderTop: `2px solid ${borderColor}`,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span style={{ fontWeight: 'bold', color: textColor, fontSize: isMobile ? '16px' : '18px' }}>
+            Total:
+          </span>
+          <span style={{ fontWeight: 'bold', color: priceColor, fontSize: isMobile ? '20px' : '24px' }}>
+            RM {totalCart.toFixed(2)}
+          </span>
+        </div>
+        
+        {/* Buttons */}
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          marginTop: '12px'
+        }}>
+          <button
+            onClick={clearCart}
+            style={{
+              flex: 1,
+              padding: isMobile ? '10px' : '12px',
+              background: '#ef4444',
+              color: 'white',
+              border: 'none',
+              borderRadius: '40px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: isMobile ? '12px' : '14px'
+            }}
+          >
+            🗑️ {t('clear_cart')}
+          </button>
+          <button
+            onClick={() => {
+              setShowCartPopup(false)
+              handleCheckout()
+            }}
+            style={{
+              flex: 2,
+              padding: isMobile ? '10px' : '12px',
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '40px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: isMobile ? '12px' : '14px',
+              boxShadow: '0 4px 16px rgba(34,197,94,0.3)'
+            }}
+          >
+            💳 {t('checkout')}
+          </button>
         </div>
       </div>
     )
@@ -1978,7 +2143,6 @@ function StaffApp() {
         background: bgColor,
         minHeight: '100vh',
         position: 'relative',
-        paddingBottom: cart.length > 0 ? (isMobile ? '120px' : '100px') : '20px',
       }}>
         
         {/* HEADER */}
@@ -2021,6 +2185,7 @@ function StaffApp() {
                 setCart([])
                 setCustomerName('')
                 setTableNumber('')
+                setShowCartPopup(false)
                 toast(t('new_order_started'))
               }}
               style={{
@@ -2510,85 +2675,57 @@ function StaffApp() {
           })}
         </div>
         
-        {/* ===== CART BOTTOM BAR - FIXED VISIBLE ===== */}
+        {/* ===== FLOATING CART BUTTON ===== */}
         {cart.length > 0 && (
           <div style={{
             position: 'fixed',
-            bottom: 0,
-            left: 0,
-            right: 0,
-            background: cardBg,
-            borderTop: `4px solid ${priceColor}`,
-            padding: isMobile ? '14px 16px' : '18px 28px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
-            gap: '10px',
+            bottom: isMobile ? '20px' : '30px',
+            right: isMobile ? '20px' : '30px',
             zIndex: 9999,
-            boxShadow: '0 -8px 30px rgba(0,0,0,0.25)',
-            backdropFilter: 'blur(16px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '10px',
           }}>
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '14px'
-            }}>
-              <span style={{
+            <button
+              onClick={() => setShowCartPopup(!showCartPopup)}
+              style={{
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '60px',
+                padding: isMobile ? '14px 20px' : '18px 28px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: isMobile ? '10px' : '14px',
+                cursor: 'pointer',
+                boxShadow: '0 8px 32px rgba(34,197,94,0.4)',
+                transition: 'all 0.3s ease',
+                fontSize: isMobile ? '14px' : '18px',
                 fontWeight: 'bold',
-                color: textColor,
-                fontSize: isMobile ? '14px' : '16px'
-              }}>
-                🛒 {cartItemCount} {cartItemCount === 1 ? 'item' : 'items'}
-              </span>
+                position: 'relative',
+              }}
+              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              🛒
+              <span>RM {totalCart.toFixed(2)}</span>
               <span style={{
-                fontWeight: 'bold',
-                color: priceColor,
-                fontSize: isMobile ? '18px' : '24px'
+                background: '#ef4444',
+                color: 'white',
+                borderRadius: '50%',
+                padding: '2px 8px',
+                fontSize: isMobile ? '11px' : '13px',
+                marginLeft: '4px'
               }}>
-                RM {totalCart.toFixed(2)}
+                {cartItemCount}
               </span>
-            </div>
-            
-            <div style={{
-              display: 'flex',
-              gap: '8px',
-              flexWrap: 'wrap'
-            }}>
-              <button
-                onClick={clearCart}
-                style={{
-                  padding: isMobile ? '8px 16px' : '10px 20px',
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '30px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: isMobile ? '11px' : '13px',
-                }}
-              >
-                {t('clear_cart')}
-              </button>
-              <button
-                onClick={handleCheckout}
-                style={{
-                  padding: isMobile ? '8px 18px' : '10px 28px',
-                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '30px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: isMobile ? '11px' : '13px',
-                  boxShadow: '0 4px 16px rgba(34,197,94,0.3)',
-                }}
-              >
-                💳 {t('checkout')}
-              </button>
-            </div>
+            </button>
           </div>
         )}
+        
+        {/* CART POPUP */}
+        {renderCartPopup()}
         
         {/* ITEM MODAL */}
         {showItemModal && renderItemModal()}
@@ -2629,6 +2766,17 @@ function StaffApp() {
             @keyframes popIn {
               0% { opacity: 0; transform: scale(0.95) translateY(10px); }
               100% { opacity: 1; transform: scale(1) translateY(0); }
+            }
+            
+            @keyframes slideUp {
+              from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.95);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+              }
             }
             
             ::-webkit-scrollbar {

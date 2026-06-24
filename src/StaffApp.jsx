@@ -119,7 +119,6 @@ function StaffApp() {
 
   // ===== NOTIFICATION STATE =====
   const [notifiedOrderIds, setNotifiedOrderIds] = useState([])
-  const [audioContext, setAudioContext] = useState(null)
 
   // ===== SETTINGS =====
   const [settings, setSettings] = useState({
@@ -166,39 +165,24 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PLAY NOTIFICATION SOUND - WEB AUDIO API (PASTI BERBUNYI!)
+  // PLAY NOTIFICATION SOUND - FILE SOUND DULU, BEEP FALLBACK
   // ============================================================
-  const playNotificationSound = () => {
-    console.log('🔔 playNotificationSound called')
-    console.log('📋 settings.notification_sound:', settings.notification_sound)
-    
-    if (!settings.notification_sound) {
-      console.log('🔇 Sound disabled in settings')
-      return
-    }
-    
+  const playBeepSound = () => {
     try {
-      console.log('🔊 Playing Web Audio beep...')
       const ctx = new (window.AudioContext || window.webkitAudioContext)()
+      if (ctx.state === 'suspended') ctx.resume()
       
-      // Resume if suspended (needed for Chrome autoplay policy)
-      if (ctx.state === 'suspended') {
-        ctx.resume()
-      }
-      
-      // Beep 1 - 800Hz
       const osc1 = ctx.createOscillator()
       const gain1 = ctx.createGain()
       osc1.connect(gain1)
       gain1.connect(ctx.destination)
       osc1.frequency.value = 800
       osc1.type = 'sine'
-      gain1.gain.setValueAtTime(0.5, ctx.currentTime)
+      gain1.gain.setValueAtTime(0.4, ctx.currentTime)
       gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
       osc1.start(ctx.currentTime)
       osc1.stop(ctx.currentTime + 0.3)
       
-      // Beep 2 - 1000Hz (higher pitch) after 200ms
       setTimeout(() => {
         try {
           const osc2 = ctx.createOscillator()
@@ -207,18 +191,48 @@ function StaffApp() {
           gain2.connect(ctx.destination)
           osc2.frequency.value = 1000
           osc2.type = 'sine'
-          gain2.gain.setValueAtTime(0.5, ctx.currentTime)
+          gain2.gain.setValueAtTime(0.4, ctx.currentTime)
           gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2)
           osc2.start(ctx.currentTime)
           osc2.stop(ctx.currentTime + 0.2)
-          console.log('✅ Beep played successfully!')
-        } catch (e) {
-          console.log('Beep 2 error:', e)
-        }
+        } catch (e) {}
       }, 200)
-      
     } catch (err) {
-      console.log('❌ Web Audio error:', err)
+      console.log('Beep error:', err)
+    }
+  }
+
+  const playNotificationSound = () => {
+    console.log('🔔 playNotificationSound called')
+    
+    if (!settings.notification_sound) {
+      console.log('🔇 Sound disabled in settings')
+      return
+    }
+    
+    // TRY 1: File sound - /sound/notification.mp3
+    try {
+      const audio = new Audio('/sound/notification.mp3')
+      audio.volume = 0.8
+      audio.play().then(() => {
+        console.log('✅ File sound played! (/sound/notification.mp3)')
+      }).catch(() => {
+        // TRY 2: /sounds/notification.mp3
+        try {
+          const audio2 = new Audio('/sounds/notification.mp3')
+          audio2.volume = 0.8
+          audio2.play().then(() => {
+            console.log('✅ File sound played! (/sounds/notification.mp3)')
+          }).catch(() => {
+            console.log('❌ All file sounds failed, using beep')
+            playBeepSound()
+          })
+        } catch (e) {
+          playBeepSound()
+        }
+      })
+    } catch (err) {
+      playBeepSound()
     }
   }
 

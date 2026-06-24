@@ -272,9 +272,12 @@ function StaffApp() {
   }, [])
 
   // ============================================================
-  // NOTIFICATION - CHECK NEW ORDERS EVERY 5 SECONDS
+  // NOTIFICATION - CHECK NEW ORDERS EVERY 5 SECONDS (FIXED)
   // ============================================================
   useEffect(() => {
+    // RESET NOTIFIED IDs ON PAGE LOAD
+    setNotifiedOrderIds([])
+    
     loadNewOrders()
     
     const interval = setInterval(async () => {
@@ -284,9 +287,12 @@ function StaffApp() {
       console.log('📋 New orders count:', newOrders.length)
       console.log('📋 Notified IDs:', notifiedOrderIds)
       
+      // Check all pending orders (not just new ones)
       const pendingOrders = newOrders.filter(order => 
         !notifiedOrderIds.includes(order.id) && 
-        (order.status === 'pending' || order.order_status === 'pending' || order.status === ORDER_STATUS.NEW)
+        (order.status === 'pending' || order.status === 'pending_confirmation' || 
+         order.order_status === 'pending' || order.order_status === 'pending_confirmation' ||
+         order.status === ORDER_STATUS.NEW)
       )
       
       console.log('📋 Pending orders to notify:', pendingOrders.length)
@@ -391,6 +397,9 @@ function StaffApp() {
     }
   }
 
+  // ============================================================
+  // LOAD NEW ORDERS - FIXED: Support pending_confirmation
+  // ============================================================
   async function loadNewOrders() {
     try {
       const { data, error } = await supabase
@@ -403,7 +412,10 @@ function StaffApp() {
 
       const pending = (data || []).filter(order => {
         const workflowStatus = order.order_status || order.status
-        return [ORDER_STATUS.NEW, 'pending'].includes(workflowStatus) || order.status === 'pending'
+        // Support 'pending', 'pending_confirmation', 'new'
+        return ['pending', 'pending_confirmation', 'new'].includes(workflowStatus) ||
+               ['pending', 'pending_confirmation', 'new'].includes(order.status) ||
+               workflowStatus === ORDER_STATUS.NEW
       })
       setNewOrders(pending)
     } catch (err) {
@@ -746,8 +758,8 @@ function StaffApp() {
       customer_name: customerName || 'Guest',
       table_number: orderType === 'dine_in' ? parseInt(tableNumber) || null : null,
       order_type: orderType,
-      status: ORDER_STATUS.NEW,
-      order_status: ORDER_STATUS.NEW,
+      status: 'pending_confirmation',
+      order_status: 'pending_confirmation',
       payment_status: PAYMENT_STATUS.UNPAID,
       notes: cart.map(item => item.notes).filter(n => n).join(', ')
     }
@@ -2103,6 +2115,27 @@ function StaffApp() {
               title="Test Notification Sound"
             >
               🔊 Test Sound
+            </button>
+
+            {/* RESET NOTIFICATION BUTTON */}
+            <button
+              onClick={() => {
+                setNotifiedOrderIds([])
+                toast('🔄 Notification reset!')
+              }}
+              style={{
+                padding: isMobile ? '8px 16px' : '10px 20px',
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '30px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '11px' : '13px',
+                boxShadow: '0 4px 16px rgba(245,158,11,0.3)',
+              }}
+            >
+              🔄 Reset Notif
             </button>
 
             <button

@@ -119,7 +119,7 @@ function StaffApp() {
 
   // ===== NOTIFICATION STATE =====
   const [notifiedOrderIds, setNotifiedOrderIds] = useState([])
-  const [audioCtx, setAudioCtx] = useState(null)
+  const [audio] = useState(typeof Audio !== 'undefined' ? new Audio('/sound/notification.mp3') : null)
 
   // ===== SETTINGS =====
   const [settings, setSettings] = useState({
@@ -166,32 +166,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // AUDIO INIT - TRIGGERED BY USER INTERACTION
-  // ============================================================
-  const initAudio = () => {
-    try {
-      if (!audioCtx) {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)()
-        setAudioCtx(ctx)
-        if (ctx.state === 'suspended') {
-          ctx.resume()
-        }
-        console.log('✅ Audio context initialized')
-        return ctx
-      }
-      if (audioCtx.state === 'suspended') {
-        audioCtx.resume()
-        console.log('✅ Audio context resumed')
-      }
-      return audioCtx
-    } catch (err) {
-      console.log('❌ Audio init error:', err)
-      return null
-    }
-  }
-
-  // ============================================================
-  // PLAY NOTIFICATION SOUND - USING WEB AUDIO API (PASTI BERBUNYI)
+  // PLAY NOTIFICATION SOUND - SAME AS KITCHEN APP
   // ============================================================
   const playNotificationSound = () => {
     console.log('🔔 playNotificationSound called')
@@ -201,61 +176,15 @@ function StaffApp() {
       return
     }
     
-    // Init audio context (if not already)
-    const ctx = initAudio()
-    
-    if (!ctx) {
-      console.log('❌ No audio context, trying file fallback...')
-      try {
-        const audio = new Audio('/sound/notification.mp3')
-        audio.volume = 0.8
-        audio.play().catch(() => {})
-      } catch (e) {}
-      return
-    }
-    
-    try {
-      console.log('🔊 Playing sound via Web Audio API')
-      
-      // Beep 1 - 800Hz
-      const osc1 = ctx.createOscillator()
-      const gain1 = ctx.createGain()
-      osc1.connect(gain1)
-      gain1.connect(ctx.destination)
-      osc1.frequency.value = 800
-      osc1.type = 'sine'
-      gain1.gain.setValueAtTime(0.5, ctx.currentTime)
-      gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
-      osc1.start(ctx.currentTime)
-      osc1.stop(ctx.currentTime + 0.3)
-      
-      // Beep 2 - 1000Hz (higher pitch)
-      setTimeout(() => {
-        try {
-          const osc2 = ctx.createOscillator()
-          const gain2 = ctx.createGain()
-          osc2.connect(gain2)
-          gain2.connect(ctx.destination)
-          osc2.frequency.value = 1000
-          osc2.type = 'sine'
-          gain2.gain.setValueAtTime(0.5, ctx.currentTime)
-          gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2)
-          osc2.start(ctx.currentTime)
-          osc2.stop(ctx.currentTime + 0.2)
-          console.log('✅ Sound played successfully!')
-        } catch (e) {
-          console.log('Beep 2 error:', e)
-        }
-      }, 200)
-      
-    } catch (err) {
-      console.log('❌ Sound error:', err)
-      // Fallback: try file sound
-      try {
-        const audio = new Audio('/sound/notification.mp3')
-        audio.volume = 0.8
-        audio.play().catch(() => {})
-      } catch (e) {}
+    if (audio) {
+      audio.currentTime = 0
+      audio.play().then(() => {
+        console.log('✅ Notification sound played!')
+      }).catch((err) => {
+        console.log('❌ Audio play failed:', err)
+      })
+    } else {
+      console.log('❌ Audio object not available')
     }
   }
 
@@ -264,31 +193,9 @@ function StaffApp() {
   // ============================================================
   const testSound = () => {
     console.log('🧪 Test sound button clicked!')
-    initAudio()
-    setTimeout(() => {
-      playNotificationSound()
-      toast('🔊 Testing notification sound...')
-    }, 100)
+    playNotificationSound()
+    toast('🔊 Testing notification sound...')
   }
-
-  // ============================================================
-  // AUTO INIT AUDIO ON USER INTERACTION
-  // ============================================================
-  useEffect(() => {
-    const handleUserInteraction = () => {
-      initAudio()
-      document.removeEventListener('click', handleUserInteraction)
-      document.removeEventListener('touchstart', handleUserInteraction)
-    }
-    
-    document.addEventListener('click', handleUserInteraction)
-    document.addEventListener('touchstart', handleUserInteraction)
-    
-    return () => {
-      document.removeEventListener('click', handleUserInteraction)
-      document.removeEventListener('touchstart', handleUserInteraction)
-    }
-  }, [])
 
   // ============================================================
   // LOAD SETTINGS

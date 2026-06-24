@@ -76,7 +76,8 @@ function StaffApp() {
     payment_method: { en: 'Payment Method', ms: 'Kaedah Bayaran' },
     download_receipt: { en: 'Download', ms: 'Muat Turun' },
     print_all: { en: 'Print All', ms: 'Cetak Semua' },
-    new_order_notification: { en: 'New order received!', ms: 'Pesanan baru diterima!' },
+    new_order_notification: { en: 'Order pending confirmation!', ms: 'Pesanan menunggu pengesahan!' },
+    order_pending_reminder: { en: 'orders pending confirmation!', ms: 'pesanan menunggu pengesahan!' },
   }
 
   const t = (key) => {
@@ -118,7 +119,6 @@ function StaffApp() {
   const [showCartPopup, setShowCartPopup] = useState(false)
 
   // ===== NOTIFICATION STATE =====
-  const [notifiedOrderIds, setNotifiedOrderIds] = useState([])
   const [audio] = useState(typeof Audio !== 'undefined' ? new Audio('/sound/notification.mp3') : null)
 
   // ===== SETTINGS =====
@@ -272,45 +272,38 @@ function StaffApp() {
   }, [])
 
   // ============================================================
-  // NOTIFICATION - CHECK NEW ORDERS EVERY 5 SECONDS (FIXED)
+  // NOTIFICATION - REPEAT SOUND EVERY 5 SECONDS UNTIL CONFIRMED
   // ============================================================
   useEffect(() => {
-    // RESET NOTIFIED IDs ON PAGE LOAD
-    setNotifiedOrderIds([])
-    
     loadNewOrders()
     
     const interval = setInterval(async () => {
-      console.log('🔄 Checking for new orders...')
+      console.log('🔄 Checking for pending orders...')
       await loadNewOrders()
       
-      console.log('📋 New orders count:', newOrders.length)
-      console.log('📋 Notified IDs:', notifiedOrderIds)
-      
-      // Check all pending orders (not just new ones)
+      // Check for pending orders
       const pendingOrders = newOrders.filter(order => 
-        !notifiedOrderIds.includes(order.id) && 
         (order.status === 'pending' || order.status === 'pending_confirmation' || 
-         order.order_status === 'pending' || order.order_status === 'pending_confirmation' ||
-         order.status === ORDER_STATUS.NEW)
+         order.order_status === 'pending' || order.order_status === 'pending_confirmation')
       )
       
-      console.log('📋 Pending orders to notify:', pendingOrders.length)
+      console.log('📋 Pending orders:', pendingOrders.length)
       
+      // ===== BUNYI SETIAP 5 SAAT SELAGI ADA PENDING ORDERS =====
       if (pendingOrders.length > 0) {
-        console.log('🔔 Playing notification sound!')
+        console.log('🔔 Playing notification sound! (reminder)')
         playNotificationSound()
-        setNotifiedOrderIds(prev => [...prev, ...pendingOrders.map(o => o.id)])
-        toast(`🔔 ${pendingOrders.length} ${t('new_order_notification')}`, {
-          duration: 5000,
+        
+        toast(`🔔 ${pendingOrders.length} ${t('order_pending_reminder')}`, {
+          duration: 3000,
           icon: '🔔'
         })
       }
       
-    }, 5000)
+    }, 5000) // ← Every 5 seconds
     
     return () => clearInterval(interval)
-  }, [newOrders, notifiedOrderIds])
+  }, [newOrders])
 
   async function loadAllData() {
     setLoading(true)
@@ -398,7 +391,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // LOAD NEW ORDERS - FIXED: Support pending_confirmation
+  // LOAD NEW ORDERS - Support pending_confirmation
   // ============================================================
   async function loadNewOrders() {
     try {
@@ -847,8 +840,6 @@ function StaffApp() {
         .eq('id', order.id)
       if (error) throw error
       
-      setNotifiedOrderIds(prev => prev.filter(id => id !== order.id))
-      
       toast.success(t('order_confirmed_kitchen'))
       await loadNewOrders()
       await loadUnpaidOrders()
@@ -865,8 +856,6 @@ function StaffApp() {
         .update({ status: ORDER_STATUS.CANCELLED, order_status: ORDER_STATUS.CANCELLED })
         .eq('id', order.id)
       if (error) throw error
-      
-      setNotifiedOrderIds(prev => prev.filter(id => id !== order.id))
       
       toast.success(t('order_cancelled'))
       await loadNewOrders()
@@ -2115,27 +2104,6 @@ function StaffApp() {
               title="Test Notification Sound"
             >
               🔊 Test Sound
-            </button>
-
-            {/* RESET NOTIFICATION BUTTON */}
-            <button
-              onClick={() => {
-                setNotifiedOrderIds([])
-                toast('🔄 Notification reset!')
-              }}
-              style={{
-                padding: isMobile ? '8px 16px' : '10px 20px',
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '30px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '11px' : '13px',
-                boxShadow: '0 4px 16px rgba(245,158,11,0.3)',
-              }}
-            >
-              🔄 Reset Notif
             </button>
 
             <button

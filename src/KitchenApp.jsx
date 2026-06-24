@@ -477,7 +477,7 @@ function KitchenApp() {
   // ============================================================
   async function updateOrderStatus(orderId, status) {
     try {
-      // Remove from notified set
+      // Remove from notified set when order is no longer pending
       setNotifiedOrderIds(prev => {
         const newSet = new Set(prev)
         newSet.delete(orderId)
@@ -521,6 +521,13 @@ function KitchenApp() {
     
     if (window.confirm(t('confirm_complete_all'))) {
       for (const order of ordersToComplete) {
+        // Remove from notified set
+        setNotifiedOrderIds(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(order.id)
+          return newSet
+        })
+        
         const newStatus = tab === 'ready' ? 'completed' : 'ready'
         await supabase
           .from('customer_orders')

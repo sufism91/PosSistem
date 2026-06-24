@@ -31,16 +31,16 @@ function TableQRs() {
   // ============================================================
   const translations = {
     // Header
-    qr_title: { en: '📱 Print Table QR Codes', ms: '📱 Cetak QR Meja' },
+    qr_title: { en: '📱 Print Table QR Codes', ms: ' Cetak QR Meja' },
     qr_subtitle: { en: 'Select tables and print QR codes for digital menu', ms: 'Pilih meja dan cetak QR code untuk menu digital' },
     
     // Buttons
-    print_qr: { en: '🖨️ Print QR', ms: '🖨️ Cetak QR' },
-    select_all: { en: '✓ Select All', ms: '✓ Pilih Semua' },
-    deselect_all: { en: '✖ Deselect All', ms: '✖ Nyahpilih Semua' },
+    print_qr: { en: '🖨️ Print QR', ms: ' Cetak QR' },
+    select_all: { en: '✓ Select All', ms: ' Pilih Semua' },
+    deselect_all: { en: '✖ Deselect All', ms: ' Nyahpilih Semua' },
     
     // Settings
-    edit_text: { en: '✏️ Edit Text on QR', ms: '✏️ Edit Teks pada QR' },
+    edit_text: { en: '✏️ Edit Text on QR', ms: 'Edit Teks pada QR' },
     restaurant_title: { en: 'Restaurant Title', ms: 'Tajuk Restoran' },
     instruction_text: { en: 'Instruction Text', ms: 'Teks Arahan' },
     footer_text: { en: 'Footer Text', ms: 'Teks Footer' },
@@ -48,7 +48,7 @@ function TableQRs() {
     yes_show_link: { en: 'Yes, show link', ms: 'Ya, tunjukkan link' },
     
     // Print settings
-    print_settings: { en: '⚙️ Print Settings', ms: '⚙️ Tetapan Cetakan' },
+    print_settings: { en: '⚙️ Print Settings', ms: ' Tetapan Cetakan' },
     qr_size: { en: 'QR Size:', ms: 'Saiz QR:' },
     small: { en: 'Small (150px)', ms: 'Kecil (150px)' },
     medium: { en: 'Medium (200px)', ms: 'Sederhana (200px)' },
@@ -57,11 +57,11 @@ function TableQRs() {
     layout_desc: { en: '1 page = 2 tables (4 QR per page)', ms: '1 page = 2 meja (4 QR setiap page)' },
     
     // Table selection
-    select_tables: { en: '🪑 Select Tables to Print', ms: '🪑 Pilih Meja untuk Dicetak' },
+    select_tables: { en: '🪑 Select Tables to Print', ms: ' Pilih Meja untuk Dicetak' },
     table: { en: 'Table', ms: 'Meja' },
     
     // Preview
-    print_preview: { en: '📄 Print Preview', ms: '📄 Pratonton Cetakan' },
+    print_preview: { en: '📄 Print Preview', ms: ' Pratonton Cetakan' },
     page: { en: 'Page', ms: 'Muka Surat' },
     of: { en: 'of', ms: '/' },
     loading_qr: { en: 'Loading...', ms: 'Memuatkan...' },
@@ -69,7 +69,7 @@ function TableQRs() {
     
     // Messages
     no_tables: { en: 'No tables available. Please add tables first.', ms: 'Tiada meja. Sila tambah meja terlebih dahulu.' },
-    print_count: { en: 'tables →', ms: 'meja →' },
+    print_count: { en: 'tables →', ms: 'meja ' },
     pages: { en: 'pages', ms: 'muka surat' },
     scan_to_order: { en: 'Scan to order', ms: 'Scan untuk pesan' },
   }

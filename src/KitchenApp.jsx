@@ -93,6 +93,9 @@ function KitchenApp() {
   const [orderTypeFilter, setOrderTypeFilter] = useState('all')
   const [isMobile, setIsMobile] = useState(false)
 
+  // ===== SOUND TRACKING =====
+  const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set())
+
   // ============================================================
   // INIT SOUND ON USER INTERACTION
   // ============================================================
@@ -202,7 +205,6 @@ function KitchenApp() {
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'customer_orders' },
         (payload) => {
-          // ===== FIX: Accept both 'pending' and 'confirmed' =====
           if (payload.new.status === 'pending' || payload.new.status === ORDER_STATUS.CONFIRMED ||
               payload.new.order_status === 'pending' || payload.new.order_status === ORDER_STATUS.CONFIRMED) {
             
@@ -312,6 +314,55 @@ function KitchenApp() {
   }, [soundEnabled, kitchenEnabled])
 
   // ============================================================
+  // INTERVAL CHECKING FOR REPEAT SOUND - EVERY 5 SECONDS
+  // ============================================================
+  useEffect(() => {
+    const checkOrders = async () => {
+      try {
+        // Check for pending orders
+        const { data } = await supabase
+          .from('customer_orders')
+          .select('id, status')
+          .in('status', ['pending', 'confirmed'])
+          .eq('payment_status', 'unpaid')
+        
+        const currentIds = data?.map(o => o.id) || []
+        const existingIds = notifiedOrderIds
+        const newIds = currentIds.filter(id => !existingIds.has(id))
+        
+        // Play sound for new orders
+        if (newIds.length > 0) {
+          console.log(`🔔 Kitchen: ${newIds.length} new order(s)!`)
+          playKitchenSound()
+          
+          setNotifiedOrderIds(prev => {
+            const newSet = new Set(prev)
+            currentIds.forEach(id => newSet.add(id))
+            return newSet
+          })
+        }
+        
+        // 🔔 REPEAT SOUND EVERY 5 SECONDS IF THERE ARE PENDING ORDERS
+        if (currentIds.length > 0) {
+          console.log(`🔔 Kitchen: ${currentIds.length} order(s) pending, reminder sound...`)
+          playKitchenSound()
+        }
+        
+      } catch (err) {
+        console.error('Kitchen interval error:', err)
+      }
+    }
+    
+    // Check immediately
+    checkOrders()
+    
+    // Check every 5 seconds
+    const interval = setInterval(checkOrders, 5000)
+    
+    return () => clearInterval(interval)
+  }, [notifiedOrderIds])
+
+  // ============================================================
   // LOAD FUNCTIONS
   // ============================================================
   async function loadRestaurantName() {
@@ -328,7 +379,6 @@ function KitchenApp() {
   // ============================================================
   async function loadOrders() {
     try {
-      // ===== FIX: Include 'pending' in order_status and status =====
       const { data: pending } = await supabase
         .from('customer_orders')
         .select('*')
@@ -384,7 +434,6 @@ function KitchenApp() {
           preparing.push(order)
         } else if (order.status === 'ready') {
           ready.push(order)
-        // ===== FIX: Include 'pending' here =====
         } else if (['pending', ORDER_STATUS.CONFIRMED, 'confirmed'].includes(order.status)) {
           if (hasFoodItems) {
             food.push({
@@ -428,6 +477,13 @@ function KitchenApp() {
   // ============================================================
   async function updateOrderStatus(orderId, status) {
     try {
+      // Remove from notified set
+      setNotifiedOrderIds(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(orderId)
+        return newSet
+      })
+      
       const { error } = await supabase
         .from('customer_orders')
         .update(status === ORDER_STATUS.COMPLETED || status === 'completed' ? { status, order_status: ORDER_STATUS.COMPLETED } : { status, order_status: ORDER_STATUS.CONFIRMED })

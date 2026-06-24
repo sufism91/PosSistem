@@ -27,11 +27,11 @@ function TrackOrder() {
   // ============================================================
   const translations = {
     // Header
-    track_title: { en: '🔍 Track Your Order', ms: '🔍 Jejak Pesanan Anda' },
+    track_title: { en: '🔍 Track Your Order', ms: ' Jejak Pesanan Anda' },
     track_subtitle: { en: 'Enter your order number to check status', ms: 'Masukkan nombor pesanan untuk semak status' },
     enter_order: { en: 'Enter order ID or number', ms: 'Masukkan ID atau nombor pesanan' },
     searching: { en: 'Searching...', ms: 'Mencari...' },
-    track: { en: '🔍 Track', ms: '🔍 Jejak' },
+    track: { en: '🔍 Track', ms: ' Jejak' },
     
     // Messages
     order_not_found: { en: 'Order not found', ms: 'Pesanan tidak dijumpai' },
@@ -47,7 +47,7 @@ function TrackOrder() {
     total: { en: 'Total', ms: 'Jumlah' },
     estimated_time: { en: 'Estimated Ready Time', ms: 'Anggaran Masa Siap' },
     almost_ready: { en: 'Almost ready!', ms: 'Hampir siap!' },
-    refresh_status: { en: '🔄 Refresh Status', ms: '🔄 Muat Semula Status' },
+    refresh_status: { en: '🔄 Refresh Status', ms: ' Muat Semula Status' },
     auto_refresh: { en: 'Auto-refresh status', ms: 'Muat semula automatik' },
     order: { en: 'Order', ms: 'Pesanan' },
     at: { en: 'at', ms: 'pada' },
@@ -58,7 +58,7 @@ function TrackOrder() {
     note: { en: 'Note', ms: 'Nota' },
     minutes: { en: 'minutes', ms: 'minit' },
     cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
-    order_again: { en: '🍽️ Order Again →', ms: '🍽️ Pesan Lagi →' },
+    order_again: { en: '🍽️ Order Again →', ms: ' Pesan Lagi →' },
     
     // Status
     pending: { en: 'Pending', ms: 'Menunggu' },

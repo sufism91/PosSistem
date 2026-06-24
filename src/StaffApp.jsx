@@ -19,7 +19,7 @@ function StaffApp() {
       new_order: { en: '🆕 New Orders', ms: ' Pesanan Baru' },
       unpaid: { en: '💰 Unpaid', ms: ' Belum Bayar' },
       history: { en: '📜 History', ms: ' Sejarah' },
-      dine_in: { en: '🍽️ Dine In', ms: ' Makan di Sini' },
+      dine_in: { en: '🍽️ Dine In', ms: 'Makan di Sini' },
       take_away: { en: '🥡 Take Away', ms: ' Bungkus' },
       table: { en: 'Table', ms: 'Meja' },
       customer_name: { en: 'Customer Name', ms: 'Nama Pelanggan' },
@@ -74,16 +74,16 @@ function StaffApp() {
       mark_paid: { en: '💰 Mark as Paid', ms: ' Tanda Bayar' },
       close: { en: 'Close', ms: 'Tutup' },
       all_categories: { en: '📋 All', ms: ' Semua' },
-      order_added: { en: '✅ Order added!', ms: 'Pesanan ditambah!' },
+      order_added: { en: '✅ Order added!', ms: ' Pesanan ditambah!' },
       order_cancelled: { en: '❌ Order cancelled', ms: ' Pesanan dibatalkan' },
-      payment_success: { en: '✅ Payment successful!', ms: 'Pembayaran berjaya!' },
+      payment_success: { en: '✅ Payment successful!', ms: ' Pembayaran berjaya!' },
       please_select_item: { en: '⚠️ Please select an item', ms: ' Sila pilih item' },
       please_select_option: { en: '⚠️ Please select an option', ms: ' Sila pilih pilihan' },
       cart_empty_msg: { en: '⚠️ Cart is empty', ms: ' Keranjang kosong' },
       confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
       no_unpaid_orders_msg: { en: '📭 No unpaid orders', ms: ' Tiada pesanan belum bayar' },
       new_order_started: { en: '📝 New order started!', ms: ' Pesanan baru dimulakan!' },
-      order_paid: { en: '✅ Order paid!', ms: ' Pesanan dibayar!' },
+      order_paid: { en: '✅ Order paid!', ms: '✅ Pesanan dibayar!' },
       error_checkout: { en: '❌ Checkout error', ms: ' Ralat bayaran' },
       search_menu: { en: '🔍 Search menu...', ms: ' Cari menu...' },
       order_details: { en: '📋 Order Details', ms: ' Butiran Pesanan' },
@@ -110,7 +110,7 @@ function StaffApp() {
       download_receipt: { en: 'Download Receipt', ms: 'Muat Turun Resit' },
       confirm_order: { en: 'Confirm Order', ms: 'Sahkan Pesanan' },
       no_new_orders: { en: '📭 No new orders to confirm', ms: ' Tiada pesanan baru untuk disahkan' },
-      no_history_orders: { en: '📭 No order history', ms: ' Tiada sejarah pesanan' },
+      no_history_orders: { en: '📭 No order history', ms: 'Tiada sejarah pesanan' },
       pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
       pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
       sound_test: { en: '🔊 Test Sound', ms: ' Uji Bunyi' },
@@ -162,8 +162,7 @@ function StaffApp() {
   const [historyPage, setHistoryPage] = useState(1)
   const historyItemsPerPage = 10
 
-  // ===== TRACK PREVIOUS ORDERS FOR SOUND =====
-  const [previousOrderCount, setPreviousOrderCount] = useState(0)
+  // ===== SOUND TRACKING =====
   const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set())
 
   // ===== MOBILE CART =====
@@ -251,26 +250,48 @@ function StaffApp() {
       })
       .subscribe()
 
-    // ===== INTERVAL CHECKING (FALLBACK) =====
+    return () => {
+      menuSub.unsubscribe()
+      drinkSub.unsubscribe()
+      orderSub.unsubscribe()
+    }
+  }, [])
+
+  // ============================================================
+  // INTERVAL CHECKING FOR SOUND - EVERY 5 SECONDS
+  // ============================================================
+  useEffect(() => {
     const checkOrders = async () => {
       try {
         const { data } = await supabase
           .from('customer_orders')
-          .select('id')
+          .select('id, status')
           .eq('status', 'pending')
         
-        const currentCount = data?.length || 0
+        const currentIds = data?.map(o => o.id) || []
+        const existingIds = notifiedOrderIds
+        const newIds = currentIds.filter(id => !existingIds.has(id))
         
-        // If new orders detected (count increased)
-        if (currentCount > previousOrderCount) {
-          console.log(`🔔 New order detected via interval! (${previousOrderCount} → ${currentCount})`)
+        // Play sound for new orders
+        if (newIds.length > 0) {
+          console.log(`🔔 Staff: ${newIds.length} new order(s)!`)
           playSound()
-          toast.success(`🔔 ${currentCount - previousOrderCount} new order(s)!`)
+          
+          setNotifiedOrderIds(prev => {
+            const newSet = new Set(prev)
+            currentIds.forEach(id => newSet.add(id))
+            return newSet
+          })
         }
         
-        setPreviousOrderCount(currentCount)
+        // 🔔 REPEAT SOUND EVERY 5 SECONDS IF THERE ARE PENDING ORDERS
+        if (currentIds.length > 0) {
+          console.log(`🔔 Staff: ${currentIds.length} order(s) pending, reminder sound...`)
+          playSound()
+        }
+        
       } catch (err) {
-        console.error('Interval check error:', err)
+        console.error('Staff interval error:', err)
       }
     }
     
@@ -279,14 +300,9 @@ function StaffApp() {
     
     // Check every 5 seconds
     const interval = setInterval(checkOrders, 5000)
-
-    return () => {
-      menuSub.unsubscribe()
-      drinkSub.unsubscribe()
-      orderSub.unsubscribe()
-      clearInterval(interval)
-    }
-  }, [previousOrderCount])
+    
+    return () => clearInterval(interval)
+  }, [notifiedOrderIds])
 
   // ============================================================
   // LOAD FUNCTIONS
@@ -356,32 +372,6 @@ function StaffApp() {
       
       console.log(`📊 Found ${data?.length || 0} pending orders`)
       setCustomerOrders(data || [])
-      
-      // Update previous count
-      setPreviousOrderCount(data?.length || 0)
-      
-      // 🔔 CHECK FOR NEW ORDERS (yang belum notified)
-      if (data && data.length > 0) {
-        const newOrderIds = data.map(o => o.id)
-        const existingIds = notifiedOrderIds
-        
-        // Cari order ID yang belum pernah notify
-        const newIds = newOrderIds.filter(id => !existingIds.has(id))
-        
-        if (newIds.length > 0) {
-          console.log(`🔔 ${newIds.length} new order(s) detected! Playing sound...`)
-          playSound()
-          
-          // Add to notified set
-          setNotifiedOrderIds(prev => {
-            const newSet = new Set(prev)
-            newOrderIds.forEach(id => newSet.add(id))
-            return newSet
-          })
-          
-          toast.success(`🔔 ${newIds.length} new order(s)!`)
-        }
-      }
       
     } catch (err) {
       console.error('Error loading customer orders:', err)
@@ -614,7 +604,7 @@ function StaffApp() {
       // 🔔 PLAY SOUND BILA ORDER DITERIMA
       playSound()
       
-      // Remove from notified set (supaya tak notify lagi)
+      // Remove from notified set
       setNotifiedOrderIds(prev => {
         const newSet = new Set(prev)
         newSet.delete(orderId)
@@ -1293,74 +1283,77 @@ function StaffApp() {
         {/* ============================================================ */}
         {/* ORDERS TAB */}
         {/* ============================================================ */}
-        {activeTab === 'orders' && (
-          <div>
-            <h2 style={{ color: textColor, marginBottom: '24px', fontSize: '20px', fontWeight: 'bold', borderLeft: '4px solid #ef4444', paddingLeft: '14px' }}>
-              🆕 {t('new_order')}
-            </h2>
-            {customerOrders.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '80px 20px', ...glassEffect, borderRadius: '28px' }}>
-                <span style={{ fontSize: '64px', opacity: 0.5 }}>📭</span>
-                <p style={{ color: textMuted, marginTop: '16px' }}>{t('no_new_orders')}</p>
+        {/* ============================================================ */}
+{/* ORDERS TAB */}
+{/* ============================================================ */}
+{activeTab === 'orders' && (
+  <div>
+    <h2 style={{ color: textColor, marginBottom: '24px', fontSize: '20px', fontWeight: 'bold', borderLeft: '4px solid #ef4444', paddingLeft: '14px' }}>
+      🆕 {t('new_order')}
+    </h2>
+    {customerOrders.length === 0 ? (
+      <div style={{ textAlign: 'center', padding: '80px 20px', ...glassEffect, borderRadius: '28px' }}>
+        <span style={{ fontSize: '64px', opacity: 0.5 }}>📭</span>
+        <p style={{ color: textMuted, marginTop: '16px' }}>{t('no_new_orders')}</p>
+      </div>
+    ) : (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        {customerOrders.map(order => (
+          <div key={order.id} style={{ ...glassEffect, borderRadius: '28px', padding: '24px', borderLeft: '4px solid #ef4444' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '28px' }}>{order.order_type === 'take_away' ? '🥡' : '🍽️'}</span>
+                <h3 style={{ margin: 0, fontSize: '16px', color: textColor, fontWeight: 'bold' }}>
+                  {order.order_type === 'take_away' ? t('take_away') : `${t('table')} ${order.table_number}`}
+                </h3>
+                <span style={{ background: '#ef4444', color: 'white', padding: '4px 12px', borderRadius: '40px', fontSize: '10px', fontWeight: 'bold' }}>
+                  {t('pending')}
+                </span>
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                {customerOrders.map(order => (
-                  <div key={order.id} style={{ ...glassEffect, borderRadius: '28px', padding: '24px', borderLeft: `4px solid #ef4444` }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <span style={{ fontSize: '28px' }}>{order.order_type === 'take_away' ? '🥡' : '🍽️'}</span>
-                        <h3 style={{ margin: 0, fontSize: '16px', color: textColor, fontWeight: 'bold' }}>
-                          {order.order_type === 'take_away' ? t('take_away') : `${t('table')} ${order.table_number}`}
-                        </h3>
-                        <span style={{ background: '#ef4444', color: 'white', padding: '4px 12px', borderRadius: '40px', fontSize: '10px', fontWeight: 'bold' }}>
-                          {t('pending')}
-                        </span>
-                      </div>
-                      <div style={{ fontSize: '12px', color: textMuted }}>🕐 {formatMalaysiaTime(order.created_at)}</div>
-                    </div>
-                    <div style={{ marginBottom: '16px' }}>
-                      <span style={{ fontWeight: 'bold', color: textColor }}>{t('customer_name')}:</span>
-                      <span style={{ color: textColor, marginLeft: '8px' }}>{order.customer_name || 'Walk-in'}</span>
-                      {order.customer_phone && <span style={{ marginLeft: '12px', fontSize: '12px', color: textMuted }}>📞 {order.customer_phone}</span>}
-                    </div>
-                    <div style={{ background: secondaryBg, borderRadius: '20px', padding: '16px', margin: '16px 0' }}>
-                      {renderOrderItems(order.items)}
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${borderColor}`, flexWrap: 'wrap', gap: '12px' }}>
-                      <div>
-                        <span style={{ fontSize: '14px', color: textMuted }}>{t('total')}:</span>
-                        <span style={{ fontSize: '22px', fontWeight: 'bold', color: priceColor, marginLeft: '8px' }}>RM {order.total}</span>
-                      </div>
-                      <div style={{ display: 'flex', gap: '12px' }}>
-                        <button 
-                          onClick={() => updateOrderStatus(order.id, 'accepted')} 
-                          style={{ 
-                            background: kitchenEnabled ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'linear-gradient(135deg, #06b6d4, #0891b2)', 
-                            color: 'white', 
-                            padding: '10px 24px', 
-                            border: 'none', 
-                            borderRadius: '40px', 
-                            cursor: 'pointer', 
-                            fontWeight: 'bold' 
-                          }}
-                        >
-                          {kitchenEnabled ? `✅ ${t('accept')} & ${t('start_cooking')}` : `✅ ${t('accept')} (${t('ready')})`}
-                        </button>
-                        <button 
-                          onClick={() => updateOrderStatus(order.id, 'cancelled')} 
-                          style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', padding: '10px 24px', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold' }}
-                        >
-                          ❌ {t('cancel')}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <div style={{ fontSize: '12px', color: textMuted }}>🕐 {formatMalaysiaTime(order.created_at)}</div>
+            </div>
+            <div style={{ marginBottom: '16px' }}>
+              <span style={{ fontWeight: 'bold', color: textColor }}>{t('customer_name')}:</span>
+              <span style={{ color: textColor, marginLeft: '8px' }}>{order.customer_name || 'Walk-in'}</span>
+              {order.customer_phone && <span style={{ marginLeft: '12px', fontSize: '12px', color: textMuted }}>📞 {order.customer_phone}</span>}
+            </div>
+            <div style={{ background: secondaryBg, borderRadius: '20px', padding: '16px', margin: '16px 0' }}>
+              {renderOrderItems(order.items)}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${borderColor}`, flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <span style={{ fontSize: '14px', color: textMuted }}>{t('total')}:</span>
+                <span style={{ fontSize: '22px', fontWeight: 'bold', color: priceColor, marginLeft: '8px' }}>RM {order.total}</span>
               </div>
-            )}
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button 
+                  onClick={() => updateOrderStatus(order.id, 'accepted')} 
+                  style={{ 
+                    background: kitchenEnabled ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'linear-gradient(135deg, #06b6d4, #0891b2)', 
+                    color: 'white', 
+                    padding: '10px 24px', 
+                    border: 'none', 
+                    borderRadius: '40px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold' 
+                  }}
+                >
+                  {kitchenEnabled ? `✅ ${t('accept')} & ${t('start_cooking')}` : `✅ ${t('accept')} (${t('ready')})`}
+                </button>
+                <button 
+                  onClick={() => updateOrderStatus(order.id, 'cancelled')} 
+                  style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', padding: '10px 24px', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  ❌ {t('cancel')}
+                </button>
+              </div>
+            </div>
           </div>
-        )}
+        ))}
+      </div>
+    )}
+  </div>
+)}
 
         {/* ============================================================ */}
         {/* UNPAID TAB */}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
 import Sidebar from './components/Sidebar'
@@ -6,6 +6,7 @@ import { supabase } from './lib/supabase'
 import { ORDER_STATUS, PAYMENT_STATUS, normalizeOrderForInsert, normalizeConfirmedUpdate } from './lib/orderWorkflow'
 import { generateReceiptHTML } from './lib/receipt'
 import toast from 'react-hot-toast'
+import { playSound, initSound, testSound as testSoundUtil } from './utils/sound'
 
 function StaffApp() {
   const { darkMode } = useTheme()
@@ -129,9 +130,6 @@ function StaffApp() {
   const historyItemsPerPage = 10
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [showCartPopup, setShowCartPopup] = useState(false)
-  
-  // ===== AUDIO REF & STATE =====
-  const audioRef = useRef(null)
   const [acceptedOrderIds, setAcceptedOrderIds] = useState(new Set())
 
   // ===== SETTINGS =====
@@ -146,76 +144,36 @@ function StaffApp() {
   })
 
   // ============================================================
-  // INITIALIZE AUDIO
+  // INIT SOUND ON USER INTERACTION
   // ============================================================
   useEffect(() => {
-    if (typeof Audio !== 'undefined' && !audioRef.current) {
-      audioRef.current = new Audio('/sound/notification.mp3')
-      audioRef.current.load()
-      audioRef.current.loop = false
-      console.log('🔊 Audio initialized')
+    const initOnInteraction = () => {
+      initSound()
+      document.removeEventListener('click', initOnInteraction)
+      document.removeEventListener('touchstart', initOnInteraction)
     }
     
-    const enableSound = () => {
-      console.log('🔊 Sound enabled via user interaction')
-      document.removeEventListener('click', enableSound)
-      document.removeEventListener('touchstart', enableSound)
-    }
-    
-    document.addEventListener('click', enableSound)
-    document.addEventListener('touchstart', enableSound)
+    document.addEventListener('click', initOnInteraction)
+    document.addEventListener('touchstart', initOnInteraction)
     
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current = null
-      }
-      document.removeEventListener('click', enableSound)
-      document.removeEventListener('touchstart', enableSound)
+      document.removeEventListener('click', initOnInteraction)
+      document.removeEventListener('touchstart', initOnInteraction)
     }
   }, [])
 
   // ============================================================
-  // PLAY NOTIFICATION SOUND - FIXED
+  // PLAY NOTIFICATION SOUND
   // ============================================================
   const playNotificationSound = () => {
-    console.log('🔔 playNotificationSound called')
+    console.log('🔔 Staff: playNotificationSound called')
     
     if (!settings.notification_sound) {
       console.log('🔇 Sound disabled in settings')
       return
     }
     
-    if (!audioRef.current) {
-      console.log('❌ Audio not initialized')
-      return
-    }
-    
-    try {
-      audioRef.current.currentTime = 0
-      const playPromise = audioRef.current.play()
-      
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log('✅ Notification sound played!')
-          })
-          .catch((error) => {
-            console.log('❌ Audio play failed:', error)
-            const retryPlay = () => {
-              if (audioRef.current && settings.notification_sound) {
-                audioRef.current.play().catch(e => console.log('Retry failed:', e))
-              }
-              document.removeEventListener('click', retryPlay)
-              document.removeEventListener('touchstart', retryPlay)
-            }
-            document.addEventListener('click', retryPlay)
-            document.addEventListener('touchstart', retryPlay)
-          })
-      }
-    } catch (error) {
-      console.error('❌ Error playing sound:', error)
-    }
+    playSound()
   }
 
   // ============================================================
@@ -223,7 +181,8 @@ function StaffApp() {
   // ============================================================
   const testSound = () => {
     console.log('🧪 Test sound button clicked!')
-    playNotificationSound()
+    initSound()
+    playSound(true)
     toast.success(`🔊 ${t('sound_test')}...`)
   }
 
@@ -335,7 +294,7 @@ function StaffApp() {
   }, [])
 
   // ============================================================
-  // NOTIFICATION - REPEAT SOUND EVERY 5 SECONDS - FIXED
+  // NOTIFICATION - REPEAT SOUND EVERY 5 SECONDS
   // ============================================================
   useEffect(() => {
     loadNewOrders()
@@ -884,7 +843,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // CONFIRM / CANCEL NEW ORDER - FIXED with acceptedOrderIds
+  // CONFIRM / CANCEL NEW ORDER
   // ============================================================
   const confirmNewOrder = async (order) => {
     try {

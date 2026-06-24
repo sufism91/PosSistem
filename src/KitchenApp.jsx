@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
@@ -6,6 +6,7 @@ import Sidebar from './components/Sidebar'
 import { supabase } from './lib/supabase'
 import { ORDER_STATUS, splitOrderItems } from './lib/orderWorkflow'
 import { sendNotification } from './utils/notification'
+import { playSound, initSound } from './utils/sound'
 
 function KitchenApp() {
   const { darkMode } = useTheme()
@@ -92,8 +93,48 @@ function KitchenApp() {
   const [orderTypeFilter, setOrderTypeFilter] = useState('all')
   const [isMobile, setIsMobile] = useState(false)
 
-  // ===== AUDIO REF =====
-  const audioRef = useRef(null)
+  // ============================================================
+  // INIT SOUND ON USER INTERACTION
+  // ============================================================
+  useEffect(() => {
+    const initOnInteraction = () => {
+      initSound()
+      document.removeEventListener('click', initOnInteraction)
+      document.removeEventListener('touchstart', initOnInteraction)
+    }
+    
+    document.addEventListener('click', initOnInteraction)
+    document.addEventListener('touchstart', initOnInteraction)
+    
+    return () => {
+      document.removeEventListener('click', initOnInteraction)
+      document.removeEventListener('touchstart', initOnInteraction)
+    }
+  }, [])
+
+  // ============================================================
+  // PLAY KITCHEN SOUND
+  // ============================================================
+  const playKitchenSound = () => {
+    console.log('🔔 Kitchen: playKitchenSound called, soundEnabled:', soundEnabled)
+    
+    if (!soundEnabled) {
+      console.log('🔇 Kitchen sound disabled')
+      return
+    }
+    
+    playSound()
+  }
+
+  // ============================================================
+  // TEST SOUND
+  // ============================================================
+  const testSound = () => {
+    console.log('🧪 Kitchen test sound button clicked!')
+    initSound()
+    playSound(true)
+    toast.success(`🔊 ${t('sound_test')}...`)
+  }
 
   // ============================================================
   // CHECK MOBILE
@@ -128,89 +169,6 @@ function KitchenApp() {
       ? '0 8px 40px rgba(0,0,0,0.5)' 
       : '0 8px 40px rgba(0,0,0,0.06)',
     transition: 'all 0.3s ease'
-  }
-
-  // ============================================================
-  // INITIALIZE AUDIO
-  // ============================================================
-  useEffect(() => {
-    if (typeof Audio !== 'undefined' && !audioRef.current) {
-      audioRef.current = new Audio('/sound/notification.mp3')
-      audioRef.current.load()
-      audioRef.current.loop = false
-      console.log('🔊 Kitchen audio initialized')
-    }
-    
-    const enableSound = () => {
-      setSoundEnabled(true)
-      console.log('🔊 Kitchen sound enabled via user interaction')
-      document.removeEventListener('click', enableSound)
-      document.removeEventListener('touchstart', enableSound)
-    }
-    
-    document.addEventListener('click', enableSound)
-    document.addEventListener('touchstart', enableSound)
-    
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause()
-        audioRef.current = null
-      }
-      document.removeEventListener('click', enableSound)
-      document.removeEventListener('touchstart', enableSound)
-    }
-  }, [])
-
-  // ============================================================
-  // PLAY KITCHEN SOUND - FIXED
-  // ============================================================
-  const playKitchenSound = () => {
-    console.log('🔔 Kitchen playSound called, soundEnabled:', soundEnabled)
-    
-    if (!soundEnabled) {
-      console.log('🔇 Kitchen sound disabled')
-      return
-    }
-    
-    if (!audioRef.current) {
-      console.log('❌ Kitchen audio not initialized')
-      return
-    }
-    
-    try {
-      audioRef.current.currentTime = 0
-      const playPromise = audioRef.current.play()
-      
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            console.log('✅ Kitchen sound played!')
-          })
-          .catch((error) => {
-            console.log('❌ Kitchen audio play failed:', error)
-            const retryPlay = () => {
-              if (audioRef.current && soundEnabled) {
-                audioRef.current.play().catch(e => console.log('Retry failed:', e))
-              }
-              document.removeEventListener('click', retryPlay)
-              document.removeEventListener('touchstart', retryPlay)
-            }
-            document.addEventListener('click', retryPlay)
-            document.addEventListener('touchstart', retryPlay)
-          })
-      }
-    } catch (error) {
-      console.error('❌ Kitchen sound error:', error)
-    }
-  }
-
-  // ============================================================
-  // TEST SOUND
-  // ============================================================
-  const testSound = () => {
-    console.log('🧪 Kitchen test sound button clicked!')
-    playKitchenSound()
-    toast.success(`🔊 ${t('sound_test')}...`)
   }
 
   // ============================================================

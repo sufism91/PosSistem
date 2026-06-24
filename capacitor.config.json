@@ -1,5 +1,12 @@
 {
-  "appId": "com.kedaipos.app",
-  "appName": "Kedaipos POS",
-  "webDir": "dist"
+  "appId": "com.yourapp.pos",
+  "appName": "Fullmak POS",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true,
+    "allowsClearTextTraffic": true
+  },
+  "server": {
+    "androidScheme": "https"
+  }
 }

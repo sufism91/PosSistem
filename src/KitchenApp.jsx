@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import toast from 'react-hot-toast'
 import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
@@ -12,55 +12,41 @@ function KitchenApp() {
   const { language } = useLanguage()
   
   // ============================================================
-  // COMPLETE TRANSLATIONS (EMOJI REMOVED FROM TEXT)
+  // COMPLETE TRANSLATIONS
   // ============================================================
   const translations = {
-    // Header
     kitchen_title: { en: 'Digital Kitchen', ms: 'Dapur Digital' },
     kitchen_subtitle: { en: 'Manage food & drink orders', ms: 'Urus pesanan makanan & minuman' },
-    
-    // Buttons
     sound_on: { en: 'Sound: ON', ms: 'Bunyi: ON' },
     sound_off: { en: 'Sound: OFF', ms: 'Bunyi: OFF' },
+    sound_test: { en: 'Test Sound', ms: 'Uji Bunyi' },
     refresh: { en: 'Refresh', ms: 'Muat Semula' },
     refresh_data: { en: 'Refresh Data', ms: 'Muat Semula Data' },
     complete_all: { en: 'Complete All', ms: 'Selesaikan Semua' },
     go_to_settings: { en: 'Go to Settings', ms: 'Pergi ke Tetapan' },
-    
-    // Search & Filter
     search_orders: { en: 'Search orders...', ms: 'Cari pesanan...' },
     all_orders: { en: 'All', ms: 'Semua' },
     dine_in: { en: 'Dine-in', ms: 'Dine-in' },
     take_away: { en: 'Take Away', ms: 'Bungkus' },
-    
-    // Alerts
     new_orders: { en: 'New Orders', ms: 'Pesanan Baru' },
     process_immediately: { en: 'Process immediately!', ms: 'Proses segera!' },
     new_order_alert: { en: 'New Order!', ms: 'Pesanan Baru!' },
     order_ready_alert: { en: 'Order Ready!', ms: 'Pesanan Sedia!' },
     order_ready_desc: { en: 'Order is ready for pickup', ms: 'Pesanan sedia untuk diambil' },
-    
-    // Tabs (NO EMOJI HERE)
     food_kitchen: { en: 'Food', ms: 'Makanan' },
     drink_kitchen: { en: 'Drinks', ms: 'Minuman' },
     preparing_orders: { en: 'Cooking', ms: 'Sedang Masak' },
     ready_orders: { en: 'Ready', ms: 'Sedia' },
     completed_orders: { en: 'Done', ms: 'Selesai' },
-    
-    // Empty states
     no_food_orders: { en: 'No food orders waiting', ms: 'Tiada pesanan makanan menunggu' },
     no_drink_orders: { en: 'No drink orders waiting', ms: 'Tiada pesanan minuman menunggu' },
     no_preparing_orders: { en: 'No orders cooking', ms: 'Tiada pesanan sedang dimasak' },
     no_ready_orders: { en: 'No ready orders', ms: 'Tiada pesanan sedia' },
     no_completed_orders: { en: 'No completed orders', ms: 'Tiada pesanan selesai' },
-    
-    // Status actions
     start_cooking: { en: 'Start Cooking', ms: 'Mula Masak' },
     finish_cooking: { en: 'Finish Cooking', ms: 'Selesai Masak' },
     complete: { en: 'Complete', ms: 'Selesai' },
     cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
-    
-    // Messages
     error_updating: { en: 'Error updating order!', ms: 'Ralat kemaskini pesanan!' },
     no_orders_to_complete: { en: 'No orders to complete', ms: 'Tiada pesanan untuk diselesaikan' },
     orders_completed: { en: 'orders completed!', ms: 'pesanan selesai!' },
@@ -69,8 +55,6 @@ function KitchenApp() {
     cooking_finished: { en: 'Cooking finished!', ms: 'Selesai memasak!' },
     order_completed: { en: 'Order completed!', ms: 'Pesanan selesai!' },
     order_cancelled: { en: 'Order cancelled!', ms: 'Pesanan dibatalkan!' },
-    
-    // Labels
     waiting: { en: 'Waiting', ms: 'Menunggu' },
     total: { en: 'Total', ms: 'Jumlah' },
     note: { en: 'Note', ms: 'Nota' },
@@ -80,12 +64,8 @@ function KitchenApp() {
     guest: { en: 'Guest', ms: 'Tetamu' },
     item: { en: 'item', ms: 'item' },
     items: { en: 'items', ms: 'item' },
-    
-    // Disabled state
     kitchen_disabled: { en: 'Digital Kitchen Disabled', ms: 'Dapur Digital Dimatikan' },
     kitchen_disabled_desc: { en: 'Please enable digital kitchen in Settings page', ms: 'Sila aktifkan dapur digital di halaman Tetapan' },
-    
-    // Time
     minutes_short: { en: 'min', ms: 'min' },
     hours_short: { en: 'h', ms: 'j' },
   }
@@ -110,8 +90,10 @@ function KitchenApp() {
   const [kitchenEnabled, setKitchenEnabled] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [orderTypeFilter, setOrderTypeFilter] = useState('all')
-  const [audio] = useState(typeof Audio !== 'undefined' ? new Audio('/sound/notification.mp3') : null)
   const [isMobile, setIsMobile] = useState(false)
+
+  // ===== AUDIO REF =====
+  const audioRef = useRef(null)
 
   // ============================================================
   // CHECK MOBILE
@@ -149,12 +131,94 @@ function KitchenApp() {
   }
 
   // ============================================================
+  // INITIALIZE AUDIO
+  // ============================================================
+  useEffect(() => {
+    if (typeof Audio !== 'undefined' && !audioRef.current) {
+      audioRef.current = new Audio('/sound/notification.mp3')
+      audioRef.current.load()
+      audioRef.current.loop = false
+      console.log('🔊 Kitchen audio initialized')
+    }
+    
+    const enableSound = () => {
+      setSoundEnabled(true)
+      console.log('🔊 Kitchen sound enabled via user interaction')
+      document.removeEventListener('click', enableSound)
+      document.removeEventListener('touchstart', enableSound)
+    }
+    
+    document.addEventListener('click', enableSound)
+    document.addEventListener('touchstart', enableSound)
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      document.removeEventListener('click', enableSound)
+      document.removeEventListener('touchstart', enableSound)
+    }
+  }, [])
+
+  // ============================================================
+  // PLAY KITCHEN SOUND - FIXED
+  // ============================================================
+  const playKitchenSound = () => {
+    console.log('🔔 Kitchen playSound called, soundEnabled:', soundEnabled)
+    
+    if (!soundEnabled) {
+      console.log('🔇 Kitchen sound disabled')
+      return
+    }
+    
+    if (!audioRef.current) {
+      console.log('❌ Kitchen audio not initialized')
+      return
+    }
+    
+    try {
+      audioRef.current.currentTime = 0
+      const playPromise = audioRef.current.play()
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('✅ Kitchen sound played!')
+          })
+          .catch((error) => {
+            console.log('❌ Kitchen audio play failed:', error)
+            const retryPlay = () => {
+              if (audioRef.current && soundEnabled) {
+                audioRef.current.play().catch(e => console.log('Retry failed:', e))
+              }
+              document.removeEventListener('click', retryPlay)
+              document.removeEventListener('touchstart', retryPlay)
+            }
+            document.addEventListener('click', retryPlay)
+            document.addEventListener('touchstart', retryPlay)
+          })
+      }
+    } catch (error) {
+      console.error('❌ Kitchen sound error:', error)
+    }
+  }
+
+  // ============================================================
+  // TEST SOUND
+  // ============================================================
+  const testSound = () => {
+    console.log('🧪 Kitchen test sound button clicked!')
+    playKitchenSound()
+    toast.success(`🔊 ${t('sound_test')}...`)
+  }
+
+  // ============================================================
   // EFFECTS
   // ============================================================
   useEffect(() => {
-    if (audio) audio.load()
     loadKitchenSetting()
-  }, [audio])
+  }, [])
 
   async function loadKitchenSetting() {
     try {
@@ -172,19 +236,12 @@ function KitchenApp() {
     loadRestaurantName()
     loadOrders()
     
-    const enableSoundOnClick = () => {
-      setSoundEnabled(true)
-      document.removeEventListener('click', enableSoundOnClick)
-    }
-    document.addEventListener('click', enableSoundOnClick)
-    
     const subscription = supabase
       .channel('kitchen_orders')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'customer_orders' },
         (payload) => {
           if ((payload.new.order_status || payload.new.status) === ORDER_STATUS.CONFIRMED) {
-            // Check for drink items
             const hasDrinkItems = payload.new.items?.some(item => 
               item.category === 'Minuman' || 
               item.name?.toLowerCase().includes('teh') ||
@@ -200,7 +257,6 @@ function KitchenApp() {
               item.name?.toLowerCase().includes('oren')
             )
             
-            // Check for food items
             const hasFoodItems = payload.new.items?.some(item => 
               item.category !== 'Minuman' && 
               !item.name?.toLowerCase().includes('teh') &&
@@ -216,20 +272,16 @@ function KitchenApp() {
               !item.name?.toLowerCase().includes('oren')
             )
             
-            // Add to food orders if has food items
             if (hasFoodItems) {
               setFoodOrders(prev => [payload.new, ...prev])
             }
             
-            // Add to drink orders if has drink items
             if (hasDrinkItems) {
               setDrinkOrders(prev => [payload.new, ...prev])
             }
             
-            if (soundEnabled && audio) {
-              audio.currentTime = 0
-              audio.play().catch(e => console.log('Audio play failed:', e))
-            }
+            console.log('🔔 New order! Playing kitchen sound...')
+            playKitchenSound()
             
             const orderType = payload.new.order_type === 'take_away' 
               ? t('take_away') 
@@ -272,6 +324,9 @@ function KitchenApp() {
         (payload) => {
           if (payload.new.status === 'ready' && payload.old.status !== 'ready') {
             loadOrders()
+            console.log('🔔 Order ready! Playing kitchen sound...')
+            playKitchenSound()
+            
             sendNotification(
               t('order_ready_alert'),
               `${t('order_ready_desc')}: ${payload.new.order_number}`,
@@ -289,9 +344,8 @@ function KitchenApp() {
     return () => {
       subscription.unsubscribe()
       clearInterval(interval)
-      document.removeEventListener('click', enableSoundOnClick)
     }
-  }, [soundEnabled, audio, kitchenEnabled])
+  }, [soundEnabled, kitchenEnabled])
 
   // ============================================================
   // LOAD FUNCTIONS
@@ -328,7 +382,6 @@ function KitchenApp() {
       const ready = []
       
       pending?.forEach(order => {
-        // Check if order has drink items
         const hasDrinkItems = order.items?.some(item => 
           item.category === 'Minuman' || 
           item.name?.toLowerCase().includes('teh') ||
@@ -344,7 +397,6 @@ function KitchenApp() {
           item.name?.toLowerCase().includes('oren')
         )
         
-        // Check if order has food items
         const hasFoodItems = order.items?.some(item => 
           item.category !== 'Minuman' && 
           !item.name?.toLowerCase().includes('teh') &&
@@ -365,7 +417,6 @@ function KitchenApp() {
         } else if (order.status === 'ready') {
           ready.push(order)
         } else if ([ORDER_STATUS.CONFIRMED, 'confirmed'].includes(order.status)) {
-          // Only add to food if it has food items (and not just drinks)
           if (hasFoodItems) {
             food.push({
               ...order,
@@ -377,7 +428,6 @@ function KitchenApp() {
               }
             })
           }
-          // Only add to drinks if it has drink items
           if (hasDrinkItems) {
             drinks.push({
               ...order,
@@ -422,10 +472,7 @@ function KitchenApp() {
         toast.success(t('cooking_started'))
       } else if (status === 'ready') {
         toast.success(t('cooking_finished'))
-        if (soundEnabled && audio) {
-          audio.currentTime = 0
-          audio.play().catch(e => console.log('Audio play failed:', e))
-        }
+        playKitchenSound()
       } else if (status === 'completed') {
         toast.success(t('order_completed'))
       } else if (status === 'cancelled') {
@@ -457,6 +504,7 @@ function KitchenApp() {
       }
       await loadOrders()
       toast.success(`✅ ${ordersToComplete.length} ${t('orders_completed')}`)
+      playKitchenSound()
     }
   }
 
@@ -566,7 +614,6 @@ function KitchenApp() {
             : '0 8px 32px rgba(0,0,0,0.06)'
         }}
       >
-        {/* Header */}
         <div style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -603,7 +650,6 @@ function KitchenApp() {
           </div>
         </div>
         
-        {/* Customer Info */}
         <div style={{ marginBottom: isMobile ? '10px' : '12px' }}>
           <h4 style={{ 
             margin: 0, 
@@ -624,7 +670,6 @@ function KitchenApp() {
           )}
         </div>
         
-        {/* Order Items with Category Labels */}
         <div style={{ 
           margin: '12px 0', 
           borderTop: `1px solid ${borderColor}`, 
@@ -678,7 +723,6 @@ function KitchenApp() {
           })}
         </div>
         
-        {/* Notes */}
         {order.special_request && (
           <div style={{ 
             background: 'rgba(245, 158, 11, 0.1)', 
@@ -693,7 +737,6 @@ function KitchenApp() {
           </div>
         )}
         
-        {/* Total */}
         <div style={{ 
           textAlign: 'right', 
           marginBottom: showAcceptButton ? '12px' : '0',
@@ -709,7 +752,6 @@ function KitchenApp() {
           </span>
         </div>
         
-        {/* Action Buttons */}
         {showAcceptButton && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
             <button 
@@ -847,7 +889,6 @@ function KitchenApp() {
   // ============================================================
   const totalNew = foodOrders.length + drinkOrders.length
 
-  // TABS WITH EMOJI ICONS (ONLY HERE, NOT IN TRANSLATIONS)
   const tabs = [
     { id: 'food', label: t('food_kitchen'), icon: '🍳', color: '#ef4444', count: foodOrders.length },
     { id: 'drink', label: t('drink_kitchen'), icon: '🥤', color: '#06b6d4', count: drinkOrders.length },
@@ -901,12 +942,31 @@ function KitchenApp() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              {/* TEST SOUND BUTTON */}
+              <button 
+                onClick={testSound}
+                style={{ 
+                  background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', 
+                  color: 'white', 
+                  padding: isMobile ? '6px 14px' : '10px 20px', 
+                  border: 'none', 
+                  borderRadius: '40px', 
+                  cursor: 'pointer', 
+                  fontSize: isMobile ? '11px' : '13px', 
+                  fontWeight: 'bold',
+                  transition: 'all 0.2s',
+                  boxShadow: '0 4px 16px rgba(139,92,246,0.3)'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.97)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                🔊 {t('sound_test')}
+              </button>
+              
               <button 
                 onClick={() => { 
-                  if (audio) { 
-                    audio.currentTime = 0; 
-                    audio.play().catch(e => console.log('Test sound failed:', e)) 
-                  } 
+                  setSoundEnabled(!soundEnabled)
+                  toast.success(soundEnabled ? '🔇 Sound OFF' : '🔊 Sound ON')
                 }} 
                 style={{ 
                   background: soundEnabled 
@@ -927,7 +987,7 @@ function KitchenApp() {
                 onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.97)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
               >
-                {soundEnabled ? t('sound_on') : t('sound_off')}
+                {soundEnabled ? '🔊 ' + t('sound_on') : '🔇 ' + t('sound_off')}
               </button>
               <button 
                 onClick={() => loadOrders()} 
@@ -945,7 +1005,7 @@ function KitchenApp() {
                 onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.97)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
               >
-                {isMobile ? '🔄' : t('refresh')}
+                {isMobile ? '🔄' : '🔄 ' + t('refresh')}
               </button>
             </div>
           </div>

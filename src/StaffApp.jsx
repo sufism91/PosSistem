@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
 import Sidebar from './components/Sidebar'
@@ -78,6 +78,18 @@ function StaffApp() {
     print_all: { en: 'Print All', ms: 'Cetak Semua' },
     new_order_notification: { en: 'Order pending confirmation!', ms: 'Pesanan menunggu pengesahan!' },
     order_pending_reminder: { en: 'orders pending confirmation!', ms: 'pesanan menunggu pengesahan!' },
+    sound_test: { en: 'Test Sound', ms: 'Uji Bunyi' },
+    select_size: { en: 'Select Size', ms: 'Pilih Saiz' },
+    special_request: { en: 'Special request...', ms: 'Permintaan khas...' },
+    payment_method_label: { en: 'Payment Method', ms: 'Kaedah Bayaran' },
+    first: { en: 'First', ms: 'Pertama' },
+    prev: { en: 'Prev', ms: 'Sebelum' },
+    next: { en: 'Next', ms: 'Seterusnya' },
+    last: { en: 'Last', ms: 'Terakhir' },
+    id: { en: 'ID', ms: 'ID' },
+    order_type: { en: 'Type', ms: 'Jenis' },
+    date: { en: 'Date', ms: 'Tarikh' },
+    action: { en: 'Action', ms: 'Tindakan' },
   }
 
   const t = (key) => {
@@ -117,9 +129,10 @@ function StaffApp() {
   const historyItemsPerPage = 10
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [showCartPopup, setShowCartPopup] = useState(false)
-
-  // ===== NOTIFICATION STATE =====
-  const [audio] = useState(typeof Audio !== 'undefined' ? new Audio('/sound/notification.mp3') : null)
+  
+  // ===== AUDIO REF & STATE =====
+  const audioRef = useRef(null)
+  const [acceptedOrderIds, setAcceptedOrderIds] = useState(new Set())
 
   // ===== SETTINGS =====
   const [settings, setSettings] = useState({
@@ -131,6 +144,88 @@ function StaffApp() {
     kitchen_enabled: true,
     notification_sound: true
   })
+
+  // ============================================================
+  // INITIALIZE AUDIO
+  // ============================================================
+  useEffect(() => {
+    if (typeof Audio !== 'undefined' && !audioRef.current) {
+      audioRef.current = new Audio('/sound/notification.mp3')
+      audioRef.current.load()
+      audioRef.current.loop = false
+      console.log('🔊 Audio initialized')
+    }
+    
+    const enableSound = () => {
+      console.log('🔊 Sound enabled via user interaction')
+      document.removeEventListener('click', enableSound)
+      document.removeEventListener('touchstart', enableSound)
+    }
+    
+    document.addEventListener('click', enableSound)
+    document.addEventListener('touchstart', enableSound)
+    
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause()
+        audioRef.current = null
+      }
+      document.removeEventListener('click', enableSound)
+      document.removeEventListener('touchstart', enableSound)
+    }
+  }, [])
+
+  // ============================================================
+  // PLAY NOTIFICATION SOUND - FIXED
+  // ============================================================
+  const playNotificationSound = () => {
+    console.log('🔔 playNotificationSound called')
+    
+    if (!settings.notification_sound) {
+      console.log('🔇 Sound disabled in settings')
+      return
+    }
+    
+    if (!audioRef.current) {
+      console.log('❌ Audio not initialized')
+      return
+    }
+    
+    try {
+      audioRef.current.currentTime = 0
+      const playPromise = audioRef.current.play()
+      
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            console.log('✅ Notification sound played!')
+          })
+          .catch((error) => {
+            console.log('❌ Audio play failed:', error)
+            const retryPlay = () => {
+              if (audioRef.current && settings.notification_sound) {
+                audioRef.current.play().catch(e => console.log('Retry failed:', e))
+              }
+              document.removeEventListener('click', retryPlay)
+              document.removeEventListener('touchstart', retryPlay)
+            }
+            document.addEventListener('click', retryPlay)
+            document.addEventListener('touchstart', retryPlay)
+          })
+      }
+    } catch (error) {
+      console.error('❌ Error playing sound:', error)
+    }
+  }
+
+  // ============================================================
+  // TEST SOUND
+  // ============================================================
+  const testSound = () => {
+    console.log('🧪 Test sound button clicked!')
+    playNotificationSound()
+    toast.success(`🔊 ${t('sound_test')}...`)
+  }
 
   // ============================================================
   // CHECK MOBILE
@@ -163,38 +258,6 @@ function StaffApp() {
     boxShadow: darkMode 
       ? '0 8px 40px rgba(0,0,0,0.5)' 
       : '0 8px 40px rgba(0,0,0,0.06)'
-  }
-
-  // ============================================================
-  // PLAY NOTIFICATION SOUND - SAME AS KITCHEN APP
-  // ============================================================
-  const playNotificationSound = () => {
-    console.log('🔔 playNotificationSound called')
-    
-    if (!settings.notification_sound) {
-      console.log('🔇 Sound disabled in settings')
-      return
-    }
-    
-    if (audio) {
-      audio.currentTime = 0
-      audio.play().then(() => {
-        console.log('✅ Notification sound played!')
-      }).catch((err) => {
-        console.log('❌ Audio play failed:', err)
-      })
-    } else {
-      console.log('❌ Audio object not available')
-    }
-  }
-
-  // ============================================================
-  // TEST SOUND
-  // ============================================================
-  const testSound = () => {
-    console.log('🧪 Test sound button clicked!')
-    playNotificationSound()
-    toast('🔊 Testing notification sound...')
   }
 
   // ============================================================
@@ -272,7 +335,7 @@ function StaffApp() {
   }, [])
 
   // ============================================================
-  // NOTIFICATION - REPEAT SOUND EVERY 5 SECONDS UNTIL CONFIRMED
+  // NOTIFICATION - REPEAT SOUND EVERY 5 SECONDS - FIXED
   // ============================================================
   useEffect(() => {
     loadNewOrders()
@@ -281,15 +344,14 @@ function StaffApp() {
       console.log('🔄 Checking for pending orders...')
       await loadNewOrders()
       
-      // Check for pending orders
       const pendingOrders = newOrders.filter(order => 
         (order.status === 'pending' || order.status === 'pending_confirmation' || 
-         order.order_status === 'pending' || order.order_status === 'pending_confirmation')
+         order.order_status === 'pending' || order.order_status === 'pending_confirmation') &&
+        !acceptedOrderIds.has(order.id)
       )
       
-      console.log('📋 Pending orders:', pendingOrders.length)
+      console.log(`📋 Pending orders: ${pendingOrders.length}`)
       
-      // ===== BUNYI SETIAP 5 SAAT SELAGI ADA PENDING ORDERS =====
       if (pendingOrders.length > 0) {
         console.log('🔔 Playing notification sound! (reminder)')
         playNotificationSound()
@@ -300,10 +362,10 @@ function StaffApp() {
         })
       }
       
-    }, 5000) // ← Every 5 seconds
+    }, 5000)
     
     return () => clearInterval(interval)
-  }, [newOrders])
+  }, [newOrders, acceptedOrderIds])
 
   async function loadAllData() {
     setLoading(true)
@@ -390,9 +452,6 @@ function StaffApp() {
     }
   }
 
-  // ============================================================
-  // LOAD NEW ORDERS - Support pending_confirmation
-  // ============================================================
   async function loadNewOrders() {
     try {
       const { data, error } = await supabase
@@ -405,7 +464,6 @@ function StaffApp() {
 
       const pending = (data || []).filter(order => {
         const workflowStatus = order.order_status || order.status
-        // Support 'pending', 'pending_confirmation', 'new'
         return ['pending', 'pending_confirmation', 'new'].includes(workflowStatus) ||
                ['pending', 'pending_confirmation', 'new'].includes(order.status) ||
                workflowStatus === ORDER_STATUS.NEW
@@ -826,7 +884,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // CONFIRM / CANCEL NEW ORDER
+  // CONFIRM / CANCEL NEW ORDER - FIXED with acceptedOrderIds
   // ============================================================
   const confirmNewOrder = async (order) => {
     try {
@@ -839,6 +897,8 @@ function StaffApp() {
         })
         .eq('id', order.id)
       if (error) throw error
+      
+      setAcceptedOrderIds(prev => new Set([...prev, order.id]))
       
       toast.success(t('order_confirmed_kitchen'))
       await loadNewOrders()
@@ -856,6 +916,8 @@ function StaffApp() {
         .update({ status: ORDER_STATUS.CANCELLED, order_status: ORDER_STATUS.CANCELLED })
         .eq('id', order.id)
       if (error) throw error
+      
+      setAcceptedOrderIds(prev => new Set([...prev, order.id]))
       
       toast.success(t('order_cancelled'))
       await loadNewOrders()
@@ -1357,7 +1419,7 @@ function StaffApp() {
           paddingBottom: '10px'
         }}>
           <h3 style={{ margin: 0, color: textColor, fontSize: isMobile ? '16px' : '18px' }}>
-            🛒 Cart ({cartItemCount})
+            🛒 Cart ({cart.reduce((sum, item) => sum + item.quantity, 0)})
           </h3>
           <button
             onClick={() => setShowCartPopup(false)}
@@ -1429,7 +1491,7 @@ function StaffApp() {
             {t('total')}:
           </span>
           <span style={{ fontWeight: 'bold', color: priceColor, fontSize: isMobile ? '20px' : '24px' }}>
-            RM {totalCart.toFixed(2)}
+            RM {cart.reduce((sum, item) => sum + item.subtotal, 0).toFixed(2)}
           </span>
         </div>
 
@@ -1487,13 +1549,13 @@ function StaffApp() {
       <div style={{ ...glassEffect, background: cardBg, borderRadius: '28px', padding: isMobile ? '20px' : '28px', maxWidth: '720px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h2 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px' }}>
-            🔔 {t('new_orders_title')} ({newOrders.length})
+            🔔 {t('new_orders_title')} ({newOrders.filter(o => !acceptedOrderIds.has(o.id)).length})
           </h2>
           <button onClick={() => setShowNewOrders(false)} style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer' }}>✕</button>
         </div>
-        {newOrders.length === 0 ? (
+        {newOrders.filter(o => !acceptedOrderIds.has(o.id)).length === 0 ? (
           <div style={{ textAlign: 'center', padding: '40px 20px', color: textMuted }}>📭 {t('no_new_orders')}</div>
-        ) : newOrders.map(order => (
+        ) : newOrders.filter(o => !acceptedOrderIds.has(o.id)).map(order => (
           <div key={order.id} style={{ 
             background: secondaryBg, 
             border: `2px solid ${borderColor}`,
@@ -2103,7 +2165,7 @@ function StaffApp() {
               }}
               title="Test Notification Sound"
             >
-              🔊 Test Sound
+              🔊 {t('sound_test')}
             </button>
 
             <button
@@ -2142,11 +2204,11 @@ function StaffApp() {
                 fontSize: isMobile ? '11px' : '13px',
                 boxShadow: '0 4px 16px rgba(37,99,235,0.3)',
                 position: 'relative',
-                animation: newOrders.length > 0 ? 'pulse 1s ease-in-out infinite' : 'none'
+                animation: newOrders.filter(o => !acceptedOrderIds.has(o.id)).length > 0 ? 'pulse 1s ease-in-out infinite' : 'none'
               }}
             >
               🔔 {t('new_orders_title')}
-              {newOrders.length > 0 && (
+              {newOrders.filter(o => !acceptedOrderIds.has(o.id)).length > 0 && (
                 <span style={{
                   position: 'absolute',
                   top: '-6px',
@@ -2163,7 +2225,7 @@ function StaffApp() {
                   fontWeight: 'bold',
                   animation: 'bounce 0.5s ease-in-out infinite alternate'
                 }}>
-                  {newOrders.length}
+                  {newOrders.filter(o => !acceptedOrderIds.has(o.id)).length}
                 </span>
               )}
             </button>

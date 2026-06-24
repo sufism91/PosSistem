@@ -135,7 +135,7 @@ function KitchenApp() {
     console.log('🧪 Kitchen test sound button clicked!')
     initSound()
     unlockAudio()
-    playSound(true)
+    playSound()
     toast.success(`🔊 ${t('sound_test')}...`)
   }
 
@@ -202,7 +202,10 @@ function KitchenApp() {
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'customer_orders' },
         (payload) => {
-          if ((payload.new.order_status || payload.new.status) === ORDER_STATUS.CONFIRMED) {
+          // ===== FIX: Accept both 'pending' and 'confirmed' =====
+          if (payload.new.status === 'pending' || payload.new.status === ORDER_STATUS.CONFIRMED ||
+              payload.new.order_status === 'pending' || payload.new.order_status === ORDER_STATUS.CONFIRMED) {
+            
             const hasDrinkItems = payload.new.items?.some(item => 
               item.category === 'Minuman' || 
               item.name?.toLowerCase().includes('teh') ||
@@ -320,14 +323,18 @@ function KitchenApp() {
     }
   }
 
+  // ============================================================
+  // LOAD ORDERS - FIXED: Accept 'pending' status
+  // ============================================================
   async function loadOrders() {
     try {
+      // ===== FIX: Include 'pending' in order_status and status =====
       const { data: pending } = await supabase
         .from('customer_orders')
         .select('*')
         .eq('payment_status', 'unpaid')
-        .eq('order_status', ORDER_STATUS.CONFIRMED)
-        .in('status', [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'confirmed', 'preparing', 'ready'])
+        .in('order_status', ['pending', ORDER_STATUS.CONFIRMED])
+        .in('status', ['pending', ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'confirmed', 'preparing', 'ready'])
         .order('created_at', { ascending: false })
       
       const { data: completed } = await supabase
@@ -377,7 +384,8 @@ function KitchenApp() {
           preparing.push(order)
         } else if (order.status === 'ready') {
           ready.push(order)
-        } else if ([ORDER_STATUS.CONFIRMED, 'confirmed'].includes(order.status)) {
+        // ===== FIX: Include 'pending' here =====
+        } else if (['pending', ORDER_STATUS.CONFIRMED, 'confirmed'].includes(order.status)) {
           if (hasFoodItems) {
             food.push({
               ...order,

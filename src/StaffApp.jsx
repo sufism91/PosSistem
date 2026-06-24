@@ -15,18 +15,18 @@ function StaffApp() {
   // ============================================================
   const t = (key) => {
     const translations = {
-      pos: { en: '🧾 POS', ms: '🧾 Jualan' },
-      new_order: { en: '🆕 New Orders', ms: '🆕 Pesanan Baru' },
-      unpaid: { en: '💰 Unpaid', ms: '💰 Belum Bayar' },
-      history: { en: '📜 History', ms: '📜 Sejarah' },
-      dine_in: { en: '🍽️ Dine In', ms: '🍽️ Makan di Sini' },
-      take_away: { en: '🥡 Take Away', ms: '🥡 Bungkus' },
+      pos: { en: '🧾 POS', ms: ' Jualan' },
+      new_order: { en: '🆕 New Orders', ms: ' Pesanan Baru' },
+      unpaid: { en: '💰 Unpaid', ms: ' Belum Bayar' },
+      history: { en: '📜 History', ms: ' Sejarah' },
+      dine_in: { en: '🍽️ Dine In', ms: ' Makan di Sini' },
+      take_away: { en: '🥡 Take Away', ms: ' Bungkus' },
       table: { en: 'Table', ms: 'Meja' },
       customer_name: { en: 'Customer Name', ms: 'Nama Pelanggan' },
       customer_phone: { en: 'Phone', ms: 'Telefon' },
       table_number: { en: 'Table No.', ms: 'No. Meja' },
       add: { en: 'Add', ms: 'Tambah' },
-      cart: { en: '🛒 Cart', ms: '🛒 Keranjang' },
+      cart: { en: '🛒 Cart', ms: ' Keranjang' },
       empty_cart: { en: 'Cart is empty', ms: 'Keranjang kosong' },
       subtotal: { en: 'Subtotal', ms: 'Subtotal' },
       service_charge: { en: 'Service Charge', ms: 'Caj Perkhidmatan' },
@@ -66,32 +66,32 @@ function StaffApp() {
       last: { en: 'Last', ms: 'Terakhir' },
       items: { en: 'items', ms: 'item' },
       select_drink: { en: 'Select drink temperature', ms: 'Pilih suhu minuman' },
-      clear_cart: { en: '🗑️ Clear Cart', ms: '🗑️ Kosongkan Keranjang' },
-      checkout: { en: '💳 Checkout', ms: '💳 Bayar' },
-      print_receipt: { en: '🖨️ Print Receipt', ms: '🖨️ Cetak Resit' },
+      clear_cart: { en: '🗑️ Clear Cart', ms: ' Kosongkan Keranjang' },
+      checkout: { en: '💳 Checkout', ms: ' Bayar' },
+      print_receipt: { en: '🖨️ Print Receipt', ms: ' Cetak Resit' },
       back: { en: 'Back', ms: 'Kembali' },
       view_order: { en: 'View Order', ms: 'Lihat Pesanan' },
-      mark_paid: { en: '💰 Mark as Paid', ms: '💰 Tanda Bayar' },
+      mark_paid: { en: '💰 Mark as Paid', ms: ' Tanda Bayar' },
       close: { en: 'Close', ms: 'Tutup' },
-      all_categories: { en: '📋 All', ms: '📋 Semua' },
-      order_added: { en: '✅ Order added!', ms: '✅ Pesanan ditambah!' },
-      order_cancelled: { en: '❌ Order cancelled', ms: '❌ Pesanan dibatalkan' },
-      payment_success: { en: '✅ Payment successful!', ms: '✅ Pembayaran berjaya!' },
-      please_select_item: { en: '⚠️ Please select an item', ms: '⚠️ Sila pilih item' },
-      please_select_option: { en: '⚠️ Please select an option', ms: '⚠️ Sila pilih pilihan' },
-      cart_empty_msg: { en: '⚠️ Cart is empty', ms: '⚠️ Keranjang kosong' },
+      all_categories: { en: '📋 All', ms: ' Semua' },
+      order_added: { en: '✅ Order added!', ms: 'Pesanan ditambah!' },
+      order_cancelled: { en: '❌ Order cancelled', ms: ' Pesanan dibatalkan' },
+      payment_success: { en: '✅ Payment successful!', ms: 'Pembayaran berjaya!' },
+      please_select_item: { en: '⚠️ Please select an item', ms: ' Sila pilih item' },
+      please_select_option: { en: '⚠️ Please select an option', ms: ' Sila pilih pilihan' },
+      cart_empty_msg: { en: '⚠️ Cart is empty', ms: ' Keranjang kosong' },
       confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
-      no_unpaid_orders_msg: { en: '📭 No unpaid orders', ms: '📭 Tiada pesanan belum bayar' },
-      new_order_started: { en: '📝 New order started!', ms: '📝 Pesanan baru dimulakan!' },
-      order_paid: { en: '✅ Order paid!', ms: '✅ Pesanan dibayar!' },
-      error_checkout: { en: '❌ Checkout error', ms: '❌ Ralat bayaran' },
-      search_menu: { en: '🔍 Search menu...', ms: '🔍 Cari menu...' },
-      order_details: { en: '📋 Order Details', ms: '📋 Butiran Pesanan' },
-      unpaid_orders_title: { en: '💰 Unpaid Orders', ms: '💰 Pesanan Belum Bayar' },
+      no_unpaid_orders_msg: { en: '📭 No unpaid orders', ms: ' Tiada pesanan belum bayar' },
+      new_order_started: { en: '📝 New order started!', ms: ' Pesanan baru dimulakan!' },
+      order_paid: { en: '✅ Order paid!', ms: ' Pesanan dibayar!' },
+      error_checkout: { en: '❌ Checkout error', ms: ' Ralat bayaran' },
+      search_menu: { en: '🔍 Search menu...', ms: ' Cari menu...' },
+      order_details: { en: '📋 Order Details', ms: ' Butiran Pesanan' },
+      unpaid_orders_title: { en: '💰 Unpaid Orders', ms: ' Pesanan Belum Bayar' },
       select_drink_option: { en: 'Select Drink Option', ms: 'Pilih Pilihan Minuman' },
       select_size_option: { en: 'Select Size', ms: 'Pilih Saiz' },
-      history_title: { en: '📜 Order History', ms: '📜 Sejarah Pesanan' },
-      receipt_title: { en: '🧾 RECEIPT', ms: '🧾 RESIT' },
+      history_title: { en: '📜 Order History', ms: ' Sejarah Pesanan' },
+      receipt_title: { en: '🧾 RECEIPT', ms: ' RESIT' },
       receipt_thankyou: { en: 'Thank you for dining with us!', ms: 'Terima kasih kerana makan di sini!' },
       receipt_order: { en: 'Order', ms: 'Pesanan' },
       receipt_table: { en: 'Table', ms: 'Meja' },
@@ -109,11 +109,11 @@ function StaffApp() {
       guest: { en: 'Guest', ms: 'Tetamu' },
       download_receipt: { en: 'Download Receipt', ms: 'Muat Turun Resit' },
       confirm_order: { en: 'Confirm Order', ms: 'Sahkan Pesanan' },
-      no_new_orders: { en: '📭 No new orders to confirm', ms: '📭 Tiada pesanan baru untuk disahkan' },
-      no_history_orders: { en: '📭 No order history', ms: '📭 Tiada sejarah pesanan' },
+      no_new_orders: { en: '📭 No new orders to confirm', ms: ' Tiada pesanan baru untuk disahkan' },
+      no_history_orders: { en: '📭 No order history', ms: ' Tiada sejarah pesanan' },
       pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
       pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
-      sound_test: { en: '🔊 Test Sound', ms: '🔊 Uji Bunyi' },
+      sound_test: { en: '🔊 Test Sound', ms: ' Uji Bunyi' },
     }
     if (!translations[key]) return key
     return language === 'en' ? translations[key].en : translations[key].ms
@@ -164,6 +164,10 @@ function StaffApp() {
 
   // ===== TRACK PREVIOUS ORDERS FOR SOUND =====
   const [previousOrderCount, setPreviousOrderCount] = useState(0)
+  const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set())
+
+  // ===== MOBILE CART =====
+  const [showMobileCart, setShowMobileCart] = useState(false)
 
   // ============================================================
   // INIT SOUND
@@ -356,10 +360,27 @@ function StaffApp() {
       // Update previous count
       setPreviousOrderCount(data?.length || 0)
       
-      // 🔔 PLAY SOUND BILA ADA NEW ORDER
+      // 🔔 CHECK FOR NEW ORDERS (yang belum notified)
       if (data && data.length > 0) {
-        console.log('🔔 New order detected! Playing sound...')
-        playSound()
+        const newOrderIds = data.map(o => o.id)
+        const existingIds = notifiedOrderIds
+        
+        // Cari order ID yang belum pernah notify
+        const newIds = newOrderIds.filter(id => !existingIds.has(id))
+        
+        if (newIds.length > 0) {
+          console.log(`🔔 ${newIds.length} new order(s) detected! Playing sound...`)
+          playSound()
+          
+          // Add to notified set
+          setNotifiedOrderIds(prev => {
+            const newSet = new Set(prev)
+            newOrderIds.forEach(id => newSet.add(id))
+            return newSet
+          })
+          
+          toast.success(`🔔 ${newIds.length} new order(s)!`)
+        }
       }
       
     } catch (err) {
@@ -593,6 +614,13 @@ function StaffApp() {
       // 🔔 PLAY SOUND BILA ORDER DITERIMA
       playSound()
       
+      // Remove from notified set (supaya tak notify lagi)
+      setNotifiedOrderIds(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(orderId)
+        return newSet
+      })
+      
       if (kitchenEnabled) {
         await supabase.from('customer_orders').update({ status: 'preparing' }).eq('id', orderId)
         setCustomerOrders(prev => prev.filter(order => order.id !== orderId))
@@ -752,6 +780,186 @@ function StaffApp() {
   }
 
   // ============================================================
+  // RENDER MOBILE CART
+  // ============================================================
+  const renderMobileCart = () => {
+    if (!isMobile) return null
+    
+    if (cart.length === 0) {
+      return (
+        <div style={{ 
+          position: 'fixed', 
+          bottom: 0, 
+          left: 0, 
+          right: 0, 
+          background: cardBg, 
+          padding: '16px 20px',
+          borderTop: `1px solid ${borderColor}`,
+          zIndex: 100,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span style={{ color: textMuted }}>🛒 {t('cart')} kosong</span>
+          <button 
+            onClick={() => setShowMobileCart(true)}
+            style={{ 
+              background: 'linear-gradient(135deg, #3b82f6, #2563eb)', 
+              color: 'white', 
+              padding: '10px 24px', 
+              border: 'none', 
+              borderRadius: '40px', 
+              cursor: 'pointer',
+              fontWeight: 'bold'
+            }}
+          >
+            + Tambah Item
+          </button>
+        </div>
+      )
+    }
+    
+    return (
+      <>
+        {/* Floating button */}
+        <div 
+          onClick={() => setShowMobileCart(true)}
+          style={{ 
+            position: 'fixed', 
+            bottom: 20, 
+            right: 20, 
+            background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
+            color: 'white', 
+            padding: '16px 24px', 
+            borderRadius: '60px',
+            boxShadow: '0 8px 24px rgba(34,197,94,0.4)',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            cursor: 'pointer'
+          }}
+        >
+          🛒
+          <span style={{ fontWeight: 'bold' }}>RM {getGrandTotal().toFixed(2)}</span>
+          <span style={{ 
+            background: 'rgba(255,255,255,0.2)', 
+            padding: '2px 10px', 
+            borderRadius: '20px',
+            fontSize: '12px'
+          }}>
+            {cart.reduce((sum, item) => sum + item.quantity, 0)}
+          </span>
+        </div>
+        
+        {/* Bottom Sheet */}
+        {showMobileCart && (
+          <div style={{ 
+            position: 'fixed', 
+            bottom: 0, 
+            left: 0, 
+            right: 0, 
+            background: cardBg,
+            borderTopLeftRadius: '24px',
+            borderTopRightRadius: '24px',
+            boxShadow: '0 -8px 32px rgba(0,0,0,0.2)',
+            zIndex: 200,
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            padding: '20px',
+            animation: 'slideUp 0.3s ease'
+          }}>
+            {/* Handle bar */}
+            <div 
+              onClick={() => setShowMobileCart(false)}
+              style={{ 
+                width: '40px', 
+                height: '4px', 
+                background: textMuted, 
+                borderRadius: '4px', 
+                margin: '0 auto 16px auto',
+                cursor: 'pointer',
+                opacity: 0.5
+              }}
+            />
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h3 style={{ color: textColor, margin: 0 }}>🛒 {t('cart')}</h3>
+              <button 
+                onClick={() => setShowMobileCart(false)}
+                style={{ background: 'transparent', border: 'none', color: textMuted, fontSize: '20px', cursor: 'pointer' }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div style={{ maxHeight: '40vh', overflowY: 'auto' }}>
+              {cart.map(item => (
+                <div key={item.id} style={{ borderBottom: `1px solid ${borderColor}`, padding: '12px 0' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ color: textColor, fontWeight: '500' }}>{item.name}</span>
+                      <div style={{ fontSize: '12px', color: textMuted }}>x{item.quantity}</div>
+                      {item.option && <div style={{ fontSize: '10px', color: textMuted }}>☕ {item.option}</div>}
+                    </div>
+                    <span style={{ color: priceColor, fontWeight: 'bold' }}>RM {(item.price * item.quantity).toFixed(2)}</span>
+                    <button 
+                      onClick={() => removeFromCart(item.id)} 
+                      style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '30px', padding: '4px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <hr style={{ borderColor: borderColor, margin: '16px 0' }} />
+            
+            <div style={{ fontSize: '14px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: textColor }}>{t('subtotal')}:</span>
+                <span style={{ color: textColor }}>RM {getSubtotal().toFixed(2)}</span>
+              </div>
+              {orderType !== 'take_away' && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ color: textColor }}>{t('service_charge')} ({serviceChargePercent}%):</span>
+                  <span style={{ color: textColor }}>RM {getServiceCharge().toFixed(2)}</span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: textColor }}>{t('tax')} ({taxPercent}%):</span>
+                <span style={{ color: textColor }}>RM {getTax().toFixed(2)}</span>
+              </div>
+            </div>
+            
+            <hr style={{ borderColor: borderColor, margin: '16px 0' }} />
+            
+            <h3 style={{ textAlign: 'right', color: priceColor, fontSize: '20px', marginBottom: '16px', fontWeight: 'bold' }}>
+              {t('total')}: RM {getGrandTotal().toFixed(2)}
+            </h3>
+            
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                onClick={clearCart} 
+                style={{ flex: 1, padding: '12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                🗑️ {t('clear_cart')}
+              </button>
+              <button 
+                onClick={() => { setShowMobileCart(false); saveOrder() }} 
+                style={{ flex: 2, padding: '12px', background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', color: 'white', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                💾 {t('place_order')}
+              </button>
+            </div>
+          </div>
+        )}
+      </>
+    )
+  }
+
+  // ============================================================
   // LOADING STATE
   // ============================================================
   if (loading) {
@@ -769,8 +977,6 @@ function StaffApp() {
   // ============================================================
   const filteredMenu = getFilteredMenu()
   const categoriesList = getCategories()
-  const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
-  const totalCart = getGrandTotal()
 
   return (
     <Sidebar>
@@ -784,7 +990,6 @@ function StaffApp() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
-            {/* TEST SOUND BUTTON */}
             <button 
               onClick={testSound}
               style={{ 
@@ -929,7 +1134,7 @@ function StaffApp() {
             {/* Menu + Cart */}
             <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row' }}>
               {/* Menu Grid */}
-              <div style={{ flex: 2 }}>
+              <div style={{ flex: isMobile ? 1 : 2 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(150px, 1fr))' : 'repeat(auto-fill, minmax(170px, 1fr))', gap: '20px' }}>
                   {filteredMenu.map(item => {
                     const hasDrinkOpts = getDrinkOptionsForItem(item).length > 0
@@ -1002,83 +1207,85 @@ function StaffApp() {
                 </div>
               </div>
               
-              {/* Cart - Sticky */}
-              <div style={{ 
-                flex: 1, 
-                ...glassEffect, 
-                borderRadius: '28px', 
-                padding: '20px', 
-                position: 'sticky', 
-                top: '20px', 
-                alignSelf: 'flex-start', 
-                maxHeight: 'calc(100vh - 40px)', 
-                overflowY: 'auto' 
-              }}>
-                <h2 style={{ color: textColor, fontSize: '20px', marginBottom: '20px', fontWeight: 'bold' }}>🛒 {t('cart')}</h2>
-                {cart.length === 0 ? (
-                  <p style={{ color: textMuted, textAlign: 'center', padding: '40px 20px' }}>{t('cart_empty_msg')}</p>
-                ) : (
-                  <>
-                    <div style={{ marginBottom: '20px', maxHeight: '400px', overflowY: 'auto' }}>
-                      {cart.map(item => (
-                        <div key={item.id} style={{ borderBottom: `1px solid ${borderColor}`, marginBottom: '12px', paddingBottom: '10px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <div>
-                              <span style={{ color: textColor, fontWeight: '500', fontSize: '14px' }}>{item.name}</span>
-                              <div style={{ fontSize: '12px', color: textMuted }}>x{item.quantity}</div>
-                              {item.option && <div style={{ fontSize: '10px', color: textMuted }}>☕ {item.option}</div>}
+              {/* Desktop Cart - Hidden on Mobile */}
+              {!isMobile && (
+                <div style={{ 
+                  flex: 1, 
+                  ...glassEffect, 
+                  borderRadius: '28px', 
+                  padding: '20px', 
+                  position: 'sticky', 
+                  top: '20px', 
+                  alignSelf: 'flex-start', 
+                  maxHeight: 'calc(100vh - 40px)', 
+                  overflowY: 'auto' 
+                }}>
+                  <h2 style={{ color: textColor, fontSize: '20px', marginBottom: '20px', fontWeight: 'bold' }}>🛒 {t('cart')}</h2>
+                  {cart.length === 0 ? (
+                    <p style={{ color: textMuted, textAlign: 'center', padding: '40px 20px' }}>{t('cart_empty_msg')}</p>
+                  ) : (
+                    <>
+                      <div style={{ marginBottom: '20px', maxHeight: '400px', overflowY: 'auto' }}>
+                        {cart.map(item => (
+                          <div key={item.id} style={{ borderBottom: `1px solid ${borderColor}`, marginBottom: '12px', paddingBottom: '10px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <div>
+                                <span style={{ color: textColor, fontWeight: '500', fontSize: '14px' }}>{item.name}</span>
+                                <div style={{ fontSize: '12px', color: textMuted }}>x{item.quantity}</div>
+                                {item.option && <div style={{ fontSize: '10px', color: textMuted }}>☕ {item.option}</div>}
+                              </div>
+                              <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '14px' }}>RM {(item.price * item.quantity).toFixed(2)}</span>
+                              <button 
+                                onClick={() => removeFromCart(item.id)} 
+                                style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '30px', padding: '4px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+                              >
+                                ✕
+                              </button>
                             </div>
-                            <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '14px' }}>RM {(item.price * item.quantity).toFixed(2)}</span>
-                            <button 
-                              onClick={() => removeFromCart(item.id)} 
-                              style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '30px', padding: '4px 12px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-                            >
-                              ✕
-                            </button>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                    <hr style={{ borderColor: borderColor, margin: '16px 0' }} />
-                    <div style={{ fontSize: '14px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ color: textColor }}>{t('subtotal')}:</span>
-                        <span style={{ color: textColor }}>RM {getSubtotal().toFixed(2)}</span>
+                        ))}
                       </div>
-                      {orderType !== 'take_away' && (
+                      <hr style={{ borderColor: borderColor, margin: '16px 0' }} />
+                      <div style={{ fontSize: '14px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                          <span style={{ color: textColor }}>{t('service_charge')} ({serviceChargePercent}%):</span>
-                          <span style={{ color: textColor }}>RM {getServiceCharge().toFixed(2)}</span>
+                          <span style={{ color: textColor }}>{t('subtotal')}:</span>
+                          <span style={{ color: textColor }}>RM {getSubtotal().toFixed(2)}</span>
                         </div>
-                      )}
-                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-                        <span style={{ color: textColor }}>{t('tax')} ({taxPercent}%):</span>
-                        <span style={{ color: textColor }}>RM {getTax().toFixed(2)}</span>
+                        {orderType !== 'take_away' && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <span style={{ color: textColor }}>{t('service_charge')} ({serviceChargePercent}%):</span>
+                            <span style={{ color: textColor }}>RM {getServiceCharge().toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                          <span style={{ color: textColor }}>{t('tax')} ({taxPercent}%):</span>
+                          <span style={{ color: textColor }}>RM {getTax().toFixed(2)}</span>
+                        </div>
                       </div>
-                    </div>
-                    <hr style={{ borderColor: borderColor, margin: '16px 0' }} />
-                    <h3 style={{ textAlign: 'right', color: priceColor, fontSize: '22px', marginBottom: '20px', fontWeight: 'bold' }}>
-                      {t('total')}: RM {getGrandTotal().toFixed(2)}
-                    </h3>
-                    <button 
-                      onClick={saveOrder} 
-                      style={{ 
-                        background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', 
-                        color: 'white', 
-                        padding: '14px', 
-                        width: '100%', 
-                        border: 'none', 
-                        borderRadius: '60px', 
-                        cursor: 'pointer', 
-                        fontWeight: 'bold', 
-                        fontSize: '15px' 
-                      }}
-                    >
-                      💾 {t('place_order')}
-                    </button>
-                  </>
-                )}
-              </div>
+                      <hr style={{ borderColor: borderColor, margin: '16px 0' }} />
+                      <h3 style={{ textAlign: 'right', color: priceColor, fontSize: '22px', marginBottom: '20px', fontWeight: 'bold' }}>
+                        {t('total')}: RM {getGrandTotal().toFixed(2)}
+                      </h3>
+                      <button 
+                        onClick={saveOrder} 
+                        style={{ 
+                          background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', 
+                          color: 'white', 
+                          padding: '14px', 
+                          width: '100%', 
+                          border: 'none', 
+                          borderRadius: '60px', 
+                          cursor: 'pointer', 
+                          fontWeight: 'bold', 
+                          fontSize: '15px' 
+                        }}
+                      >
+                        💾 {t('place_order')}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}
@@ -1460,6 +1667,9 @@ function StaffApp() {
           </div>
         )}
 
+        {/* ===== MOBILE CART ===== */}
+        {renderMobileCart()}
+
         {/* ============================================================ */}
         {/* STYLES */}
         {/* ============================================================ */}
@@ -1476,6 +1686,11 @@ function StaffApp() {
             
             @keyframes spin {
               to { transform: rotate(360deg); }
+            }
+            
+            @keyframes slideUp {
+              from { transform: translateY(100%); }
+              to { transform: translateY(0); }
             }
             
             @keyframes fadeIn {

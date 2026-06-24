@@ -1,4 +1,4 @@
-// utils/sound.js - VERY SIMPLE
+// utils/sound.js
 
 let audio = null
 let isReady = false

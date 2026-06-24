@@ -160,11 +160,6 @@ function ManageMenu() {
   const [newDrinkBungkus, setNewDrinkBungkus] = useState('')
   const [newDrinkStock, setNewDrinkStock] = useState(100)
   const [drinkPriceEdits, setDrinkPriceEdits] = useState({})
-  
-  // ===== DRINK IMAGE UPLOAD STATE =====
-  const [newDrinkImagePanas, setNewDrinkImagePanas] = useState(null)
-  const [newDrinkImageSejuk, setNewDrinkImageSejuk] = useState(null)
-  const [newDrinkImageBungkus, setNewDrinkImageBungkus] = useState(null)
 
   const [specialMenuEnabled, setSpecialMenuEnabled] = useState(false)
   const [specialMenuTitle, setSpecialMenuTitle] = useState('Istimewa Hari Ini')
@@ -348,11 +343,6 @@ function ManageMenu() {
     no_items_found: { en: 'No items found', ms: 'Tiada item dijumpai' },
     price_sync: { en: 'Price will sync with menu item', ms: 'Harga akan diselaraskan dengan item menu' },
     sync_prices: { en: 'Sync Special Prices', ms: 'Sync Harga Istimewa' },
-    hot_label: { en: 'Hot', ms: 'Panas' },
-    cold_label: { en: 'Cold', ms: 'Sejuk' },
-    takeaway_label: { en: 'Takeaway', ms: 'Bungkus' },
-    upload_image: { en: 'Upload Image', ms: 'Muat Naik Gambar' },
-    drink_image: { en: 'Drink Image', ms: 'Gambar Minuman' },
   }
 
   const translate = (key) => {
@@ -406,7 +396,7 @@ function ManageMenu() {
     background: cardBg,
     borderRadius: '24px',
     padding: isMobile ? '20px' : '28px',
-    maxWidth: isMobile ? '95%' : '550px',
+    maxWidth: isMobile ? '95%' : '480px',
     width: '100%',
     maxHeight: '90vh',
     overflowY: 'auto',
@@ -1023,6 +1013,9 @@ function ManageMenu() {
     setTimeout(() => setMessage(''), 2000)
   }
 
+  // ============================================================
+  // ✅ FIXED: DELETE MENU ITEM
+  // ============================================================
   async function deleteMenuItem(id, name) {
     if (window.confirm(`${translate('confirm_delete')} "${name}"?`)) {
       await supabase.from('drink_options').delete().eq('drink_name', name)
@@ -1047,7 +1040,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // ADD DRINK WITH OPTIONS - FIXED with images
+  // ✅ FIXED: ADD DRINK - Tanpa menu_id
   // ============================================================
   async function addDrinkWithOptions() {
     if (!newDrinkName) { 
@@ -1059,22 +1052,6 @@ function ManageMenu() {
     if (existing) {
       setMessage(`⚠️ "${newDrinkName}" ${translate('already_exists')}`)
       return
-    }
-    
-    // ===== UPLOAD IMAGES FOR EACH OPTION =====
-    let panasImageUrl = null, sejukImageUrl = null, bungkusImageUrl = null
-    
-    if (newDrinkImagePanas) {
-      const uploaded = await uploadImage(newDrinkImagePanas, 'drink')
-      if (uploaded) panasImageUrl = uploaded
-    }
-    if (newDrinkImageSejuk) {
-      const uploaded = await uploadImage(newDrinkImageSejuk, 'drink')
-      if (uploaded) sejukImageUrl = uploaded
-    }
-    if (newDrinkImageBungkus) {
-      const uploaded = await uploadImage(newDrinkImageBungkus, 'drink')
-      if (uploaded) bungkusImageUrl = uploaded
     }
     
     // Insert menu item
@@ -1097,13 +1074,12 @@ function ManageMenu() {
       return 
     }
     
-    // Insert drink options WITH images
+    // Insert drink options WITHOUT menu_id
     if (newDrinkPanas && parseFloat(newDrinkPanas) >= 0) {
       await supabase.from('drink_options').insert([{ 
         drink_name: newDrinkName, 
         option_type: 'Panas', 
-        price: parseFloat(newDrinkPanas) || 0,
-        image_url: panasImageUrl
+        price: parseFloat(newDrinkPanas) || 0
       }])
     }
     
@@ -1111,8 +1087,7 @@ function ManageMenu() {
       await supabase.from('drink_options').insert([{ 
         drink_name: newDrinkName, 
         option_type: 'Sejuk', 
-        price: parseFloat(newDrinkSejuk) || 0,
-        image_url: sejukImageUrl
+        price: parseFloat(newDrinkSejuk) || 0
       }])
     }
     
@@ -1120,8 +1095,7 @@ function ManageMenu() {
       await supabase.from('drink_options').insert([{ 
         drink_name: newDrinkName, 
         option_type: 'Bungkus', 
-        price: parseFloat(newDrinkBungkus) || 0,
-        image_url: bungkusImageUrl
+        price: parseFloat(newDrinkBungkus) || 0
       }])
     }
     
@@ -1132,9 +1106,6 @@ function ManageMenu() {
     setNewDrinkSejuk('')
     setNewDrinkBungkus('')
     setNewDrinkStock(100)
-    setNewDrinkImagePanas(null)
-    setNewDrinkImageSejuk(null)
-    setNewDrinkImageBungkus(null)
     loadMenu()
     loadDrinkOptions()
     loadAvailableMenu()
@@ -1791,7 +1762,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // CATEGORIES FOR FILTER & FILTERED MENU
+  // ✅ FIXED: CATEGORIES FOR FILTER & FILTERED MENU
   // ============================================================
   const categoriesForFilter = getCategoriesForFilter()
   
@@ -2110,13 +2081,7 @@ function ManageMenu() {
                 {translate('add_menu')}
               </button>
               <button 
-                onClick={() => {
-                  setShowDrinkModal(true)
-                  // Reset image states
-                  setNewDrinkImagePanas(null)
-                  setNewDrinkImageSejuk(null)
-                  setNewDrinkImageBungkus(null)
-                }} 
+                onClick={() => setShowDrinkModal(true)} 
                 style={{ 
                   background: 'linear-gradient(135deg, #06b6d4, #0891b2)', 
                   color: 'white', 
@@ -2548,7 +2513,7 @@ function ManageMenu() {
                                 </div>
                               </div>
 
-                              {/* DRINK OPTIONS DISPLAY WITH IMAGES */}
+                              {/* DRINK OPTIONS DISPLAY */}
                               {hasDrinkOptions && (
                                 <div style={{ 
                                   marginTop: '4px', 
@@ -2578,22 +2543,9 @@ function ManageMenu() {
                                         borderRadius: '10px',
                                         border: `1px solid ${borderColor}`
                                       }}>
-                                        {/* IMAGE OR EMOJI */}
-                                        {opt.image_url ? (
-                                          <img 
-                                            src={opt.image_url} 
-                                            alt={opt.option_type} 
-                                            style={{ 
-                                              width: '28px', 
-                                              height: '28px', 
-                                              objectFit: 'cover', 
-                                              borderRadius: '6px',
-                                              border: `1px solid ${borderColor}`
-                                            }} 
-                                          />
-                                        ) : (
-                                          <span style={{ fontSize: isMobile ? '14px' : '16px' }}>{emoji}</span>
-                                        )}
+                                        <span style={{ fontSize: isMobile ? '11px' : '12px', fontWeight: 'bold' }}>
+                                          {emoji}
+                                        </span>
                                         <span style={{ fontSize: isMobile ? '8px' : '9px', color: textMuted, minWidth: '30px' }}>
                                           {label}
                                         </span>
@@ -3081,153 +3033,230 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* ===== ADD DRINK MODAL - WITH IMAGE UPLOADS ===== */}
-        {showDrinkModal && (
+        {/* ===== MODALS ===== */}
+        {/* ADD SPECIAL MODAL */}
+        {showAddSpecialModal && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
-              <h3 style={modalTitleStyle}>{translate('add_drink_title')}</h3>
-              
-              <label style={labelStyle}>{translate('drink_name')} *</label>
+              <h3 style={modalTitleStyle}>{translate('add_special')}</h3>
+              <div style={{
+                background: '#3b82f620',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                marginBottom: '16px',
+                border: '1px solid #3b82f640'
+              }}>
+                <span style={{ fontSize: '13px', color: '#3b82f6' }}>
+                  💡 This item will be linked to the main menu. Prices will auto-sync!
+                </span>
+              </div>
+              <label style={labelStyle}>{translate('name')} *</label>
               <input
                 type="text"
-                placeholder={translate('drink_name')}
-                value={newDrinkName}
-                onChange={(e) => setNewDrinkName(e.target.value)}
+                placeholder={translate('name')}
+                value={specialFormData.name}
+                onChange={(e) => setSpecialFormData({...specialFormData, name: e.target.value})}
                 style={inputStyle}
               />
-
-              {/* PANAS */}
-              <label style={labelStyle}>🔥 {translate('hot_label')} - {translate('price')}</label>
+              <label style={labelStyle}>{translate('price')} *</label>
               <input
                 type="number"
                 step="0.01"
-                placeholder={translate('hot_price')}
-                value={newDrinkPanas}
-                onChange={(e) => setNewDrinkPanas(e.target.value)}
+                placeholder={translate('price')}
+                value={specialFormData.price}
+                onChange={(e) => setSpecialFormData({...specialFormData, price: e.target.value})}
                 style={inputStyle}
               />
-              <label style={{...labelStyle, fontSize:'11px', color:textMuted}}>📸 {translate('drink_image')} ({translate('hot_label')})</label>
+              <label style={labelStyle}>{translate('description')}</label>
               <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setNewDrinkImagePanas(e.target.files[0])}
+                type="text"
+                placeholder={translate('description')}
+                value={specialFormData.description}
+                onChange={(e) => setSpecialFormData({...specialFormData, description: e.target.value})}
                 style={inputStyle}
               />
-              {newDrinkImagePanas && (
-                <img 
-                  src={URL.createObjectURL(newDrinkImagePanas)} 
-                  alt="Panas" 
-                  style={{width:'50px',height:'50px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} 
-                />
-              )}
-
-              {/* SEJUK */}
-              <label style={labelStyle}>🧊 {translate('cold_label')} - {translate('price')}</label>
-              <input
-                type="number"
-                step="0.01"
-                placeholder={translate('cold_price')}
-                value={newDrinkSejuk}
-                onChange={(e) => setNewDrinkSejuk(e.target.value)}
-                style={inputStyle}
-              />
-              <label style={{...labelStyle, fontSize:'11px', color:textMuted}}>📸 {translate('drink_image')} ({translate('cold_label')})</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setNewDrinkImageSejuk(e.target.files[0])}
-                style={inputStyle}
-              />
-              {newDrinkImageSejuk && (
-                <img 
-                  src={URL.createObjectURL(newDrinkImageSejuk)} 
-                  alt="Sejuk" 
-                  style={{width:'50px',height:'50px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} 
-                />
-              )}
-
-              {/* BUNGKUS */}
-              <label style={labelStyle}>📦 {translate('takeaway_label')} - {translate('price')}</label>
-              <input
-                type="number"
-                step="0.01"
-                placeholder={translate('takeaway_price')}
-                value={newDrinkBungkus}
-                onChange={(e) => setNewDrinkBungkus(e.target.value)}
-                style={inputStyle}
-              />
-              <label style={{...labelStyle, fontSize:'11px', color:textMuted}}>📸 {translate('drink_image')} ({translate('takeaway_label')})</label>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={(e) => setNewDrinkImageBungkus(e.target.files[0])}
-                style={inputStyle}
-              />
-              {newDrinkImageBungkus && (
-                <img 
-                  src={URL.createObjectURL(newDrinkImageBungkus)} 
-                  alt="Bungkus" 
-                  style={{width:'50px',height:'50px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} 
-                />
-              )}
-
-              {/* STOCK */}
               <label style={labelStyle}>{translate('stock_qty')}</label>
               <input
                 type="number"
                 placeholder={translate('stock_qty')}
-                value={newDrinkStock}
-                onChange={(e) => setNewDrinkStock(e.target.value)}
+                value={specialFormData.stock}
+                onChange={(e) => setSpecialFormData({...specialFormData, stock: e.target.value})}
                 style={inputStyle}
               />
-
+              <label style={labelStyle}>{translate('image')}</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setSpecialFormData({...specialFormData, image_file: e.target.files[0]})}
+                style={inputStyle}
+              />
+              {specialFormData.image_file && (
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={{ color: textMuted, fontSize: '12px' }}>{translate('preview')}:</p>
+                  <img src={URL.createObjectURL(specialFormData.image_file)} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button 
-                  onClick={() => {
-                    setShowDrinkModal(false)
-                    setNewDrinkImagePanas(null)
-                    setNewDrinkImageSejuk(null)
-                    setNewDrinkImageBungkus(null)
-                  }} 
-                  style={buttonSecondaryStyle}
-                >
+                <button onClick={() => setShowAddSpecialModal(false)} style={buttonSecondaryStyle}>
                   {translate('cancel')}
                 </button>
-                <button onClick={addDrinkWithOptions} style={buttonPrimaryStyle}>
-                  {uploading ? '⏳...' : translate('add')}
+                <button onClick={addSpecialItem} style={buttonPrimaryStyle}>
+                  {translate('add')}
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ===== OTHER MODALS (Add Menu, Edit, Special, Promo, Size) ===== */}
+        {/* EDIT SPECIAL MODAL */}
+        {showEditSpecialModal && selectedSpecialItem && (
+          <div style={modalOverlayStyle}>
+            <div style={modalContentStyle}>
+              <h3 style={modalTitleStyle}>{translate('edit_special')}</h3>
+              <div style={{
+                background: '#3b82f620',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                marginBottom: '16px',
+                border: '1px solid #3b82f640'
+              }}>
+                <span style={{ fontSize: '13px', color: '#3b82f6' }}>
+                  💡 Changes here will also update the main menu item!
+                </span>
+              </div>
+              <label style={labelStyle}>{translate('name')} *</label>
+              <input
+                type="text"
+                placeholder={translate('name')}
+                value={specialFormData.name}
+                onChange={(e) => setSpecialFormData({...specialFormData, name: e.target.value})}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('price')} *</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder={translate('price')}
+                value={specialFormData.price}
+                onChange={(e) => setSpecialFormData({...specialFormData, price: e.target.value})}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('description')}</label>
+              <input
+                type="text"
+                placeholder={translate('description')}
+                value={specialFormData.description}
+                onChange={(e) => setSpecialFormData({...specialFormData, description: e.target.value})}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('stock_qty')}</label>
+              <input
+                type="number"
+                placeholder={translate('stock_qty')}
+                value={specialFormData.stock}
+                onChange={(e) => setSpecialFormData({...specialFormData, stock: e.target.value})}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('image')}</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setSpecialFormData({...specialFormData, image_file: e.target.files[0]})}
+                style={inputStyle}
+              />
+              {specialFormData.image_url && !specialFormData.image_file && (
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={{ color: textMuted, fontSize: '12px' }}>{translate('preview')}:</p>
+                  <img src={specialFormData.image_url} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                </div>
+              )}
+              {specialFormData.image_file && (
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={{ color: textMuted, fontSize: '12px' }}>{translate('preview')}:</p>
+                  <img src={URL.createObjectURL(specialFormData.image_file)} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setShowEditSpecialModal(false)} style={buttonSecondaryStyle}>
+                  {translate('cancel')}
+                </button>
+                <button onClick={updateSpecialItem} style={buttonPrimaryStyle}>
+                  {translate('save')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* ADD MENU MODAL */}
         {showAddModal && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
               <h3 style={modalTitleStyle}>{translate('add_menu')}</h3>
               <label style={labelStyle}>{translate('name')} *</label>
-              <input type="text" placeholder={translate('name')} value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} style={inputStyle} />
+              <input
+                type="text"
+                placeholder={translate('name')}
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                style={inputStyle}
+              />
               <label style={labelStyle}>{translate('price')} *</label>
-              <input type="number" step="0.01" placeholder={translate('price')} value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} style={inputStyle} />
+              <input
+                type="number"
+                step="0.01"
+                placeholder={translate('price')}
+                value={formData.price}
+                onChange={(e) => setFormData({...formData, price: e.target.value})}
+                style={inputStyle}
+              />
               <label style={labelStyle}>{translate('description')}</label>
-              <input type="text" placeholder={translate('description')} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} style={inputStyle} />
+              <input
+                type="text"
+                placeholder={translate('description')}
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                style={inputStyle}
+              />
               <label style={labelStyle}>{translate('stock_qty')}</label>
-              <input type="number" placeholder={translate('stock_qty')} value={formData.stock} onChange={(e) => setFormData({...formData, stock: parseInt(e.target.value) || 0})} style={inputStyle} />
+              <input
+                type="number"
+                placeholder={translate('stock_qty')}
+                value={formData.stock}
+                onChange={(e) => setFormData({...formData, stock: parseInt(e.target.value) || 0})}
+                style={inputStyle}
+              />
               <label style={labelStyle}>{translate('category')}</label>
-              <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} style={inputStyle}>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({...formData, category: e.target.value})}
+                style={inputStyle}
+              >
                 <option value="">{translate('select_category')}</option>
                 {categories.map(cat => (
                   <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
                 ))}
               </select>
               <label style={labelStyle}>{translate('image')}</label>
-              <input type="file" accept="image/*" onChange={(e) => setFormData({...formData, image_file: e.target.files[0]})} style={inputStyle} />
-              {formData.image_file && <img src={URL.createObjectURL(formData.image_file)} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setFormData({...formData, image_file: e.target.files[0]})}
+                style={inputStyle}
+              />
+              {formData.image_file && (
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={{ color: textMuted, fontSize: '12px' }}>{translate('preview')}:</p>
+                  <img src={URL.createObjectURL(formData.image_file)} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => setShowAddModal(false)} style={buttonSecondaryStyle}>{translate('cancel')}</button>
-                <button onClick={addRegularMenuItem} style={buttonPrimaryStyle}>{uploading ? '...' : translate('add')}</button>
+                <button onClick={() => setShowAddModal(false)} style={buttonSecondaryStyle}>
+                  {translate('cancel')}
+                </button>
+                <button onClick={addRegularMenuItem} style={buttonPrimaryStyle}>
+                  {uploading ? '...' : translate('add')}
+                </button>
               </div>
             </div>
           </div>
@@ -3239,215 +3268,135 @@ function ManageMenu() {
             <div style={modalContentStyle}>
               <h3 style={modalTitleStyle}>{translate('edit_menu')} - {selectedItem?.name}</h3>
               <label style={labelStyle}>{translate('name')} *</label>
-              <input type="text" placeholder={translate('name')} value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} style={inputStyle} />
+              <input
+                type="text"
+                placeholder={translate('name')}
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                style={inputStyle}
+              />
               <label style={labelStyle}>{translate('price')} *</label>
-              <input type="number" step="0.01" placeholder={translate('price')} value={formData.price} onChange={(e) => setFormData({...formData, price: e.target.value})} style={inputStyle} />
+              <input
+                type="number"
+                step="0.01"
+                placeholder={translate('price')}
+                value={formData.price}
+                onChange={(e) => setFormData({...formData, price: e.target.value})}
+                style={inputStyle}
+              />
               <label style={labelStyle}>{translate('description')}</label>
-              <input type="text" placeholder={translate('description')} value={formData.description} onChange={(e) => setFormData({...formData, description: e.target.value})} style={inputStyle} />
+              <input
+                type="text"
+                placeholder={translate('description')}
+                value={formData.description}
+                onChange={(e) => setFormData({...formData, description: e.target.value})}
+                style={inputStyle}
+              />
               <label style={labelStyle}>{translate('stock_qty')}</label>
-              <input type="number" placeholder={translate('stock_qty')} value={formData.stock} onChange={(e) => setFormData({...formData, stock: parseInt(e.target.value) || 0})} style={inputStyle} />
+              <input
+                type="number"
+                placeholder={translate('stock_qty')}
+                value={formData.stock}
+                onChange={(e) => setFormData({...formData, stock: parseInt(e.target.value) || 0})}
+                style={inputStyle}
+              />
               <label style={labelStyle}>{translate('category')}</label>
-              <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} style={inputStyle}>
+              <select
+                value={formData.category}
+                onChange={(e) => setFormData({...formData, category: e.target.value})}
+                style={inputStyle}
+              >
                 <option value="">{translate('select_category')}</option>
                 {categories.map(cat => (
                   <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
                 ))}
               </select>
               <label style={labelStyle}>{translate('image')}</label>
-              <input type="file" accept="image/*" onChange={(e) => setFormData({...formData, image_file: e.target.files[0]})} style={inputStyle} />
-              {formData.image_url && !formData.image_file && <img src={formData.image_url} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              {formData.image_file && <img src={URL.createObjectURL(formData.image_file)} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setFormData({...formData, image_file: e.target.files[0]})}
+                style={inputStyle}
+              />
+              {formData.image_url && !formData.image_file && (
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={{ color: textMuted, fontSize: '12px' }}>{translate('preview')}:</p>
+                  <img src={formData.image_url} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                </div>
+              )}
+              {formData.image_file && (
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={{ color: textMuted, fontSize: '12px' }}>{translate('preview')}:</p>
+                  <img src={URL.createObjectURL(formData.image_file)} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                </div>
+              )}
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => { setShowEditModal(false); setSelectedItem(null); }} style={buttonSecondaryStyle}>{translate('cancel')}</button>
-                <button onClick={updateRegularMenuItem} style={buttonPrimaryStyle}>{uploading ? '...' : translate('save')}</button>
+                <button onClick={() => { setShowEditModal(false); setSelectedItem(null); }} style={buttonSecondaryStyle}>
+                  {translate('cancel')}
+                </button>
+                <button onClick={updateRegularMenuItem} style={buttonPrimaryStyle}>
+                  {uploading ? '...' : translate('save')}
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ADD SPECIAL MODAL */}
-        {showAddSpecialModal && (
+        {/* ADD DRINK MODAL */}
+        {showDrinkModal && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
-              <h3 style={modalTitleStyle}>{translate('add_special')}</h3>
-              <label style={labelStyle}>{translate('name')} *</label>
-              <input type="text" placeholder={translate('name')} value={specialFormData.name} onChange={(e) => setSpecialFormData({...specialFormData, name: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('price')} *</label>
-              <input type="number" step="0.01" placeholder={translate('price')} value={specialFormData.price} onChange={(e) => setSpecialFormData({...specialFormData, price: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('description')}</label>
-              <input type="text" placeholder={translate('description')} value={specialFormData.description} onChange={(e) => setSpecialFormData({...specialFormData, description: e.target.value})} style={inputStyle} />
+              <h3 style={modalTitleStyle}>{translate('add_drink_title')}</h3>
+              <label style={labelStyle}>{translate('drink_name')} *</label>
+              <input
+                type="text"
+                placeholder={translate('drink_name')}
+                value={newDrinkName}
+                onChange={(e) => setNewDrinkName(e.target.value)}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('hot_price')}</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder={translate('hot_price')}
+                value={newDrinkPanas}
+                onChange={(e) => setNewDrinkPanas(e.target.value)}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('cold_price')}</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder={translate('cold_price')}
+                value={newDrinkSejuk}
+                onChange={(e) => setNewDrinkSejuk(e.target.value)}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('takeaway_price')}</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder={translate('takeaway_price')}
+                value={newDrinkBungkus}
+                onChange={(e) => setNewDrinkBungkus(e.target.value)}
+                style={inputStyle}
+              />
               <label style={labelStyle}>{translate('stock_qty')}</label>
-              <input type="number" placeholder={translate('stock_qty')} value={specialFormData.stock} onChange={(e) => setSpecialFormData({...specialFormData, stock: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('image')}</label>
-              <input type="file" accept="image/*" onChange={(e) => setSpecialFormData({...specialFormData, image_file: e.target.files[0]})} style={inputStyle} />
-              {specialFormData.image_file && <img src={URL.createObjectURL(specialFormData.image_file)} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
+              <input
+                type="number"
+                placeholder={translate('stock_qty')}
+                value={newDrinkStock}
+                onChange={(e) => setNewDrinkStock(e.target.value)}
+                style={inputStyle}
+              />
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => setShowAddSpecialModal(false)} style={buttonSecondaryStyle}>{translate('cancel')}</button>
-                <button onClick={addSpecialItem} style={buttonPrimaryStyle}>{translate('add')}</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* EDIT SPECIAL MODAL */}
-        {showEditSpecialModal && selectedSpecialItem && (
-          <div style={modalOverlayStyle}>
-            <div style={modalContentStyle}>
-              <h3 style={modalTitleStyle}>{translate('edit_special')}</h3>
-              <label style={labelStyle}>{translate('name')} *</label>
-              <input type="text" placeholder={translate('name')} value={specialFormData.name} onChange={(e) => setSpecialFormData({...specialFormData, name: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('price')} *</label>
-              <input type="number" step="0.01" placeholder={translate('price')} value={specialFormData.price} onChange={(e) => setSpecialFormData({...specialFormData, price: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('description')}</label>
-              <input type="text" placeholder={translate('description')} value={specialFormData.description} onChange={(e) => setSpecialFormData({...specialFormData, description: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('stock_qty')}</label>
-              <input type="number" placeholder={translate('stock_qty')} value={specialFormData.stock} onChange={(e) => setSpecialFormData({...specialFormData, stock: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('image')}</label>
-              <input type="file" accept="image/*" onChange={(e) => setSpecialFormData({...specialFormData, image_file: e.target.files[0]})} style={inputStyle} />
-              {specialFormData.image_url && !specialFormData.image_file && <img src={specialFormData.image_url} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              {specialFormData.image_file && <img src={URL.createObjectURL(specialFormData.image_file)} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => setShowEditSpecialModal(false)} style={buttonSecondaryStyle}>{translate('cancel')}</button>
-                <button onClick={updateSpecialItem} style={buttonPrimaryStyle}>{translate('save')}</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* PROMOTION MODALS */}
-        {showAddPromoModal && (
-          <div style={modalOverlayStyle}>
-            <div style={{...modalContentStyle, maxWidth: isMobile ? '95%' : '550px'}}>
-              <h3 style={modalTitleStyle}>{translate('add_promotion')}</h3>
-              <label style={labelStyle}>{translate('promo_name')} *</label>
-              <input type="text" placeholder={translate('promo_name')} value={promoFormData.name} onChange={(e) => setPromoFormData({...promoFormData, name: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('promo_type')}</label>
-              <select value={promoFormData.type} onChange={(e) => setPromoFormData({...promoFormData, type: e.target.value})} style={inputStyle}>
-                <option value="set_menu">{translate('set_menu')}</option>
-                <option value="bundle">{translate('bundle')}</option>
-                <option value="bogo">{translate('bogo')}</option>
-              </select>
-              {promoFormData.type === 'bogo' && (
-                <>
-                  <label style={labelStyle}>{translate('trigger_item')}</label>
-                  <select value={promoFormData.trigger_item_id || ''} onChange={(e) => setPromoFormData({...promoFormData, trigger_item_id: parseInt(e.target.value)})} style={inputStyle}>
-                    <option value="">{translate('select_item')}</option>
-                    {availableMenuItems.map(item => (
-                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
-                    ))}
-                  </select>
-                  <label style={labelStyle}>{translate('free_item')}</label>
-                  <select value={promoFormData.free_item_id || ''} onChange={(e) => setPromoFormData({...promoFormData, free_item_id: parseInt(e.target.value)})} style={inputStyle}>
-                    <option value="">{translate('select_item')}</option>
-                    {availableMenuItems.map(item => (
-                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
-                    ))}
-                  </select>
-                </>
-              )}
-              {(promoFormData.type === 'set_menu' || promoFormData.type === 'bundle') && (
-                <>
-                  <div style={{ fontSize: '12px', color: textMuted, marginBottom: '8px' }}>
-                    {availableMenuItems.length > 0 ? `📋 ${availableMenuItems.length} ${translate('items_available')}` : `⚠️ ${translate('no_items_available')}`}
-                  </div>
-                  <div style={{ maxHeight: '150px', overflowY: 'auto', border: `1px solid ${inputBorder}`, borderRadius: '12px', padding: '8px', background: inputBg, marginBottom: '12px' }}>
-                    {availableMenuItems.map(item => (
-                      <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', color: textColor, borderBottom: `1px solid ${borderColor}` }}>
-                        <input type="checkbox" checked={promoFormData.selected_bundle_items.includes(item.id)} onChange={(e) => {
-                          if (e.target.checked) {
-                            setPromoFormData({...promoFormData, selected_bundle_items: [...promoFormData.selected_bundle_items, item.id]})
-                          } else {
-                            setPromoFormData({...promoFormData, selected_bundle_items: promoFormData.selected_bundle_items.filter(id => id !== item.id)})
-                          }
-                        }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                        <span style={{ fontSize: '14px' }}>{item.name} <span style={{ color: '#22c55e', fontWeight: 'bold' }}>(RM {item.price})</span></span>
-                      </label>
-                    ))}
-                  </div>
-                  <label style={labelStyle}>{translate('promo_price')}</label>
-                  <input type="number" step="0.01" placeholder={translate('promo_price')} value={promoFormData.bundle_price} onChange={(e) => setPromoFormData({...promoFormData, bundle_price: e.target.value})} style={inputStyle} />
-                </>
-              )}
-              <label style={labelStyle}>{translate('start_date')}</label>
-              <input type="date" value={promoFormData.start_date} onChange={(e) => setPromoFormData({...promoFormData, start_date: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('end_date')}</label>
-              <input type="date" value={promoFormData.end_date} onChange={(e) => setPromoFormData({...promoFormData, end_date: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('promo_image')}</label>
-              <input type="file" accept="image/*" onChange={(e) => setPromoFormData({...promoFormData, image_file: e.target.files[0]})} style={inputStyle} />
-              {promoFormData.image_file && <img src={URL.createObjectURL(promoFormData.image_file)} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => setShowAddPromoModal(false)} style={buttonSecondaryStyle}>{translate('cancel')}</button>
-                <button onClick={addPromotion} style={buttonPrimaryStyle}>{translate('add')}</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* EDIT PROMO MODAL */}
-        {showEditPromoModal && selectedPromo && (
-          <div style={modalOverlayStyle}>
-            <div style={{...modalContentStyle, maxWidth: isMobile ? '95%' : '550px'}}>
-              <h3 style={modalTitleStyle}>{translate('edit_promotion')}</h3>
-              <label style={labelStyle}>{translate('promo_name')} *</label>
-              <input type="text" placeholder={translate('promo_name')} value={promoFormData.name} onChange={(e) => setPromoFormData({...promoFormData, name: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('promo_type')}</label>
-              <select value={promoFormData.type} onChange={(e) => setPromoFormData({...promoFormData, type: e.target.value})} style={inputStyle}>
-                <option value="set_menu">{translate('set_menu')}</option>
-                <option value="bundle">{translate('bundle')}</option>
-                <option value="bogo">{translate('bogo')}</option>
-              </select>
-              {promoFormData.type === 'bogo' && (
-                <>
-                  <label style={labelStyle}>{translate('trigger_item')}</label>
-                  <select value={promoFormData.trigger_item_id || ''} onChange={(e) => setPromoFormData({...promoFormData, trigger_item_id: parseInt(e.target.value)})} style={inputStyle}>
-                    <option value="">{translate('select_item')}</option>
-                    {availableMenuItems.map(item => (
-                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
-                    ))}
-                  </select>
-                  <label style={labelStyle}>{translate('free_item')}</label>
-                  <select value={promoFormData.free_item_id || ''} onChange={(e) => setPromoFormData({...promoFormData, free_item_id: parseInt(e.target.value)})} style={inputStyle}>
-                    <option value="">{translate('select_item')}</option>
-                    {availableMenuItems.map(item => (
-                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
-                    ))}
-                  </select>
-                </>
-              )}
-              {(promoFormData.type === 'set_menu' || promoFormData.type === 'bundle') && (
-                <>
-                  <div style={{ fontSize: '12px', color: textMuted, marginBottom: '8px' }}>
-                    {availableMenuItems.length > 0 ? `📋 ${availableMenuItems.length} ${translate('items_available')}` : `⚠️ ${translate('no_items_available')}`}
-                  </div>
-                  <div style={{ maxHeight: '150px', overflowY: 'auto', border: `1px solid ${inputBorder}`, borderRadius: '12px', padding: '8px', background: inputBg, marginBottom: '12px' }}>
-                    {availableMenuItems.map(item => (
-                      <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', color: textColor, borderBottom: `1px solid ${borderColor}` }}>
-                        <input type="checkbox" checked={promoFormData.selected_bundle_items.includes(item.id)} onChange={(e) => {
-                          if (e.target.checked) {
-                            setPromoFormData({...promoFormData, selected_bundle_items: [...promoFormData.selected_bundle_items, item.id]})
-                          } else {
-                            setPromoFormData({...promoFormData, selected_bundle_items: promoFormData.selected_bundle_items.filter(id => id !== item.id)})
-                          }
-                        }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                        <span style={{ fontSize: '14px' }}>{item.name} <span style={{ color: '#22c55e', fontWeight: 'bold' }}>(RM {item.price})</span></span>
-                      </label>
-                    ))}
-                  </div>
-                  <label style={labelStyle}>{translate('promo_price')}</label>
-                  <input type="number" step="0.01" placeholder={translate('promo_price')} value={promoFormData.bundle_price} onChange={(e) => setPromoFormData({...promoFormData, bundle_price: e.target.value})} style={inputStyle} />
-                </>
-              )}
-              <label style={labelStyle}>{translate('start_date')}</label>
-              <input type="date" value={promoFormData.start_date} onChange={(e) => setPromoFormData({...promoFormData, start_date: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('end_date')}</label>
-              <input type="date" value={promoFormData.end_date} onChange={(e) => setPromoFormData({...promoFormData, end_date: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('promo_image')}</label>
-              <input type="file" accept="image/*" onChange={(e) => setPromoFormData({...promoFormData, image_file: e.target.files[0]})} style={inputStyle} />
-              {promoFormData.image_url && !promoFormData.image_file && <img src={promoFormData.image_url} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              {promoFormData.image_file && <img src={URL.createObjectURL(promoFormData.image_file)} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => setShowEditPromoModal(false)} style={buttonSecondaryStyle}>{translate('cancel')}</button>
-                <button onClick={updatePromotion} style={buttonPrimaryStyle}>{translate('save')}</button>
+                <button onClick={() => setShowDrinkModal(false)} style={buttonSecondaryStyle}>
+                  {translate('cancel')}
+                </button>
+                <button onClick={addDrinkWithOptions} style={buttonPrimaryStyle}>
+                  {translate('add')}
+                </button>
               </div>
             </div>
           </div>
@@ -3458,15 +3407,33 @@ function ManageMenu() {
           <div style={modalOverlayStyle}>
             <div style={{ ...modalContentStyle, maxWidth: isMobile ? '95%' : '500px' }}>
               <h3 style={modalTitleStyle}>{translate('size_options')} - {selectedMenuForOptions.name}</h3>
+              
               <div style={{ marginBottom: '16px' }}>
                 <h4 style={{ color: textColor, marginBottom: '8px' }}>{translate('add_size')}</h4>
                 <label style={labelStyle}>{translate('size_name')} *</label>
-                <input type="text" placeholder={translate('size_name')} value={optionForm.option_name} onChange={(e) => setOptionForm({...optionForm, option_name: e.target.value})} style={inputStyle} />
+                <input
+                  type="text"
+                  placeholder={translate('size_name')}
+                  value={optionForm.option_name}
+                  onChange={(e) => setOptionForm({...optionForm, option_name: e.target.value})}
+                  style={inputStyle}
+                />
                 <label style={labelStyle}>{translate('size_price')} *</label>
-                <input type="number" step="0.01" placeholder={translate('size_price')} value={optionForm.price_adjustment} onChange={(e) => setOptionForm({...optionForm, price_adjustment: e.target.value})} style={inputStyle} />
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder={translate('size_price')}
+                  value={optionForm.price_adjustment}
+                  onChange={(e) => setOptionForm({...optionForm, price_adjustment: e.target.value})}
+                  style={inputStyle}
+                />
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px' }}>
                   <label style={{ color: textColor }}>
-                    <input type="checkbox" checked={optionForm.is_absolute_price} onChange={(e) => setOptionForm({...optionForm, is_absolute_price: e.target.checked})} />
+                    <input
+                      type="checkbox"
+                      checked={optionForm.is_absolute_price}
+                      onChange={(e) => setOptionForm({...optionForm, is_absolute_price: e.target.checked})}
+                    />
                     {translate('absolute_price')}
                   </label>
                 </div>
@@ -3474,6 +3441,7 @@ function ManageMenu() {
                   {editingOption ? translate('save') : translate('add')}
                 </button>
               </div>
+
               <div>
                 <h4 style={{ color: textColor, marginBottom: '8px' }}>{translate('size_list')}</h4>
                 {menuOptions.length === 0 ? (
@@ -3481,19 +3449,360 @@ function ManageMenu() {
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                     {menuOptions.map(opt => (
-                      <div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: secondaryBg, borderRadius: '8px', border: `1px solid ${borderColor}` }}>
-                        <span style={{ color: textColor }}>{opt.option_name} - RM {opt.price_adjustment} {opt.is_absolute_price ? '(Absolute)' : '(Adjustment)'}</span>
+                      <div key={opt.id} style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'center',
+                        padding: '8px 12px',
+                        background: secondaryBg,
+                        borderRadius: '8px',
+                        border: `1px solid ${borderColor}`
+                      }}>
+                        <span style={{ color: textColor }}>
+                          {opt.option_name} - RM {opt.price_adjustment} {opt.is_absolute_price ? '(Absolute)' : '(Adjustment)'}
+                        </span>
                         <div style={{ display: 'flex', gap: '6px' }}>
-                          <button onClick={() => openEditOption(opt)} style={{ background: '#f59e0b', color: 'white', padding: '2px 10px', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '11px' }}>✏️</button>
-                          <button onClick={() => deleteMenuOption(opt.id)} style={{ background: '#ef4444', color: 'white', padding: '2px 10px', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '11px' }}>🗑️</button>
+                          <button 
+                            onClick={() => openEditOption(opt)} 
+                            style={{ background: '#f59e0b', color: 'white', padding: '2px 10px', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '11px' }}
+                          >
+                            ✏️
+                          </button>
+                          <button 
+                            onClick={() => deleteMenuOption(opt.id)} 
+                            style={{ background: '#ef4444', color: 'white', padding: '2px 10px', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '11px' }}
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
+
               <div style={{ marginTop: '16px' }}>
-                <button onClick={() => setShowOptionsModal(false)} style={buttonSecondaryStyle}>{translate('close')}</button>
+                <button onClick={() => setShowOptionsModal(false)} style={buttonSecondaryStyle}>
+                  {translate('close')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ADD PROMOTION MODAL */}
+        {showAddPromoModal && (
+          <div style={modalOverlayStyle}>
+            <div style={modalContentStyle}>
+              <h3 style={modalTitleStyle}>{translate('add_promotion')}</h3>
+              <label style={labelStyle}>{translate('promo_name')} *</label>
+              <input
+                type="text"
+                placeholder={translate('promo_name')}
+                value={promoFormData.name}
+                onChange={(e) => setPromoFormData({...promoFormData, name: e.target.value})}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('promo_type')}</label>
+              <select
+                value={promoFormData.type}
+                onChange={(e) => setPromoFormData({...promoFormData, type: e.target.value})}
+                style={inputStyle}
+              >
+                <option value="set_menu">{translate('set_menu')}</option>
+                <option value="bundle">{translate('bundle')}</option>
+                <option value="bogo">{translate('bogo')}</option>
+              </select>
+
+              {promoFormData.type === 'bogo' && (
+                <>
+                  <label style={labelStyle}>{translate('trigger_item')}</label>
+                  <select
+                    value={promoFormData.trigger_item_id || ''}
+                    onChange={(e) => setPromoFormData({...promoFormData, trigger_item_id: parseInt(e.target.value)})}
+                    style={inputStyle}
+                  >
+                    <option value="">{translate('select_item')}</option>
+                    {availableMenuItems.map(item => (
+                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
+                    ))}
+                  </select>
+                  <label style={labelStyle}>{translate('free_item')}</label>
+                  <select
+                    value={promoFormData.free_item_id || ''}
+                    onChange={(e) => setPromoFormData({...promoFormData, free_item_id: parseInt(e.target.value)})}
+                    style={inputStyle}
+                  >
+                    <option value="">{translate('select_item')}</option>
+                    {availableMenuItems.map(item => (
+                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              {(promoFormData.type === 'set_menu' || promoFormData.type === 'bundle') && (
+                <>
+                  <div style={{ fontSize: '12px', color: textMuted, marginBottom: '8px' }}>
+                    {availableMenuItems.length > 0 
+                      ? `📋 ${availableMenuItems.length} ${translate('items_available')}` 
+                      : `⚠️ ${translate('no_items_available')}`}
+                  </div>
+                  <div style={{ 
+                    maxHeight: '150px', 
+                    overflowY: 'auto', 
+                    border: `1px solid ${inputBorder}`, 
+                    borderRadius: '12px', 
+                    padding: '8px',
+                    background: inputBg,
+                    marginBottom: '12px'
+                  }}>
+                    {availableMenuItems.map(item => (
+                      <label key={item.id} style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '10px',
+                        padding: '6px 8px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        color: textColor,
+                        borderBottom: `1px solid ${borderColor}`,
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={promoFormData.selected_bundle_items.includes(item.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setPromoFormData({
+                                ...promoFormData, 
+                                selected_bundle_items: [...promoFormData.selected_bundle_items, item.id]
+                              })
+                            } else {
+                              setPromoFormData({
+                                ...promoFormData, 
+                                selected_bundle_items: promoFormData.selected_bundle_items.filter(id => id !== item.id)
+                              })
+                            }
+                          }}
+                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '14px' }}>
+                          {item.name} <span style={{ color: '#22c55e', fontWeight: 'bold' }}>(RM {item.price})</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  
+                  <label style={labelStyle}>{translate('promo_price')}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder={translate('promo_price')}
+                    value={promoFormData.bundle_price}
+                    onChange={(e) => setPromoFormData({...promoFormData, bundle_price: e.target.value})}
+                    style={inputStyle}
+                  />
+                </>
+              )}
+
+              <label style={labelStyle}>{translate('start_date')}</label>
+              <input
+                type="date"
+                placeholder={translate('start_date')}
+                value={promoFormData.start_date}
+                onChange={(e) => setPromoFormData({...promoFormData, start_date: e.target.value})}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('end_date')}</label>
+              <input
+                type="date"
+                placeholder={translate('end_date')}
+                value={promoFormData.end_date}
+                onChange={(e) => setPromoFormData({...promoFormData, end_date: e.target.value})}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('promo_image')}</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setPromoFormData({...promoFormData, image_file: e.target.files[0]})}
+                style={inputStyle}
+              />
+              {promoFormData.image_file && (
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={{ color: textMuted, fontSize: '12px' }}>{translate('preview')}:</p>
+                  <img src={URL.createObjectURL(promoFormData.image_file)} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setShowAddPromoModal(false)} style={buttonSecondaryStyle}>
+                  {translate('cancel')}
+                </button>
+                <button onClick={addPromotion} style={buttonPrimaryStyle}>
+                  {translate('add')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* EDIT PROMOTION MODAL */}
+        {showEditPromoModal && selectedPromo && (
+          <div style={modalOverlayStyle}>
+            <div style={modalContentStyle}>
+              <h3 style={modalTitleStyle}>{translate('edit_promotion')}</h3>
+              <label style={labelStyle}>{translate('promo_name')} *</label>
+              <input
+                type="text"
+                placeholder={translate('promo_name')}
+                value={promoFormData.name}
+                onChange={(e) => setPromoFormData({...promoFormData, name: e.target.value})}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('promo_type')}</label>
+              <select
+                value={promoFormData.type}
+                onChange={(e) => setPromoFormData({...promoFormData, type: e.target.value})}
+                style={inputStyle}
+              >
+                <option value="set_menu">{translate('set_menu')}</option>
+                <option value="bundle">{translate('bundle')}</option>
+                <option value="bogo">{translate('bogo')}</option>
+              </select>
+
+              {promoFormData.type === 'bogo' && (
+                <>
+                  <label style={labelStyle}>{translate('trigger_item')}</label>
+                  <select
+                    value={promoFormData.trigger_item_id || ''}
+                    onChange={(e) => setPromoFormData({...promoFormData, trigger_item_id: parseInt(e.target.value)})}
+                    style={inputStyle}
+                  >
+                    <option value="">{translate('select_item')}</option>
+                    {availableMenuItems.map(item => (
+                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
+                    ))}
+                  </select>
+                  <label style={labelStyle}>{translate('free_item')}</label>
+                  <select
+                    value={promoFormData.free_item_id || ''}
+                    onChange={(e) => setPromoFormData({...promoFormData, free_item_id: parseInt(e.target.value)})}
+                    style={inputStyle}
+                  >
+                    <option value="">{translate('select_item')}</option>
+                    {availableMenuItems.map(item => (
+                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
+                    ))}
+                  </select>
+                </>
+              )}
+
+              {(promoFormData.type === 'set_menu' || promoFormData.type === 'bundle') && (
+                <>
+                  <div style={{ fontSize: '12px', color: textMuted, marginBottom: '8px' }}>
+                    {availableMenuItems.length > 0 
+                      ? `📋 ${availableMenuItems.length} ${translate('items_available')}` 
+                      : `⚠️ ${translate('no_items_available')}`}
+                  </div>
+                  <div style={{ 
+                    maxHeight: '150px', 
+                    overflowY: 'auto', 
+                    border: `1px solid ${inputBorder}`, 
+                    borderRadius: '12px', 
+                    padding: '8px',
+                    background: inputBg,
+                    marginBottom: '12px'
+                  }}>
+                    {availableMenuItems.map(item => (
+                      <label key={item.id} style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '10px',
+                        padding: '6px 8px',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        color: textColor,
+                        borderBottom: `1px solid ${borderColor}`,
+                      }}>
+                        <input
+                          type="checkbox"
+                          checked={promoFormData.selected_bundle_items.includes(item.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setPromoFormData({
+                                ...promoFormData, 
+                                selected_bundle_items: [...promoFormData.selected_bundle_items, item.id]
+                              })
+                            } else {
+                              setPromoFormData({
+                                ...promoFormData, 
+                                selected_bundle_items: promoFormData.selected_bundle_items.filter(id => id !== item.id)
+                              })
+                            }
+                          }}
+                          style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <span style={{ fontSize: '14px' }}>
+                          {item.name} <span style={{ color: '#22c55e', fontWeight: 'bold' }}>(RM {item.price})</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  
+                  <label style={labelStyle}>{translate('promo_price')}</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder={translate('promo_price')}
+                    value={promoFormData.bundle_price}
+                    onChange={(e) => setPromoFormData({...promoFormData, bundle_price: e.target.value})}
+                    style={inputStyle}
+                  />
+                </>
+              )}
+
+              <label style={labelStyle}>{translate('start_date')}</label>
+              <input
+                type="date"
+                placeholder={translate('start_date')}
+                value={promoFormData.start_date}
+                onChange={(e) => setPromoFormData({...promoFormData, start_date: e.target.value})}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('end_date')}</label>
+              <input
+                type="date"
+                placeholder={translate('end_date')}
+                value={promoFormData.end_date}
+                onChange={(e) => setPromoFormData({...promoFormData, end_date: e.target.value})}
+                style={inputStyle}
+              />
+              <label style={labelStyle}>{translate('promo_image')}</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setPromoFormData({...promoFormData, image_file: e.target.files[0]})}
+                style={inputStyle}
+              />
+              {promoFormData.image_url && !promoFormData.image_file && (
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={{ color: textMuted, fontSize: '12px' }}>{translate('preview')}:</p>
+                  <img src={promoFormData.image_url} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                </div>
+              )}
+              {promoFormData.image_file && (
+                <div style={{ marginBottom: '12px' }}>
+                  <p style={{ color: textMuted, fontSize: '12px' }}>{translate('preview')}:</p>
+                  <img src={URL.createObjectURL(promoFormData.image_file)} alt="Preview" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '8px' }} />
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button onClick={() => setShowEditPromoModal(false)} style={buttonSecondaryStyle}>
+                  {translate('cancel')}
+                </button>
+                <button onClick={updatePromotion} style={buttonPrimaryStyle}>
+                  {translate('save')}
+                </button>
               </div>
             </div>
           </div>

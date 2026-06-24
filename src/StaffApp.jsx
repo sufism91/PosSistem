@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
 import Sidebar from './components/Sidebar'
@@ -12,7 +12,7 @@ function StaffApp() {
   const { language } = useLanguage()
 
   // ============================================================
-  // TRANSLATIONS - TANPA EMOJI
+  // TRANSLATIONS
   // ============================================================
   const translations = {
     pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
@@ -119,6 +119,7 @@ function StaffApp() {
 
   // ===== NOTIFICATION STATE =====
   const [notifiedOrderIds, setNotifiedOrderIds] = useState([])
+  const [audioCtx, setAudioCtx] = useState(null)
 
   // ===== SETTINGS =====
   const [settings, setSettings] = useState({
@@ -165,43 +166,33 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PLAY NOTIFICATION SOUND - FILE SOUND DULU, BEEP FALLBACK
+  // AUDIO INIT - TRIGGERED BY USER INTERACTION
   // ============================================================
-  const playBeepSound = () => {
+  const initAudio = () => {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)()
-      if (ctx.state === 'suspended') ctx.resume()
-      
-      const osc1 = ctx.createOscillator()
-      const gain1 = ctx.createGain()
-      osc1.connect(gain1)
-      gain1.connect(ctx.destination)
-      osc1.frequency.value = 800
-      osc1.type = 'sine'
-      gain1.gain.setValueAtTime(0.4, ctx.currentTime)
-      gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
-      osc1.start(ctx.currentTime)
-      osc1.stop(ctx.currentTime + 0.3)
-      
-      setTimeout(() => {
-        try {
-          const osc2 = ctx.createOscillator()
-          const gain2 = ctx.createGain()
-          osc2.connect(gain2)
-          gain2.connect(ctx.destination)
-          osc2.frequency.value = 1000
-          osc2.type = 'sine'
-          gain2.gain.setValueAtTime(0.4, ctx.currentTime)
-          gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2)
-          osc2.start(ctx.currentTime)
-          osc2.stop(ctx.currentTime + 0.2)
-        } catch (e) {}
-      }, 200)
+      if (!audioCtx) {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)()
+        setAudioCtx(ctx)
+        if (ctx.state === 'suspended') {
+          ctx.resume()
+        }
+        console.log('✅ Audio context initialized')
+        return ctx
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume()
+        console.log('✅ Audio context resumed')
+      }
+      return audioCtx
     } catch (err) {
-      console.log('Beep error:', err)
+      console.log('❌ Audio init error:', err)
+      return null
     }
   }
 
+  // ============================================================
+  // PLAY NOTIFICATION SOUND - USING WEB AUDIO API (PASTI BERBUNYI)
+  // ============================================================
   const playNotificationSound = () => {
     console.log('🔔 playNotificationSound called')
     
@@ -210,38 +201,94 @@ function StaffApp() {
       return
     }
     
-    // TRY 1: File sound - /sound/notification.mp3
+    // Init audio context (if not already)
+    const ctx = initAudio()
+    
+    if (!ctx) {
+      console.log('❌ No audio context, trying file fallback...')
+      try {
+        const audio = new Audio('/sound/notification.mp3')
+        audio.volume = 0.8
+        audio.play().catch(() => {})
+      } catch (e) {}
+      return
+    }
+    
     try {
-      const audio = new Audio('/sound/notification.mp3')
-      audio.volume = 0.8
-      audio.play().then(() => {
-        console.log('✅ File sound played! (/sound/notification.mp3)')
-      }).catch(() => {
-        // TRY 2: /sounds/notification.mp3
+      console.log('🔊 Playing sound via Web Audio API')
+      
+      // Beep 1 - 800Hz
+      const osc1 = ctx.createOscillator()
+      const gain1 = ctx.createGain()
+      osc1.connect(gain1)
+      gain1.connect(ctx.destination)
+      osc1.frequency.value = 800
+      osc1.type = 'sine'
+      gain1.gain.setValueAtTime(0.5, ctx.currentTime)
+      gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
+      osc1.start(ctx.currentTime)
+      osc1.stop(ctx.currentTime + 0.3)
+      
+      // Beep 2 - 1000Hz (higher pitch)
+      setTimeout(() => {
         try {
-          const audio2 = new Audio('/sounds/notification.mp3')
-          audio2.volume = 0.8
-          audio2.play().then(() => {
-            console.log('✅ File sound played! (/sounds/notification.mp3)')
-          }).catch(() => {
-            console.log('❌ All file sounds failed, using beep')
-            playBeepSound()
-          })
+          const osc2 = ctx.createOscillator()
+          const gain2 = ctx.createGain()
+          osc2.connect(gain2)
+          gain2.connect(ctx.destination)
+          osc2.frequency.value = 1000
+          osc2.type = 'sine'
+          gain2.gain.setValueAtTime(0.5, ctx.currentTime)
+          gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2)
+          osc2.start(ctx.currentTime)
+          osc2.stop(ctx.currentTime + 0.2)
+          console.log('✅ Sound played successfully!')
         } catch (e) {
-          playBeepSound()
+          console.log('Beep 2 error:', e)
         }
-      })
+      }, 200)
+      
     } catch (err) {
-      playBeepSound()
+      console.log('❌ Sound error:', err)
+      // Fallback: try file sound
+      try {
+        const audio = new Audio('/sound/notification.mp3')
+        audio.volume = 0.8
+        audio.play().catch(() => {})
+      } catch (e) {}
     }
   }
 
-  // Test sound function
+  // ============================================================
+  // TEST SOUND
+  // ============================================================
   const testSound = () => {
     console.log('🧪 Test sound button clicked!')
-    playNotificationSound()
-    toast('🔊 Testing notification sound...')
+    initAudio()
+    setTimeout(() => {
+      playNotificationSound()
+      toast('🔊 Testing notification sound...')
+    }, 100)
   }
+
+  // ============================================================
+  // AUTO INIT AUDIO ON USER INTERACTION
+  // ============================================================
+  useEffect(() => {
+    const handleUserInteraction = () => {
+      initAudio()
+      document.removeEventListener('click', handleUserInteraction)
+      document.removeEventListener('touchstart', handleUserInteraction)
+    }
+    
+    document.addEventListener('click', handleUserInteraction)
+    document.addEventListener('touchstart', handleUserInteraction)
+    
+    return () => {
+      document.removeEventListener('click', handleUserInteraction)
+      document.removeEventListener('touchstart', handleUserInteraction)
+    }
+  }, [])
 
   // ============================================================
   // LOAD SETTINGS
@@ -607,9 +654,6 @@ function StaffApp() {
     return ['All', ...categories.map(c => c.name)]
   }
 
-  // ============================================================
-  // GET FILTERED MENU - FIXED with Parent/Sub
-  // ============================================================
   const getFilteredMenu = () => {
     let filtered = [...menu]
     
@@ -641,9 +685,6 @@ function StaffApp() {
     return filtered
   }
 
-  // ============================================================
-  // GET CATEGORY ICON - FIXED with categories data
-  // ============================================================
   const getCategoryIcon = (cat) => {
     if (!cat) return '📂'
     if (cat === 'All' || cat === 'Semua') return '📋'
@@ -873,7 +914,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // CONFIRM / CANCEL NEW ORDER - WITH NOTIFICATION CLEAR
+  // CONFIRM / CANCEL NEW ORDER
   // ============================================================
   const confirmNewOrder = async (order) => {
     try {
@@ -887,7 +928,6 @@ function StaffApp() {
         .eq('id', order.id)
       if (error) throw error
       
-      // Remove from notified list
       setNotifiedOrderIds(prev => prev.filter(id => id !== order.id))
       
       toast.success(t('order_confirmed_kitchen'))
@@ -907,7 +947,6 @@ function StaffApp() {
         .eq('id', order.id)
       if (error) throw error
       
-      // Remove from notified list
       setNotifiedOrderIds(prev => prev.filter(id => id !== order.id))
       
       toast.success(t('order_cancelled'))
@@ -968,7 +1007,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RENDER ITEM MODAL - WITH DRINK OPTION IMAGES
+  // RENDER ITEM MODAL
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
@@ -1581,7 +1620,7 @@ function StaffApp() {
   )
 
   // ============================================================
-  // RENDER UNPAID ORDERS MODAL - WITH PAYMENT METHOD
+  // RENDER UNPAID ORDERS MODAL
   // ============================================================
   const renderUnpaidOrdersModal = () => {
     return (
@@ -1713,7 +1752,6 @@ function StaffApp() {
                 </div>
               </div>
 
-              {/* PAYMENT METHOD SELECTION */}
               <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', flexWrap: 'wrap' }}>
                 <span style={{ color: textColor, fontWeight: 'bold', fontSize: '14px', width: '100%' }}>
                   💳 {t('payment_method')}:

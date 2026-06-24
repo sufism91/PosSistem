@@ -1,16 +1,76 @@
-// utils/sound.js
-// Sound notification - Optimized for mobile/APK
+// utils/sound.js - FULL FINAL VERSION
 
 let audioContext = null
 let audioBuffer = null
 let isReady = false
 let isPlaying = false
 let html5Audio = null
+let audioUnlocked = false
 
-/**
- * Initialize sound system
- * Call this on user interaction (click/touch)
- */
+// ============================================================
+// UNLOCK AUDIO - Call this on user interaction
+// ============================================================
+export const unlockAudio = () => {
+  if (audioUnlocked) {
+    console.log('🔓 Audio already unlocked')
+    return
+  }
+  
+  console.log('🔓 Unlocking audio...')
+  
+  try {
+    // Try Web Audio - FORCE RESUME
+    if (audioContext) {
+      console.log('🎵 AudioContext state:', audioContext.state)
+      
+      if (audioContext.state === 'suspended') {
+        audioContext.resume()
+          .then(() => {
+            audioUnlocked = true
+            console.log('✅ Web Audio resumed! State:', audioContext.state)
+          })
+          .catch(err => {
+            console.error('❌ Resume failed:', err)
+          })
+      } else if (audioContext.state === 'running') {
+        audioUnlocked = true
+        console.log('✅ Web Audio already running!')
+      }
+    }
+    
+    // Try HTML5 Audio as backup
+    if (html5Audio) {
+      html5Audio.play()
+        .then(() => {
+          html5Audio.pause()
+          html5Audio.currentTime = 0
+          audioUnlocked = true
+          console.log('✅ HTML5 Audio unlocked!')
+        })
+        .catch(() => {})
+    }
+    
+    // Create dummy audio to unlock
+    const dummy = new Audio('/sound/notification.mp3')
+    dummy.play()
+      .then(() => {
+        dummy.pause()
+        dummy.currentTime = 0
+        audioUnlocked = true
+        console.log('✅ Dummy audio unlocked!')
+      })
+      .catch((err) => {
+        console.log('⚠️ Dummy audio failed:', err.message)
+      })
+      
+  } catch (err) {
+    console.error('❌ Unlock error:', err)
+  }
+}
+
+// ============================================================
+// INITIALIZE SOUND SYSTEM
+// ============================================================
 export const initSound = () => {
   if (isReady) {
     console.log('✅ Sound already ready')
@@ -20,10 +80,11 @@ export const initSound = () => {
   console.log('🔊 Initializing sound...')
 
   try {
-    // Try Web Audio API first (more reliable for mobile)
+    // Try Web Audio API first
     if (window.AudioContext || window.webkitAudioContext) {
       try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)()
+        console.log('🎵 AudioContext created, state:', audioContext.state)
         
         // Load audio file
         fetch('/sound/notification.mp3')
@@ -36,16 +97,21 @@ export const initSound = () => {
             audioBuffer = buffer
             isReady = true
             console.log('✅ Sound loaded via Web Audio API')
+            
+            // Auto-resume if suspended
+            if (audioContext.state === 'suspended') {
+              audioContext.resume()
+                .then(() => {
+                  audioUnlocked = true
+                  console.log('✅ Auto-resumed! State:', audioContext.state)
+                })
+                .catch(err => console.error('❌ Auto-resume failed:', err))
+            }
           })
           .catch(err => {
-            console.warn('⚠️ Web Audio load failed, using HTML5 fallback:', err)
+            console.warn('⚠️ Web Audio load failed:', err)
             initHTML5Audio()
           })
-        
-        // Resume context if suspended
-        if (audioContext.state === 'suspended') {
-          audioContext.resume()
-        }
         
         return
       } catch (err) {
@@ -62,15 +128,15 @@ export const initSound = () => {
   }
 }
 
-/**
- * Initialize HTML5 Audio fallback
- */
+// ============================================================
+// INITIALIZE HTML5 AUDIO FALLBACK
+// ============================================================
 function initHTML5Audio() {
   try {
     if (!html5Audio) {
       html5Audio = new Audio('/sound/notification.mp3')
       html5Audio.load()
-      html5Audio.volume = 0.8
+      html5Audio.volume = 1.0
       html5Audio.loop = false
     }
     
@@ -89,31 +155,121 @@ function initHTML5Audio() {
   }
 }
 
-/**
- * Play notification sound
- * @param {boolean} force - Force play even if not ready
- * @returns {Promise<boolean>}
- */
+// ============================================================
+// PLAY SOUND USING WEB AUDIO API
+// ============================================================
+function playWebAudio() {
+  return new Promise((resolve) => {
+    try {
+      if (!audioContext || !audioBuffer) {
+        resolve(false)
+        return
+      }
+      
+      // CRITICAL: Resume if suspended
+      if (audioContext.state === 'suspended') {
+        console.log('🎵 Resuming suspended context...')
+        audioContext.resume()
+          .then(() => {
+            console.log('✅ Context resumed! Playing now...')
+            doPlayWebAudio().then(resolve)
+          })
+          .catch(err => {
+            console.error('❌ Resume failed:', err)
+            // Try HTML5 fallback
+            playHTML5Audio().then(resolve)
+          })
+        return
+      }
+      
+      if (audioContext.state === 'closed') {
+        console.log('❌ Context closed, reinitializing...')
+        initSound()
+        setTimeout(() => {
+          playSound(true).then(resolve)
+        }, 500)
+        return
+      }
+      
+      // Play directly if running
+      doPlayWebAudio().then(resolve)
+      
+    } catch (err) {
+      console.error('❌ Web Audio play error:', err)
+      resolve(false)
+    }
+  })
+}
+
+// ============================================================
+// ACTUALLY PLAY THE SOUND
+// ============================================================
+function doPlayWebAudio() {
+  return new Promise((resolve) => {
+    try {
+      if (!audioContext || !audioBuffer) {
+        resolve(false)
+        return
+      }
+      
+      if (isPlaying) {
+        console.log('⏳ Sound already playing')
+        resolve(true)
+        return
+      }
+      
+      const source = audioContext.createBufferSource()
+      source.buffer = audioBuffer
+      
+      const gainNode = audioContext.createGain()
+      gainNode.gain.value = 1.0
+      
+      source.connect(gainNode)
+      gainNode.connect(audioContext.destination)
+      
+      isPlaying = true
+      
+      source.onended = () => {
+        isPlaying = false
+        resolve(true)
+      }
+      
+      source.start(0)
+      console.log('✅ Sound played via Web Audio API! State:', audioContext.state)
+      
+      // Force unlock
+      audioUnlocked = true
+      
+    } catch (err) {
+      console.error('❌ Web Audio play error:', err)
+      isPlaying = false
+      resolve(false)
+    }
+  })
+}
+
+// ============================================================
+// PLAY SOUND - MAIN ENTRY
+// ============================================================
 export const playSound = (force = false) => {
-  console.log('🔔 playSound called, isReady:', isReady)
+  console.log('🔔 playSound called, isReady:', isReady, 'audioUnlocked:', audioUnlocked)
   
   return new Promise((resolve) => {
     try {
+      // Force unlock on every play
+      unlockAudio()
+      
       // If not ready, try to init
       if (!isReady) {
         initSound()
-        if (!force) {
-          console.log('⏳ Sound not ready, will try later')
-          // Try again after 500ms
-          setTimeout(() => {
-            if (isReady) {
-              playSound(true).then(resolve)
-            } else {
-              resolve(false)
-            }
-          }, 500)
-          return
-        }
+        setTimeout(() => {
+          if (isReady) {
+            playSound(true).then(resolve)
+          } else {
+            resolve(false)
+          }
+        }, 500)
+        return
       }
       
       // Try Web Audio first
@@ -128,7 +284,7 @@ export const playSound = (force = false) => {
         return
       }
       
-      // Emergency fallback - create new audio
+      // Emergency fallback
       playEmergencySound().then(resolve)
       
     } catch (err) {
@@ -138,58 +294,9 @@ export const playSound = (force = false) => {
   })
 }
 
-/**
- * Play sound using Web Audio API
- */
-function playWebAudio() {
-  return new Promise((resolve) => {
-    try {
-      if (!audioContext || !audioBuffer) {
-        resolve(false)
-        return
-      }
-      
-      // Resume if suspended
-      if (audioContext.state === 'suspended') {
-        audioContext.resume()
-      }
-      
-      if (isPlaying) {
-        console.log('⏳ Sound already playing')
-        resolve(true)
-        return
-      }
-      
-      const source = audioContext.createBufferSource()
-      source.buffer = audioBuffer
-      
-      const gainNode = audioContext.createGain()
-      gainNode.gain.value = 0.8
-      
-      source.connect(gainNode)
-      gainNode.connect(audioContext.destination)
-      
-      isPlaying = true
-      
-      source.onended = () => {
-        isPlaying = false
-        resolve(true)
-      }
-      
-      source.start(0)
-      console.log('✅ Sound played via Web Audio API!')
-      
-    } catch (err) {
-      console.error('❌ Web Audio play error:', err)
-      isPlaying = false
-      resolve(false)
-    }
-  })
-}
-
-/**
- * Play sound using HTML5 Audio
- */
+// ============================================================
+// PLAY SOUND USING HTML5 AUDIO
+// ============================================================
 function playHTML5Audio() {
   return new Promise((resolve) => {
     try {
@@ -199,6 +306,7 @@ function playHTML5Audio() {
       }
       
       html5Audio.currentTime = 0
+      html5Audio.volume = 1.0
       
       const promise = html5Audio.play()
       
@@ -210,7 +318,6 @@ function playHTML5Audio() {
           })
           .catch((err) => {
             console.log('❌ HTML5 play failed:', err)
-            // Try emergency
             playEmergencySound().then(resolve)
           })
       } else {
@@ -223,15 +330,15 @@ function playHTML5Audio() {
   })
 }
 
-/**
- * Emergency fallback - create new audio element
- */
+// ============================================================
+// EMERGENCY FALLBACK
+// ============================================================
 function playEmergencySound() {
   return new Promise((resolve) => {
     try {
       const audio = new Audio('/sound/notification.mp3')
       audio.currentTime = 0
-      audio.volume = 0.8
+      audio.volume = 1.0
       
       const promise = audio.play()
       
@@ -241,8 +348,8 @@ function playEmergencySound() {
             console.log('✅ Sound played via emergency fallback!')
             resolve(true)
           })
-          .catch(() => {
-            console.log('❌ Emergency fallback failed')
+          .catch((err) => {
+            console.log('❌ Emergency fallback failed:', err)
             resolve(false)
           })
       } else {
@@ -255,21 +362,23 @@ function playEmergencySound() {
   })
 }
 
-/**
- * Test sound - for debugging
- */
+// ============================================================
+// TEST SOUND
+// ============================================================
 export const testSound = () => {
   console.log('🧪 Testing sound...')
   initSound()
+  unlockAudio()
   return playSound(true)
 }
 
-/**
- * Get sound status - for debugging
- */
+// ============================================================
+// GET SOUND STATUS
+// ============================================================
 export const getSoundStatus = () => ({
   isReady,
   isPlaying,
+  audioUnlocked,
   hasWebAudio: !!audioContext && !!audioBuffer,
   hasHTML5Audio: !!html5Audio,
   audioContextState: audioContext?.state || 'none'

@@ -6,7 +6,7 @@ import Sidebar from './components/Sidebar'
 import { supabase } from './lib/supabase'
 import { ORDER_STATUS, splitOrderItems } from './lib/orderWorkflow'
 import { sendNotification } from './utils/notification'
-import { playSound, initSound } from './utils/sound'
+import { playSound, initSound, unlockAudio } from './utils/sound'
 
 function KitchenApp() {
   const { darkMode } = useTheme()
@@ -97,18 +97,20 @@ function KitchenApp() {
   // INIT SOUND ON USER INTERACTION
   // ============================================================
   useEffect(() => {
-    const initOnInteraction = () => {
-      initSound()
-      document.removeEventListener('click', initOnInteraction)
-      document.removeEventListener('touchstart', initOnInteraction)
+    initSound()
+    
+    const unlockOnInteraction = () => {
+      unlockAudio()
+      document.removeEventListener('click', unlockOnInteraction)
+      document.removeEventListener('touchstart', unlockOnInteraction)
     }
     
-    document.addEventListener('click', initOnInteraction)
-    document.addEventListener('touchstart', initOnInteraction)
+    document.addEventListener('click', unlockOnInteraction)
+    document.addEventListener('touchstart', unlockOnInteraction)
     
     return () => {
-      document.removeEventListener('click', initOnInteraction)
-      document.removeEventListener('touchstart', initOnInteraction)
+      document.removeEventListener('click', unlockOnInteraction)
+      document.removeEventListener('touchstart', unlockOnInteraction)
     }
   }, [])
 
@@ -132,6 +134,7 @@ function KitchenApp() {
   const testSound = () => {
     console.log('🧪 Kitchen test sound button clicked!')
     initSound()
+    unlockAudio()
     playSound(true)
     toast.success(`🔊 ${t('sound_test')}...`)
   }

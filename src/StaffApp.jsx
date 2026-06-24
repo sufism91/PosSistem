@@ -6,7 +6,7 @@ import { supabase } from './lib/supabase'
 import { ORDER_STATUS, PAYMENT_STATUS, normalizeOrderForInsert, normalizeConfirmedUpdate } from './lib/orderWorkflow'
 import { generateReceiptHTML } from './lib/receipt'
 import toast from 'react-hot-toast'
-import { playSound, initSound, testSound as testSoundUtil } from './utils/sound'
+import { playSound, initSound, unlockAudio } from './utils/sound'
 
 function StaffApp() {
   const { darkMode } = useTheme()
@@ -147,18 +147,22 @@ function StaffApp() {
   // INIT SOUND ON USER INTERACTION
   // ============================================================
   useEffect(() => {
-    const initOnInteraction = () => {
-      initSound()
-      document.removeEventListener('click', initOnInteraction)
-      document.removeEventListener('touchstart', initOnInteraction)
+    // Init sound
+    initSound()
+    
+    // Unlock audio on first user interaction
+    const unlockOnInteraction = () => {
+      unlockAudio()
+      document.removeEventListener('click', unlockOnInteraction)
+      document.removeEventListener('touchstart', unlockOnInteraction)
     }
     
-    document.addEventListener('click', initOnInteraction)
-    document.addEventListener('touchstart', initOnInteraction)
+    document.addEventListener('click', unlockOnInteraction)
+    document.addEventListener('touchstart', unlockOnInteraction)
     
     return () => {
-      document.removeEventListener('click', initOnInteraction)
-      document.removeEventListener('touchstart', initOnInteraction)
+      document.removeEventListener('click', unlockOnInteraction)
+      document.removeEventListener('touchstart', unlockOnInteraction)
     }
   }, [])
 
@@ -182,6 +186,7 @@ function StaffApp() {
   const testSound = () => {
     console.log('🧪 Test sound button clicked!')
     initSound()
+    unlockAudio()
     playSound(true)
     toast.success(`🔊 ${t('sound_test')}...`)
   }

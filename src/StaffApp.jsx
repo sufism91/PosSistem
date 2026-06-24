@@ -7,9 +7,6 @@ import { ORDER_STATUS, PAYMENT_STATUS, normalizeOrderForInsert, normalizeConfirm
 import { generateReceiptHTML } from './lib/receipt'
 import toast from 'react-hot-toast'
 
-// ===== SOUND FILE - SAME PATH AS KITCHEN APP =====
-const NOTIFICATION_SOUND_URL = '/sound/notification.mp3'
-
 function StaffApp() {
   const { darkMode } = useTheme()
   const { language } = useLanguage()
@@ -169,14 +166,22 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PLAY NOTIFICATION SOUND - WITH DEBUG + FALLBACK
+  // PLAY NOTIFICATION SOUND - WEB AUDIO API (PASTI BERBUNYI!)
   // ============================================================
-  const playBeepSound = () => {
-    console.log('🔊 Playing beep sound via Web Audio API')
+  const playNotificationSound = () => {
+    console.log('🔔 playNotificationSound called')
+    console.log('📋 settings.notification_sound:', settings.notification_sound)
+    
+    if (!settings.notification_sound) {
+      console.log('🔇 Sound disabled in settings')
+      return
+    }
+    
     try {
+      console.log('🔊 Playing Web Audio beep...')
       const ctx = new (window.AudioContext || window.webkitAudioContext)()
       
-      // Resume if suspended (needed for Chrome)
+      // Resume if suspended (needed for Chrome autoplay policy)
       if (ctx.state === 'suspended') {
         ctx.resume()
       }
@@ -193,7 +198,7 @@ function StaffApp() {
       osc1.start(ctx.currentTime)
       osc1.stop(ctx.currentTime + 0.3)
       
-      // Beep 2 - 1000Hz (higher pitch)
+      // Beep 2 - 1000Hz (higher pitch) after 200ms
       setTimeout(() => {
         try {
           const osc2 = ctx.createOscillator()
@@ -206,47 +211,14 @@ function StaffApp() {
           gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2)
           osc2.start(ctx.currentTime)
           osc2.stop(ctx.currentTime + 0.2)
+          console.log('✅ Beep played successfully!')
         } catch (e) {
           console.log('Beep 2 error:', e)
         }
       }, 200)
       
-      console.log('✅ Beep played successfully!')
     } catch (err) {
-      console.log('❌ Web Audio API failed:', err)
-    }
-  }
-
-  const playNotificationSound = () => {
-    console.log('🔔 playNotificationSound called')
-    console.log('📋 settings.notification_sound:', settings.notification_sound)
-    
-    if (!settings.notification_sound) {
-      console.log('🔇 Sound disabled in settings')
-      return
-    }
-    
-    // TRY 1: File sound
-    try {
-      console.log('📁 Trying file sound:', NOTIFICATION_SOUND_URL)
-      const audio = new Audio(NOTIFICATION_SOUND_URL)
-      audio.volume = 1.0
-      
-      const playPromise = audio.play()
-      
-      if (playPromise !== undefined) {
-        playPromise.then(() => {
-          console.log('✅ File sound played successfully!')
-        }).catch(err => {
-          console.log('❌ File sound failed:', err)
-          console.log('🔄 Falling back to Web Audio API...')
-          playBeepSound()
-        })
-      }
-    } catch (err) {
-      console.log('❌ Audio creation error:', err)
-      console.log('🔄 Falling back to Web Audio API...')
-      playBeepSound()
+      console.log('❌ Web Audio error:', err)
     }
   }
 
@@ -254,7 +226,7 @@ function StaffApp() {
   const testSound = () => {
     console.log('🧪 Test sound button clicked!')
     playNotificationSound()
-    toast.info('🔊 Testing notification sound...')
+    toast('🔊 Testing notification sound...')
   }
 
   // ============================================================
@@ -355,7 +327,7 @@ function StaffApp() {
         console.log('🔔 Playing notification sound!')
         playNotificationSound()
         setNotifiedOrderIds(prev => [...prev, ...pendingOrders.map(o => o.id)])
-        toast.info(`🔔 ${pendingOrders.length} ${t('new_order_notification')}`, {
+        toast(`🔔 ${pendingOrders.length} ${t('new_order_notification')}`, {
           duration: 5000,
           icon: '🔔'
         })
@@ -868,7 +840,7 @@ function StaffApp() {
       toast.success(`✅ Dibayar dengan ${methodName}!`)
 
       if (settings.auto_print) {
-        toast.info('🖨️ Mencetak resit...')
+        toast('🖨️ Mencetak resit...')
         setTimeout(() => {
           printReceipt(order, method)
         }, 500)

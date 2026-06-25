@@ -323,18 +323,24 @@ function TrackOrder() {
     if (status === 'ready' || status === 'completed') return t('almost_ready')
     if (status === 'cancelled') return t('cancelled_status')
     
-    // ===== CHECK KITCHEN ENABLED & AUTO COMPLETE =====
-    if (!kitchenEnabled && autoCompleteEnabled) {
-      return `~${autoCompleteMinutes} ${t('minutes')} (${t('auto_complete')})`
+    // Handle 'new' or 'pending'
+    if (status === 'new' || status === 'pending') {
+      if (!kitchenEnabled && autoCompleteEnabled) {
+        return `~${autoCompleteMinutes} ${t('minutes')} (${t('auto_complete')})`
+      }
     }
     
     // Kitchen enabled - estimated 15 minutes
-    const created = new Date(createdAt)
-    const now = new Date()
-    const elapsed = Math.floor((now - created) / 60000)
-    const estimated = 15 - elapsed
-    if (estimated <= 0) return t('almost_ready')
-    return `~${estimated} ${t('minutes')}`
+    try {
+      const created = new Date(createdAt)
+      const now = new Date()
+      const elapsed = Math.floor((now - created) / 60000)
+      const estimated = 15 - elapsed
+      if (estimated <= 0) return t('almost_ready')
+      return `~${estimated} ${t('minutes')}`
+    } catch (e) {
+      return t('almost_ready')
+    }
   }
 
   const getOrderTypeText = () => {
@@ -347,25 +353,33 @@ function TrackOrder() {
   // ===== FIX: Format time with Malaysia timezone =====
   const formatTime = (dateString) => {
     if (!dateString) return '-'
-    const date = new Date(dateString)
-    return date.toLocaleTimeString('ms-MY', { 
-      timeZone: 'Asia/Kuala_Lumpur',
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    })
+    try {
+      const date = new Date(dateString)
+      return date.toLocaleTimeString('ms-MY', { 
+        timeZone: 'Asia/Kuala_Lumpur',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      })
+    } catch (e) {
+      return '-'
+    }
   }
 
   // ===== FIX: Format date with Malaysia timezone =====
   const formatDate = (dateString) => {
     if (!dateString) return '-'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('ms-MY', { 
-      timeZone: 'Asia/Kuala_Lumpur',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    })
+    try {
+      const date = new Date(dateString)
+      return date.toLocaleDateString('ms-MY', { 
+        timeZone: 'Asia/Kuala_Lumpur',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      })
+    } catch (e) {
+      return '-'
+    }
   }
 
   // ============================================================

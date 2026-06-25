@@ -291,7 +291,7 @@ function TrackOrder() {
         }
       case 'pending':
         return { 
-          label: '⏳ Menunggu', 
+          label: ' Menunggu', 
           color: '#eab308', 
           icon: '⏳', 
           step: 1, 
@@ -299,7 +299,7 @@ function TrackOrder() {
         }
       case 'preparing':
         return { 
-          label: '🔪 Sedang Disiapkan', 
+          label: ' Sedang Disiapkan', 
           color: '#f97316', 
           icon: '🔪', 
           step: 2, 
@@ -307,7 +307,7 @@ function TrackOrder() {
         }
       case 'ready':
         return { 
-          label: '✅ Sedia', 
+          label: ' Sedia', 
           color: '#22c55e', 
           icon: '✅', 
           step: 3, 
@@ -315,7 +315,7 @@ function TrackOrder() {
         }
       case 'completed':
         return { 
-          label: '📦 Selesai', 
+          label: ' Selesai', 
           color: '#3b82f6', 
           icon: '📦', 
           step: 4, 
@@ -323,7 +323,7 @@ function TrackOrder() {
         }
       case 'cancelled':
         return { 
-          label: '❌ Dibatalkan', 
+          label: ' Dibatalkan', 
           color: '#ef4444', 
           icon: '❌', 
           step: 0, 
@@ -331,7 +331,7 @@ function TrackOrder() {
         }
       default:
         return { 
-          label: '❓ Tidak Diketahui', 
+          label: ' Tidak Diketahui', 
           color: '#6c757d', 
           icon: '❓', 
           step: 0, 

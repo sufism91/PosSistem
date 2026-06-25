@@ -260,48 +260,44 @@ function StaffApp() {
   // ============================================================
   // INTERVAL CHECKING FOR SOUND - FIXED: Check 'pending' AND 'new'
   // ============================================================
-  // ============================================================
-// INTERVAL CHECKING FOR SOUND
-// ============================================================
-useEffect(() => {
-  const checkOrders = async () => {
-    try {
-      const { data } = await supabase
-        .from('customer_orders')
-        .select('id, status')
-        .in('status', ['pending', 'new'])  // <-- TAMBAH 'new'
-      
-      const currentIds = data?.map(o => o.id) || []
-      const existingIds = notifiedOrderIds
-      const newIds = currentIds.filter(id => !existingIds.has(id))
-      
-      if (newIds.length > 0) {
-        console.log(`🔔 ${newIds.length} new order(s) detected! Playing sound...`)
-        playSound()
+  useEffect(() => {
+    const checkOrders = async () => {
+      try {
+        const { data } = await supabase
+          .from('customer_orders')
+          .select('id, status')
+          .in('status', ['pending', 'new'])  // <-- FIX: Tambah 'new'
         
-        setNotifiedOrderIds(prev => {
-          const newSet = new Set(prev)
-          currentIds.forEach(id => newSet.add(id))
-          return newSet
-        })
+        const currentIds = data?.map(o => o.id) || []
+        const existingIds = notifiedOrderIds
+        const newIds = currentIds.filter(id => !existingIds.has(id))
+        
+        if (newIds.length > 0) {
+          console.log(`🔔 Staff: ${newIds.length} new order(s)!`)
+          playSound()
+          
+          setNotifiedOrderIds(prev => {
+            const newSet = new Set(prev)
+            currentIds.forEach(id => newSet.add(id))
+            return newSet
+          })
+        }
+        
+        if (currentIds.length > 0) {
+          console.log(`🔔 Staff: ${currentIds.length} order(s) pending, reminder sound...`)
+          playSound()
+        }
+        
+      } catch (err) {
+        console.error('Staff interval error:', err)
       }
-      
-      // Repeat sound every 5 seconds if there are pending orders
-      if (currentIds.length > 0) {
-        console.log(`🔔 ${currentIds.length} order(s) pending, reminder sound...`)
-        playSound()
-      }
-      
-    } catch (err) {
-      console.error('Interval check error:', err)
     }
-  }
-  
-  checkOrders()
-  const interval = setInterval(checkOrders, 5000)
-  
-  return () => clearInterval(interval)
-}, [notifiedOrderIds])
+    
+    checkOrders()
+    const interval = setInterval(checkOrders, 5000)
+    
+    return () => clearInterval(interval)
+  }, [notifiedOrderIds])
 
   // ============================================================
   // LOAD FUNCTIONS
@@ -364,60 +360,83 @@ useEffect(() => {
   // LOAD CUSTOMER ORDERS - FIXED: Check 'pending' AND 'new'
   // ============================================================
   async function loadCustomerOrders() {
-  console.log('📊 loadCustomerOrders called')
-  try {
-    const { data } = await supabase
-      .from('customer_orders')
-      .select('*')
-      .in('status', ['pending', 'new'])  // <-- TAMBAH 'new'
-      .order('created_at', { ascending: false })
-    
-    console.log(`📊 Found ${data?.length || 0} pending/new orders`)
-    setCustomerOrders(data || [])
-    
-    // 🔔 CHECK FOR NEW ORDERS (yang belum notified)
-    if (data && data.length > 0) {
-      const newOrderIds = data.map(o => o.id)
-      const existingIds = notifiedOrderIds
-      const newIds = newOrderIds.filter(id => !existingIds.has(id))
+    console.log('📊 loadCustomerOrders called')
+    try {
+      const { data } = await supabase
+        .from('customer_orders')
+        .select('*')
+        .in('status', ['pending', 'new'])  // <-- FIX: Tambah 'new'
+        .order('created_at', { ascending: false })
       
-      if (newIds.length > 0) {
-        console.log(`🔔 ${newIds.length} new order(s) detected! Playing sound...`)
-        playSound()
+      console.log(`📊 Found ${data?.length || 0} pending/new orders`)
+      setCustomerOrders(data || [])
+      
+      // 🔔 CHECK FOR NEW ORDERS (yang belum notified)
+      if (data && data.length > 0) {
+        const newOrderIds = data.map(o => o.id)
+        const existingIds = notifiedOrderIds
         
-        setNotifiedOrderIds(prev => {
-          const newSet = new Set(prev)
-          newOrderIds.forEach(id => newSet.add(id))
-          return newSet
-        })
+        const newIds = newOrderIds.filter(id => !existingIds.has(id))
         
-        toast.success(`🔔 ${newIds.length} new order(s)!`)
+        if (newIds.length > 0) {
+          console.log(`🔔 ${newIds.length} new order(s) detected! Playing sound...`)
+          playSound()
+          
+          setNotifiedOrderIds(prev => {
+            const newSet = new Set(prev)
+            newOrderIds.forEach(id => newSet.add(id))
+            return newSet
+          })
+          
+          toast.success(`🔔 ${newIds.length} new order(s)!`)
+        }
       }
+      
+    } catch (err) {
+      console.error('Error loading customer orders:', err)
+      setCustomerOrders([])
     }
-    
-  } catch (err) {
-    console.error('Error loading customer orders:', err)
-    setCustomerOrders([])
   }
-}
 
   // ============================================================
   // LOAD UNPAID ORDERS - FIXED: Check 'new' TOO
   // ============================================================
   async function loadUnpaidOrders() {
-  try {
-    const { data } = await supabase
-      .from('customer_orders')
-      .select('*')
-      .eq('payment_status', 'unpaid')
-      .in('status', ['new', 'pending', 'ready', 'preparing'])  // <-- TAMBAH 'new'
-      .order('created_at', { ascending: false })
-    setUnpaidOrders(data || [])
-  } catch (err) {
-    console.error('Error loading unpaid orders:', err)
-    setUnpaidOrders([])
+    try {
+      const { data } = await supabase
+        .from('customer_orders')
+        .select('*')
+        .eq('payment_status', 'unpaid')
+        .in('status', ['new', 'pending', 'ready', 'preparing'])  // <-- FIX: Tambah 'new'
+        .order('created_at', { ascending: false })
+      setUnpaidOrders(data || [])
+    } catch (err) {
+      console.error('Error loading unpaid orders:', err)
+      setUnpaidOrders([])
+    }
   }
-}
+
+  // ============================================================
+  // LOAD ORDER HISTORY
+  // ============================================================
+  async function loadOrderHistory() {
+    try {
+      const { data, error } = await supabase
+        .from('customer_orders')
+        .select('*')
+        .eq('payment_status', 'paid')
+        .order('created_at', { ascending: false })
+        .limit(200)
+
+      if (error) throw error
+      setOrderHistory(data || [])
+      setHistoryPage(1)
+    } catch (err) {
+      console.error('Error loading order history:', err)
+      setOrderHistory([])
+    }
+  }
+
   // ============================================================
   // HELPERS
   // ============================================================

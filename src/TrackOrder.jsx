@@ -17,13 +17,13 @@ function TrackOrder() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   
-  // ===== SETTINGS - SYNC DARI DATABASE =====
+  // ===== SETTINGS =====
   const [kitchenEnabled, setKitchenEnabled] = useState(true)
   const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(false)
   const [autoCompleteMinutes, setAutoCompleteMinutes] = useState(5)
 
   // ============================================================
-  // COMPLETE TRANSLATIONS
+  // TRANSLATIONS
   // ============================================================
   const translations = {
     track_title: { en: '🔍 Track Your Order', ms: ' Jejak Pesanan Anda' },
@@ -175,6 +175,7 @@ function TrackOrder() {
     }
   }
 
+  // ===== FIX: loadOrder - Support multiple search methods =====
   async function loadOrder(searchValue, isAutoRefresh = false) {
     if (!searchValue) return
     
@@ -182,11 +183,12 @@ function TrackOrder() {
     if (!isAutoRefresh) setError('')
     
     try {
+      // ===== TRY BY ID (UUID) =====
+      const isUUID = searchValue.includes('-') && searchValue.length > 20
+      
       let query = supabase
         .from('customer_orders')
         .select('*')
-        
-      const isUUID = searchValue.includes('-') && searchValue.length > 20
       
       if (isUUID) {
         query = query.eq('id', searchValue)
@@ -197,6 +199,7 @@ function TrackOrder() {
       const { data, error } = await query.single()
 
       if (error || !data) {
+        // ===== FALLBACK: Try the other way =====
         let fallbackQuery = supabase
           .from('customer_orders')
           .select('*')
@@ -210,18 +213,32 @@ function TrackOrder() {
         const { data: fallbackData, error: fallbackError } = await fallbackQuery.single()
         
         if (fallbackError || !fallbackData) {
-          setError(`${t('order_not_found')}. ${t('check_order')}`)
-          setOrder(null)
-          if (!isAutoRefresh) {
-            toast.error(t('order_not_found'))
+          // ===== FINAL TRY: Search by LIKE (for partial matches) =====
+          const { data: likeData, error: likeError } = await supabase
+            .from('customer_orders')
+            .select('*')
+            .ilike('order_number', `%${searchValue}%`)
+            .limit(1)
+          
+          if (likeError || !likeData || likeData.length === 0) {
+            setError(`${t('order_not_found')}. ${t('check_order')}`)
+            setOrder(null)
+            if (!isAutoRefresh) {
+              toast.error(t('order_not_found'))
+            }
+            setLoading(false)
+            return
           }
-          setLoading(false)
-          return
-        }
-        
-        setOrder(fallbackData)
-        if (!isAutoRefresh) {
-          toast.success(t('order_found'))
+          
+          setOrder(likeData[0])
+          if (!isAutoRefresh) {
+            toast.success(t('order_found'))
+          }
+        } else {
+          setOrder(fallbackData)
+          if (!isAutoRefresh) {
+            toast.success(t('order_found'))
+          }
         }
       } else {
         setOrder(data)
@@ -260,7 +277,7 @@ function TrackOrder() {
   }
 
   // ============================================================
-  // HELPERS - FIXED STATUS (Tambah 'new')
+  // HELPERS
   // ============================================================
   const getStatusInfo = (status) => {
     switch(status) {
@@ -323,7 +340,6 @@ function TrackOrder() {
     }
   }
 
-  // ===== FIX: Estimated Time =====
   const getEstimatedTime = (createdAt, status) => {
     if (status === 'ready' || status === 'completed') {
       return '✅ Sedia / Selesai'
@@ -360,7 +376,6 @@ function TrackOrder() {
     return '🍽️ ' + t('dine_in')
   }
 
-  // ===== FIX: Format time with Malaysia timezone =====
   const formatTime = (dateString) => {
     if (!dateString) return '-'
     try {
@@ -376,7 +391,6 @@ function TrackOrder() {
     }
   }
 
-  // ===== FIX: Format date with Malaysia timezone =====
   const formatDate = (dateString) => {
     if (!dateString) return '-'
     try {

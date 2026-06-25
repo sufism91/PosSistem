@@ -650,7 +650,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ORDER FUNCTIONS
+  // ORDER FUNCTIONS - FIXED
   // ============================================================
   const handlePlaceOrder = () => {
     if (cart.length === 0) { toast.error(translate('empty_cart')); return }
@@ -695,8 +695,8 @@ function CustomerMenu() {
         tax: tax,
         total: total,
         notes: notes,
-        status: ORDER_STATUS.NEW,
-        order_status: ORDER_STATUS.NEW,
+        status: 'new',
+        order_status: 'new',
         payment_status: PAYMENT_STATUS.UNPAID
       })]).select()
 
@@ -708,7 +708,8 @@ function CustomerMenu() {
         setCart([])
         setShowCart(false)
         
-        const orderId = data?.[0]?.id || orderNumber
+        // ===== FIX: Use ORDER_NUMBER not ID =====
+        const orderId = data?.[0]?.order_number || orderNumber
         toast.success(`✓ ${translate('order_number')} ${orderNumber} ${translate('order_sent')}`)
         
         // Redirect to Track Order after 2 seconds
@@ -801,7 +802,7 @@ function CustomerMenu() {
   const cartItemCount = getCartItemCount()
 
   // ============================================================
-  // RENDER - FLOATING CART
+  // RENDER
   // ============================================================
   return (
     <div style={{ minHeight: '100vh', background: bgColor }}>
@@ -1444,7 +1445,7 @@ function CustomerMenu() {
       </div>
 
       {/* ========================================================== */}
-      {/* FLOATING CART BUTTON - BETTER DESIGN */}
+      {/* FLOATING CART BUTTON */}
       {/* ========================================================== */}
       {cartItemCount > 0 && (
         <button 
@@ -1502,10 +1503,8 @@ function CustomerMenu() {
       )}
 
       {/* ========================================================== */}
-      {/* MODALS - Same as before */}
+      {/* SIZE OPTIONS MODAL */}
       {/* ========================================================== */}
-
-      {/* ===== SIZE OPTIONS MODAL ===== */}
       {showSizeModal && selectedSizeItem && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -1591,7 +1590,9 @@ function CustomerMenu() {
         </div>
       )}
 
-      {/* ===== DRINK OPTIONS MODAL ===== */}
+      {/* ========================================================== */}
+      {/* DRINK OPTIONS MODAL */}
+      {/* ========================================================== */}
       {showDrinkModal && selectedDrink && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
@@ -1750,7 +1751,9 @@ function CustomerMenu() {
         </div>
       )}
 
-      {/* ===== CART DRAWER ===== */}
+      {/* ========================================================== */}
+      {/* CART DRAWER */}
+      {/* ========================================================== */}
       {showCart && (
         <div style={{ 
           position: 'fixed',
@@ -2048,7 +2051,9 @@ function CustomerMenu() {
         </div>
       )}
 
-      {/* ===== CONFIRMATION MODAL ===== */}
+      {/* ========================================================== */}
+      {/* CONFIRMATION MODAL */}
+      {/* ========================================================== */}
       {showConfirmModal && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,

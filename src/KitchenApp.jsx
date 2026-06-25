@@ -202,14 +202,14 @@ function KitchenApp() {
     
     const subscription = supabase
       .channel('kitchen_orders')
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'customer_orders' },
-        (payload) => {
-          // ===== FIX: Accept 'new' and 'pending' =====
-          if (payload.new.status === 'new' || payload.new.status === 'pending' || 
-              payload.new.status === ORDER_STATUS.CONFIRMED ||
-              payload.new.order_status === 'new' || payload.new.order_status === 'pending' || 
-              payload.new.order_status === ORDER_STATUS.CONFIRMED) {
+     .on('postgres_changes', 
+  { event: 'INSERT', schema: 'public', table: 'customer_orders' },
+  (payload) => {
+    // ===== FIX: Accept 'new' and 'pending' =====
+    if (payload.new.status === 'new' || payload.new.status === 'pending' || 
+        payload.new.status === ORDER_STATUS.CONFIRMED ||
+        payload.new.order_status === 'new' || payload.new.order_status === 'pending' || 
+        payload.new.order_status === ORDER_STATUS.CONFIRMED) {
             
             const hasDrinkItems = payload.new.items?.some(item => 
               item.category === 'Minuman' || 
@@ -319,14 +319,14 @@ function KitchenApp() {
   // ============================================================
   // INTERVAL CHECKING FOR REPEAT SOUND
   // ============================================================
-  useEffect(() => {
-    const checkOrders = async () => {
-      try {
-        const { data } = await supabase
-          .from('customer_orders')
-          .select('id, status')
-          .in('status', ['new', 'pending', 'confirmed'])
-          .eq('payment_status', 'unpaid')
+ useEffect(() => {
+  const checkOrders = async () => {
+    try {
+      const { data } = await supabase
+        .from('customer_orders')
+        .select('id, status')
+        .in('status', ['new', 'pending', 'confirmed'])  
+        .eq('payment_status', 'unpaid')
         
         const currentIds = data?.map(o => o.id) || []
         const existingIds = notifiedOrderIds
@@ -375,15 +375,15 @@ function KitchenApp() {
   // LOAD ORDERS - FIXED: Accept 'new' and 'pending'
   // ============================================================
   async function loadOrders() {
-    try {
-      const { data: pending } = await supabase
-        .from('customer_orders')
-        .select('*')
-        .eq('payment_status', 'unpaid')
-        .in('order_status', ['new', 'pending', ORDER_STATUS.CONFIRMED])
-        .in('status', ['new', 'pending', ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'confirmed', 'preparing', 'ready'])
-        .order('created_at', { ascending: false })
-      
+  try {
+    const { data: pending } = await supabase
+      .from('customer_orders')
+      .select('*')
+      .eq('payment_status', 'unpaid')
+      .in('order_status', ['new', 'pending', ORDER_STATUS.CONFIRMED])  // <-- TAMBAH 'new'
+      .in('status', ['new', 'pending', ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'confirmed', 'preparing', 'ready'])  // <-- TAMBAH 'new'
+      .order('created_at', { ascending: false })
+
       const { data: completed } = await supabase
         .from('customer_orders')
         .select('*')

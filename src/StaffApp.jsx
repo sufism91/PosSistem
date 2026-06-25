@@ -15,18 +15,18 @@ function StaffApp() {
   // ============================================================
   const t = (key) => {
     const translations = {
-      pos: { en: '🧾 POS', ms: '🧾 Jualan' },
-      new_order: { en: '🆕 New Orders', ms: '🆕 Pesanan Baru' },
-      unpaid: { en: '💰 Unpaid', ms: '💰 Belum Bayar' },
-      history: { en: '📜 History', ms: '📜 Sejarah' },
-      dine_in: { en: '🍽️ Dine In', ms: '🍽️ Makan di Sini' },
-      take_away: { en: '🥡 Take Away', ms: '🥡 Bungkus' },
+      pos: { en: '🧾 POS', ms: ' Jualan' },
+      new_order: { en: '🆕 New Orders', ms: ' Pesanan Baru' },
+      unpaid: { en: '💰 Unpaid', ms: 'Belum Bayar' },
+      history: { en: '📜 History', ms: 'Sejarah' },
+      dine_in: { en: '🍽️ Dine In', ms: ' Makan di Sini' },
+      take_away: { en: '🥡 Take Away', ms: 'Bungkus' },
       table: { en: 'Table', ms: 'Meja' },
       customer_name: { en: 'Customer Name', ms: 'Nama Pelanggan' },
       customer_phone: { en: 'Phone', ms: 'Telefon' },
       table_number: { en: 'Table No.', ms: 'No. Meja' },
       add: { en: 'Add', ms: 'Tambah' },
-      cart: { en: '🛒 Cart', ms: '🛒 Keranjang' },
+      cart: { en: '🛒 Cart', ms: ' Keranjang' },
       empty_cart: { en: 'Cart is empty', ms: 'Keranjang kosong' },
       subtotal: { en: 'Subtotal', ms: 'Subtotal' },
       service_charge: { en: 'Service Charge', ms: 'Caj Perkhidmatan' },
@@ -66,32 +66,32 @@ function StaffApp() {
       last: { en: 'Last', ms: 'Terakhir' },
       items: { en: 'items', ms: 'item' },
       select_drink: { en: 'Select drink temperature', ms: 'Pilih suhu minuman' },
-      clear_cart: { en: '🗑️ Clear Cart', ms: ' Kosongkan Keranjang' },
-      checkout: { en: '💳 Checkout', ms: ' Bayar' },
-      print_receipt: { en: '🖨️ Print Receipt', ms: ' Cetak Resit' },
+      clear_cart: { en: '🗑️ Clear Cart', ms: 'Kosongkan Keranjang' },
+      checkout: { en: '💳 Checkout', ms: 'Bayar' },
+      print_receipt: { en: '🖨️ Print Receipt', ms: 'Cetak Resit' },
       back: { en: 'Back', ms: 'Kembali' },
       view_order: { en: 'View Order', ms: 'Lihat Pesanan' },
-      mark_paid: { en: '💰 Mark as Paid', ms: ' Tanda Bayar' },
+      mark_paid: { en: '💰 Mark as Paid', ms: 'Tanda Bayar' },
       close: { en: 'Close', ms: 'Tutup' },
-      all_categories: { en: '📋 All', ms: ' Semua' },
-      order_added: { en: '✅ Order added!', ms: ' Pesanan ditambah!' },
-      order_cancelled: { en: '❌ Order cancelled', ms: ' Pesanan dibatalkan' },
-      payment_success: { en: '✅ Payment successful!', ms: ' Pembayaran berjaya!' },
+      all_categories: { en: '📋 All', ms: 'Semua' },
+      order_added: { en: '✅ Order added!', ms: 'Pesanan ditambah!' },
+      order_cancelled: { en: '❌ Order cancelled', ms: 'Pesanan dibatalkan' },
+      payment_success: { en: '✅ Payment successful!', ms: 'Pembayaran berjaya!' },
       please_select_item: { en: '⚠️ Please select an item', ms: 'Sila pilih item' },
-      please_select_option: { en: '⚠️ Please select an option', ms: ' Sila pilih pilihan' },
-      cart_empty_msg: { en: '⚠️ Cart is empty', ms: ' Keranjang kosong' },
+      please_select_option: { en: '⚠️ Please select an option', ms: 'Sila pilih pilihan' },
+      cart_empty_msg: { en: '⚠️ Cart is empty', ms: 'Keranjang kosong' },
       confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
-      no_unpaid_orders_msg: { en: '📭 No unpaid orders', ms: ' Tiada pesanan belum bayar' },
-      new_order_started: { en: '📝 New order started!', ms: ' Pesanan baru dimulakan!' },
-      order_paid: { en: '✅ Order paid!', ms: ' Pesanan dibayar!' },
-      error_checkout: { en: '❌ Checkout error', ms: ' Ralat bayaran' },
-      search_menu: { en: '🔍 Search menu...', ms: ' Cari menu...' },
-      order_details: { en: '📋 Order Details', ms: ' Butiran Pesanan' },
-      unpaid_orders_title: { en: '💰 Unpaid Orders', ms: ' Pesanan Belum Bayar' },
+      no_unpaid_orders_msg: { en: '📭 No unpaid orders', ms: 'Tiada pesanan belum bayar' },
+      new_order_started: { en: '📝 New order started!', ms: 'Pesanan baru dimulakan!' },
+      order_paid: { en: '✅ Order paid!', ms: 'Pesanan dibayar!' },
+      error_checkout: { en: '❌ Checkout error', ms: 'Ralat bayaran' },
+      search_menu: { en: '🔍 Search menu...', ms: 'Cari menu...' },
+      order_details: { en: '📋 Order Details', ms: 'Butiran Pesanan' },
+      unpaid_orders_title: { en: '💰 Unpaid Orders', ms: 'Pesanan Belum Bayar' },
       select_drink_option: { en: 'Select Drink Option', ms: 'Pilih Pilihan Minuman' },
       select_size_option: { en: 'Select Size', ms: 'Pilih Saiz' },
-      history_title: { en: '📜 Order History', ms: ' Sejarah Pesanan' },
-      receipt_title: { en: '🧾 RECEIPT', ms: ' RESIT' },
+      history_title: { en: '📜 Order History', ms: 'Sejarah Pesanan' },
+      receipt_title: { en: '🧾 RECEIPT', ms: 'RESIT' },
       receipt_thankyou: { en: 'Thank you for dining with us!', ms: 'Terima kasih kerana makan di sini!' },
       receipt_order: { en: 'Order', ms: 'Pesanan' },
       receipt_table: { en: 'Table', ms: 'Meja' },
@@ -110,10 +110,11 @@ function StaffApp() {
       download_receipt: { en: 'Download Receipt', ms: 'Muat Turun Resit' },
       confirm_order: { en: 'Confirm Order', ms: 'Sahkan Pesanan' },
       no_new_orders: { en: '📭 No new orders to confirm', ms: 'Tiada pesanan baru untuk disahkan' },
-      no_history_orders: { en: '📭 No order history', ms: ' Tiada sejarah pesanan' },
+      no_history_orders: { en: '📭 No order history', ms: 'Tiada sejarah pesanan' },
       pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
       pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
-      sound_test: { en: '🔊 Test Sound', ms: ' Uji Bunyi' },
+      sound_test: { en: '🔊 Test Sound', ms: 'Uji Bunyi' },
+      order_confirmed_staff: { en: 'Order confirmed! Waiting for kitchen.', ms: 'Pesanan disahkan! Menunggu dapur.' },
     }
     if (!translations[key]) return key
     return language === 'en' ? translations[key].en : translations[key].ms
@@ -258,7 +259,7 @@ function StaffApp() {
   }, [])
 
   // ============================================================
-  // INTERVAL CHECKING FOR SOUND - FIXED: Check 'pending' AND 'new'
+  // INTERVAL CHECKING FOR SOUND
   // ============================================================
   useEffect(() => {
     const checkOrders = async () => {
@@ -266,7 +267,7 @@ function StaffApp() {
         const { data } = await supabase
           .from('customer_orders')
           .select('id, status')
-          .in('status', ['pending', 'new'])  // <-- FIX: Tambah 'new'
+          .in('status', ['pending', 'new'])
         
         const currentIds = data?.map(o => o.id) || []
         const existingIds = notifiedOrderIds
@@ -356,26 +357,21 @@ function StaffApp() {
     }
   }
 
-  // ============================================================
-  // LOAD CUSTOMER ORDERS - FIXED: Check 'pending' AND 'new'
-  // ============================================================
   async function loadCustomerOrders() {
     console.log('📊 loadCustomerOrders called')
     try {
       const { data } = await supabase
         .from('customer_orders')
         .select('*')
-        .in('status', ['pending', 'new'])  // <-- FIX: Tambah 'new'
+        .in('status', ['pending', 'new'])
         .order('created_at', { ascending: false })
       
       console.log(`📊 Found ${data?.length || 0} pending/new orders`)
       setCustomerOrders(data || [])
       
-      // 🔔 CHECK FOR NEW ORDERS (yang belum notified)
       if (data && data.length > 0) {
         const newOrderIds = data.map(o => o.id)
         const existingIds = notifiedOrderIds
-        
         const newIds = newOrderIds.filter(id => !existingIds.has(id))
         
         if (newIds.length > 0) {
@@ -398,16 +394,13 @@ function StaffApp() {
     }
   }
 
-  // ============================================================
-  // LOAD UNPAID ORDERS - FIXED: Check 'new' TOO
-  // ============================================================
   async function loadUnpaidOrders() {
     try {
       const { data } = await supabase
         .from('customer_orders')
         .select('*')
         .eq('payment_status', 'unpaid')
-        .in('status', ['new', 'pending', 'ready', 'preparing'])  // <-- FIX: Tambah 'new'
+        .in('status', ['new', 'pending', 'confirmed', 'ready', 'preparing'])
         .order('created_at', { ascending: false })
       setUnpaidOrders(data || [])
     } catch (err) {
@@ -416,21 +409,15 @@ function StaffApp() {
     }
   }
 
-  // ============================================================
-  // LOAD ORDER HISTORY
-  // ============================================================
   async function loadOrderHistory() {
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('customer_orders')
         .select('*')
         .eq('payment_status', 'paid')
         .order('created_at', { ascending: false })
         .limit(200)
-
-      if (error) throw error
       setOrderHistory(data || [])
-      setHistoryPage(1)
     } catch (err) {
       console.error('Error loading order history:', err)
       setOrderHistory([])
@@ -625,29 +612,32 @@ function StaffApp() {
   }
 
   // ============================================================
-  // UPDATE ORDER STATUS
+  // UPDATE ORDER STATUS - FIXED: Accept -> 'confirmed'
   // ============================================================
   const updateOrderStatus = async (orderId, status) => {
     if (status === 'accepted') {
       // 🔔 PLAY SOUND BILA ORDER DITERIMA
       playSound()
       
-      // Remove from notified set (supaya tak notify lagi)
+      // Remove from notified set
       setNotifiedOrderIds(prev => {
         const newSet = new Set(prev)
         newSet.delete(orderId)
         return newSet
       })
       
-      if (kitchenEnabled) {
-        await supabase.from('customer_orders').update({ status: 'preparing' }).eq('id', orderId)
-        setCustomerOrders(prev => prev.filter(order => order.id !== orderId))
-        toast.success('✅ ' + t('start_cooking'))
-      } else {
-        await supabase.from('customer_orders').update({ status: 'ready' }).eq('id', orderId)
-        setCustomerOrders(prev => prev.filter(order => order.id !== orderId))
-        toast.success('✅ Pesanan sedia!')
-      }
+      // ===== FIX: Tukar status ke 'confirmed', BUKAN 'preparing' =====
+      await supabase.from('customer_orders').update({ 
+        status: 'confirmed', 
+        order_status: 'confirmed',
+        confirmed_at: new Date().toISOString()
+      }).eq('id', orderId)
+      
+      setCustomerOrders(prev => prev.filter(order => order.id !== orderId))
+      
+      // ===== PENTING: Tunjuk mesej yang betul =====
+      toast.success('✅ Pesanan diterima! Menunggu dapur mula masak.')
+      
       loadUnpaidOrders()
       loadCustomerOrders()
     } else if (status === 'cancelled') {
@@ -839,7 +829,6 @@ function StaffApp() {
     
     return (
       <>
-        {/* Floating button */}
         <div 
           onClick={() => setShowMobileCart(true)}
           style={{ 
@@ -870,7 +859,6 @@ function StaffApp() {
           </span>
         </div>
         
-        {/* Bottom Sheet */}
         {showMobileCart && (
           <div style={{ 
             position: 'fixed', 
@@ -887,7 +875,6 @@ function StaffApp() {
             padding: '20px',
             animation: 'slideUp 0.3s ease'
           }}>
-            {/* Handle bar */}
             <div 
               onClick={() => setShowMobileCart(false)}
               style={{ 
@@ -1324,7 +1311,7 @@ function StaffApp() {
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                 {customerOrders.map(order => (
-                  <div key={order.id} style={{ ...glassEffect, borderRadius: '28px', padding: '24px', borderLeft: `4px solid #ef4444` }}>
+                  <div key={order.id} style={{ ...glassEffect, borderRadius: '28px', padding: '24px', borderLeft: '4px solid #ef4444' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <span style={{ fontSize: '28px' }}>{order.order_type === 'take_away' ? '🥡' : '🍽️'}</span>
@@ -1354,7 +1341,7 @@ function StaffApp() {
                         <button 
                           onClick={() => updateOrderStatus(order.id, 'accepted')} 
                           style={{ 
-                            background: kitchenEnabled ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'linear-gradient(135deg, #06b6d4, #0891b2)', 
+                            background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
                             color: 'white', 
                             padding: '10px 24px', 
                             border: 'none', 
@@ -1363,7 +1350,7 @@ function StaffApp() {
                             fontWeight: 'bold' 
                           }}
                         >
-                          {kitchenEnabled ? `✅ ${t('accept')} & ${t('start_cooking')}` : `✅ ${t('accept')} (${t('ready')})`}
+                          ✅ {t('accept')}
                         </button>
                         <button 
                           onClick={() => updateOrderStatus(order.id, 'cancelled')} 
@@ -1401,7 +1388,7 @@ function StaffApp() {
                   const tax = order.tax || (subtotal * (taxPercent / 100))
                   const grandTotal = order.grand_total || (subtotal + sc + tax)
                   return (
-                    <div key={order.id} style={{ ...glassEffect, borderRadius: '28px', padding: '24px', borderLeft: `4px solid #eab308` }}>
+                    <div key={order.id} style={{ ...glassEffect, borderRadius: '28px', padding: '24px', borderLeft: '4px solid #eab308' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <span style={{ fontSize: '24px' }}>{order.order_type === 'take_away' ? '🥡' : '🍽️'}</span>

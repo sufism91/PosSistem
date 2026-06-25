@@ -17,7 +17,6 @@ function TrackOrder() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   
-  // ===== SETTINGS =====
   const [kitchenEnabled, setKitchenEnabled] = useState(true)
   const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(false)
   const [autoCompleteMinutes, setAutoCompleteMinutes] = useState(5)
@@ -26,11 +25,11 @@ function TrackOrder() {
   // TRANSLATIONS
   // ============================================================
   const translations = {
-    track_title: { en: '🔍 Track Your Order', ms: ' Jejak Pesanan Anda' },
+    track_title: { en: '🔍 Track Your Order', ms: '🔍 Jejak Pesanan Anda' },
     track_subtitle: { en: 'Enter your order number to check status', ms: 'Masukkan nombor pesanan untuk semak status' },
     enter_order: { en: 'Enter order ID or number', ms: 'Masukkan ID atau nombor pesanan' },
     searching: { en: 'Searching...', ms: 'Mencari...' },
-    track: { en: '🔍 Track', ms: ' Jejak' },
+    track: { en: '🔍 Track', ms: '🔍 Jejak' },
     order_not_found: { en: 'Order not found', ms: 'Pesanan tidak dijumpai' },
     check_order: { en: 'Please check your order ID or number', ms: 'Sila semak ID atau nombor pesanan anda' },
     order_found: { en: 'Order found!', ms: 'Pesanan dijumpai!' },
@@ -42,7 +41,7 @@ function TrackOrder() {
     total: { en: 'Total', ms: 'Jumlah' },
     estimated_time: { en: 'Estimated Ready Time', ms: 'Anggaran Masa Siap' },
     almost_ready: { en: 'Almost ready!', ms: 'Hampir siap!' },
-    refresh_status: { en: '🔄 Refresh Status', ms: ' Muat Semula Status' },
+    refresh_status: { en: '🔄 Refresh Status', ms: '🔄 Muat Semula Status' },
     auto_refresh: { en: 'Auto-refresh status', ms: 'Muat semula automatik' },
     order: { en: 'Order', ms: 'Pesanan' },
     at: { en: 'at', ms: 'pada' },
@@ -53,8 +52,8 @@ function TrackOrder() {
     note: { en: 'Note', ms: 'Nota' },
     minutes: { en: 'minutes', ms: 'minit' },
     cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
-    order_again: { en: '🍽️ Order Again →', ms: ' Pesan Lagi ' },
-    back_to_menu: { en: '📋 Back to Menu', ms: ' Kembali ke Menu' },
+    order_again: { en: '🍽️ Order Again →', ms: '🍽️ Pesan Lagi →' },
+    back_to_menu: { en: '📋 Back to Menu', ms: '📋 Kembali ke Menu' },
     pending: { en: 'Pending', ms: 'Menunggu' },
     preparing: { en: 'Preparing', ms: 'Sedang Disiapkan' },
     ready: { en: 'Ready', ms: 'Sedia' },
@@ -175,7 +174,6 @@ function TrackOrder() {
     }
   }
 
-  // ===== FIX: loadOrder - Support multiple search methods =====
   async function loadOrder(searchValue, isAutoRefresh = false) {
     if (!searchValue) return
     
@@ -183,7 +181,6 @@ function TrackOrder() {
     if (!isAutoRefresh) setError('')
     
     try {
-      // ===== TRY BY ID (UUID) =====
       const isUUID = searchValue.includes('-') && searchValue.length > 20
       
       let query = supabase
@@ -199,7 +196,6 @@ function TrackOrder() {
       const { data, error } = await query.single()
 
       if (error || !data) {
-        // ===== FALLBACK: Try the other way =====
         let fallbackQuery = supabase
           .from('customer_orders')
           .select('*')
@@ -213,7 +209,6 @@ function TrackOrder() {
         const { data: fallbackData, error: fallbackError } = await fallbackQuery.single()
         
         if (fallbackError || !fallbackData) {
-          // ===== FINAL TRY: Search by LIKE (for partial matches) =====
           const { data: likeData, error: likeError } = await supabase
             .from('customer_orders')
             .select('*')
@@ -267,13 +262,13 @@ function TrackOrder() {
   }
 
   // ============================================================
-  // GO TO MENU
+  // GO TO MENU - Fixed path
   // ============================================================
   const goToMenu = () => {
     const urlParams = new URLSearchParams(window.location.search)
     const tableFromUrl = urlParams.get('table')
     const tableNumber = order?.table_number || tableFromUrl || '1'
-    window.location.href = `/customer-menu?table=${tableNumber}`
+    window.location.href = `/menu?table=${tableNumber}`
   }
 
   // ============================================================
@@ -291,7 +286,7 @@ function TrackOrder() {
         }
       case 'pending':
         return { 
-          label: ' Menunggu', 
+          label: '⏳ Menunggu', 
           color: '#eab308', 
           icon: '⏳', 
           step: 1, 
@@ -299,7 +294,7 @@ function TrackOrder() {
         }
       case 'preparing':
         return { 
-          label: ' Sedang Disiapkan', 
+          label: '🔪 Sedang Disiapkan', 
           color: '#f97316', 
           icon: '🔪', 
           step: 2, 
@@ -307,7 +302,7 @@ function TrackOrder() {
         }
       case 'ready':
         return { 
-          label: ' Sedia', 
+          label: '✅ Sedia', 
           color: '#22c55e', 
           icon: '✅', 
           step: 3, 
@@ -315,7 +310,7 @@ function TrackOrder() {
         }
       case 'completed':
         return { 
-          label: ' Selesai', 
+          label: '📦 Selesai', 
           color: '#3b82f6', 
           icon: '📦', 
           step: 4, 
@@ -323,7 +318,7 @@ function TrackOrder() {
         }
       case 'cancelled':
         return { 
-          label: ' Dibatalkan', 
+          label: '❌ Dibatalkan', 
           color: '#ef4444', 
           icon: '❌', 
           step: 0, 
@@ -331,7 +326,7 @@ function TrackOrder() {
         }
       default:
         return { 
-          label: ' Tidak Diketahui', 
+          label: '❓ Tidak Diketahui', 
           color: '#6c757d', 
           icon: '❓', 
           step: 0, 
@@ -407,7 +402,7 @@ function TrackOrder() {
   }
 
   // ============================================================
-  // STEP BAR COMPONENT
+  // STEP BAR COMPONENT - RINGKAS & TIDAK MENGHALANG
   // ============================================================
   const StepBar = ({ currentStep }) => {
     const steps = [
@@ -418,61 +413,70 @@ function TrackOrder() {
     ]
 
     return (
-      <div style={{ marginBottom: '24px' }}>
+      <div style={{ marginBottom: '12px', padding: '0 4px' }}>
         <div style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
-          marginBottom: '8px', 
-          position: 'relative' 
+          alignItems: 'flex-start',
+          position: 'relative'
         }}>
-          {steps.map((step) => (
-            <div key={step.step} style={{ 
-              textAlign: 'center', 
-              flex: 1, 
-              position: 'relative', 
-              zIndex: 2 
-            }}>
-              <div style={{
-                width: isMobile ? '40px' : '48px',
-                height: isMobile ? '40px' : '48px',
-                margin: '0 auto 6px auto',
-                background: currentStep >= step.step ? '#22c55e' : '#e2e8f0',
-                borderRadius: '50%',
+          {steps.map((step, index) => {
+            const isActive = currentStep >= step.step
+            const isLast = index === steps.length - 1
+            
+            return (
+              <div key={step.step} style={{ 
                 display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: isMobile ? '18px' : '24px',
-                transition: 'all 0.3s',
-                boxShadow: currentStep >= step.step 
-                  ? '0 4px 12px rgba(34,197,94,0.3)' 
-                  : 'none'
+                flex: 1,
+                position: 'relative'
               }}>
-                {step.icon}
+                {!isLast && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '12px',
+                    left: '50%',
+                    right: '-50%',
+                    height: '2px',
+                    background: currentStep > step.step ? '#22c55e' : '#e2e8f0',
+                    zIndex: 0
+                  }} />
+                )}
+                
+                <div style={{
+                  width: isMobile ? '24px' : '28px',
+                  height: isMobile ? '24px' : '28px',
+                  borderRadius: '50%',
+                  background: isActive ? '#22c55e' : '#e2e8f0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: isMobile ? '10px' : '12px',
+                  transition: 'all 0.3s',
+                  boxShadow: isActive 
+                    ? '0 2px 8px rgba(34,197,94,0.2)' 
+                    : 'none',
+                  position: 'relative',
+                  zIndex: 1
+                }}>
+                  {step.icon}
+                </div>
+                
+                <div style={{ 
+                  fontSize: isMobile ? '7px' : '9px', 
+                  color: isActive ? '#22c55e' : textMuted, 
+                  fontWeight: isActive ? '600' : '400',
+                  marginTop: '3px',
+                  textAlign: 'center',
+                  whiteSpace: 'nowrap',
+                  letterSpacing: '0.2px'
+                }}>
+                  {step.label}
+                </div>
               </div>
-              <div style={{ 
-                fontSize: isMobile ? '9px' : '11px', 
-                color: currentStep >= step.step ? '#22c55e' : textMuted, 
-                fontWeight: currentStep >= step.step ? 'bold' : 'normal' 
-              }}>
-                {step.label}
-              </div>
-            </div>
-          ))}
-        </div>
-        <div style={{ 
-          position: 'relative', 
-          height: '4px', 
-          background: '#e2e8f0', 
-          borderRadius: '2px', 
-          marginTop: '-24px' 
-        }}>
-          <div style={{
-            width: `${((currentStep - 1) / 3) * 100}%`,
-            height: '4px',
-            background: '#22c55e',
-            borderRadius: '2px',
-            transition: 'width 0.3s ease'
-          }} />
+            )
+          })}
         </div>
       </div>
     )
@@ -704,32 +708,32 @@ function TrackOrder() {
           }}>
             
             {/* Status Header */}
-            <div style={{ textAlign: 'center', marginBottom: '20px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '16px' }}>
               <div style={{
                 display: 'inline-block',
                 background: getStatusInfo(order.status).color,
                 color: 'white',
-                padding: isMobile ? '6px 16px' : '8px 20px',
+                padding: isMobile ? '4px 14px' : '6px 18px',
                 borderRadius: '40px',
-                fontSize: isMobile ? '12px' : '14px',
+                fontSize: isMobile ? '11px' : '13px',
                 fontWeight: 'bold',
-                marginBottom: '10px',
-                boxShadow: `0 4px 12px ${getStatusInfo(order.status).color}40`
+                marginBottom: '8px',
+                boxShadow: `0 2px 8px ${getStatusInfo(order.status).color}40`
               }}>
                 {getStatusInfo(order.status).icon} {getStatusInfo(order.status).label}
               </div>
               <h3 style={{ 
                 margin: 0, 
                 color: textColor, 
-                fontSize: isMobile ? '16px' : '18px', 
+                fontSize: isMobile ? '14px' : '16px', 
                 fontWeight: 'bold' 
               }}>
                 {t('order')} #{order.order_number || order.id}
               </h3>
               <p style={{ 
                 color: textMuted, 
-                fontSize: isMobile ? '10px' : '12px', 
-                marginTop: '4px' 
+                fontSize: isMobile ? '9px' : '11px', 
+                marginTop: '2px' 
               }}>
                 {formatDate(order.created_at)} {t('at')} {formatTime(order.created_at)}
               </p>
@@ -739,14 +743,14 @@ function TrackOrder() {
             {order.status === 'pending' && !kitchenEnabled && autoCompleteEnabled && (
               <div style={{ 
                 background: darkMode ? 'rgba(59,130,246,0.15)' : '#e0f2fe', 
-                borderRadius: '12px', 
-                padding: '10px 14px', 
-                marginBottom: '16px', 
+                borderRadius: '10px', 
+                padding: '8px 12px', 
+                marginBottom: '12px', 
                 textAlign: 'center',
                 border: `1px solid ${darkMode ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.2)'}`
               }}>
                 <span style={{ 
-                  fontSize: isMobile ? '11px' : '12px', 
+                  fontSize: isMobile ? '10px' : '11px', 
                   color: darkMode ? '#60a5fa' : '#0369a1' 
                 }}>
                   ⏱️ {t('auto_complete_info')} {autoCompleteMinutes} {t('minutes')}
@@ -754,7 +758,7 @@ function TrackOrder() {
               </div>
             )}
 
-            {/* Step Bar */}
+            {/* Step Bar - RINGKAS */}
             {order.status !== 'cancelled' && (
               <StepBar currentStep={getStatusInfo(order.status).step} />
             )}
@@ -763,22 +767,22 @@ function TrackOrder() {
             {order.status !== 'cancelled' && (
               <div style={{ 
                 background: secondaryBg, 
-                borderRadius: '14px', 
-                padding: isMobile ? '12px' : '16px', 
+                borderRadius: '12px', 
+                padding: isMobile ? '8px 12px' : '10px 14px', 
                 textAlign: 'center', 
-                marginBottom: '16px' 
+                marginBottom: '12px' 
               }}>
                 <span style={{ 
-                  fontSize: isMobile ? '12px' : '14px', 
+                  fontSize: isMobile ? '10px' : '11px', 
                   color: textMuted 
                 }}>
                   🕐 {t('estimated_time')}
                 </span>
                 <div style={{ 
-                  fontSize: isMobile ? '16px' : '20px', 
+                  fontSize: isMobile ? '13px' : '15px', 
                   fontWeight: 'bold', 
                   color: '#22c55e', 
-                  marginTop: '4px' 
+                  marginTop: '2px' 
                 }}>
                   {getEstimatedTime(order.created_at, order.status)}
                 </div>
@@ -786,13 +790,13 @@ function TrackOrder() {
             )}
 
             {/* Order Info */}
-            <div style={{ marginBottom: '14px' }}>
+            <div style={{ marginBottom: '10px' }}>
               <div style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
-                padding: '8px 0', 
+                padding: '6px 0', 
                 borderBottom: `1px solid ${borderColor}`, 
-                fontSize: isMobile ? '13px' : '14px' 
+                fontSize: isMobile ? '12px' : '13px' 
               }}>
                 <span style={{ color: textMuted }}>{t('order_type')}:</span>
                 <span style={{ color: textColor, fontWeight: 'bold' }}>{getOrderTypeText()}</span>
@@ -800,9 +804,9 @@ function TrackOrder() {
               <div style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
-                padding: '8px 0', 
+                padding: '6px 0', 
                 borderBottom: `1px solid ${borderColor}`, 
-                fontSize: isMobile ? '13px' : '14px' 
+                fontSize: isMobile ? '12px' : '13px' 
               }}>
                 <span style={{ color: textMuted }}>{t('customer')}:</span>
                 <span style={{ color: textColor, fontWeight: 'bold' }}>{order.customer_name || t('guest')}</span>
@@ -810,27 +814,27 @@ function TrackOrder() {
             </div>
 
             {/* Order Items */}
-            <div style={{ marginBottom: '16px' }}>
+            <div style={{ marginBottom: '12px' }}>
               <h4 style={{ 
                 color: textColor, 
-                fontSize: isMobile ? '13px' : '14px', 
+                fontSize: isMobile ? '12px' : '13px', 
                 fontWeight: 'bold', 
-                marginBottom: '10px' 
+                marginBottom: '8px' 
               }}>
                 🛒 {t('order_items')}
               </h4>
               <div style={{ 
                 background: secondaryBg, 
-                borderRadius: '14px', 
-                padding: '10px' 
+                borderRadius: '12px', 
+                padding: '8px' 
               }}>
                 {order.items?.map((item, idx) => (
                   <div key={idx} style={{ 
                     display: 'flex', 
                     justifyContent: 'space-between', 
-                    padding: '6px 0', 
+                    padding: '4px 0', 
                     borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none', 
-                    fontSize: isMobile ? '12px' : '13px' 
+                    fontSize: isMobile ? '11px' : '12px' 
                   }}>
                     <span style={{ color: textColor }}>{item.name} x{item.quantity}</span>
                     <span style={{ color: '#22c55e', fontWeight: 'bold' }}>
@@ -844,15 +848,15 @@ function TrackOrder() {
             {/* Total */}
             <div style={{ 
               background: secondaryBg, 
-              borderRadius: '14px', 
-              padding: isMobile ? '12px' : '16px', 
-              marginBottom: '16px' 
+              borderRadius: '12px', 
+              padding: isMobile ? '8px 12px' : '10px 14px', 
+              marginBottom: '12px' 
             }}>
               <div style={{ 
                 display: 'flex', 
                 justifyContent: 'space-between', 
                 fontWeight: 'bold', 
-                fontSize: isMobile ? '14px' : '16px' 
+                fontSize: isMobile ? '13px' : '14px' 
               }}>
                 <span style={{ color: textColor }}>{t('total')}:</span>
                 <span style={{ color: '#22c55e' }}>
@@ -865,13 +869,13 @@ function TrackOrder() {
             {order.notes && (
               <div style={{ 
                 background: darkMode ? 'rgba(245,158,11,0.15)' : '#fef3c7', 
-                borderRadius: '12px', 
-                padding: '10px 14px', 
-                marginBottom: '16px',
+                borderRadius: '10px', 
+                padding: '8px 12px', 
+                marginBottom: '12px',
                 border: `1px solid ${darkMode ? 'rgba(245,158,11,0.2)' : 'rgba(245,158,11,0.2)'}`
               }}>
                 <span style={{ 
-                  fontSize: isMobile ? '10px' : '11px', 
+                  fontSize: isMobile ? '9px' : '10px', 
                   color: darkMode ? '#fbbf24' : '#92400e' 
                 }}>
                   📝 {t('note')}: {order.notes}
@@ -880,9 +884,9 @@ function TrackOrder() {
             )}
 
             {/* Status Description */}
-            <div style={{ textAlign: 'center', marginTop: '12px' }}>
+            <div style={{ textAlign: 'center', marginTop: '8px' }}>
               <p style={{ 
-                fontSize: isMobile ? '11px' : '12px', 
+                fontSize: isMobile ? '10px' : '11px', 
                 color: textMuted 
               }}>
                 {getStatusInfo(order.status).description}
@@ -892,9 +896,9 @@ function TrackOrder() {
             {/* Action Buttons */}
             <div style={{ 
               textAlign: 'center', 
-              marginTop: '16px', 
+              marginTop: '12px', 
               display: 'flex', 
-              gap: '10px', 
+              gap: '8px', 
               justifyContent: 'center', 
               flexDirection: isMobile ? 'column' : 'row' 
             }}>
@@ -904,12 +908,12 @@ function TrackOrder() {
                 style={{
                   background: 'linear-gradient(135deg, #06b6d4, #0891b2)',
                   color: 'white',
-                  padding: isMobile ? '10px 20px' : '10px 24px',
+                  padding: isMobile ? '8px 16px' : '10px 20px',
                   border: 'none',
                   borderRadius: '40px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
-                  fontSize: isMobile ? '12px' : '13px',
+                  fontSize: isMobile ? '11px' : '12px',
                   flex: 1,
                   transition: 'all 0.2s',
                   opacity: loading ? 0.6 : 1
@@ -933,12 +937,12 @@ function TrackOrder() {
                 style={{
                   background: 'linear-gradient(135deg, #f59e0b, #ea580c)',
                   color: 'white',
-                  padding: isMobile ? '10px 20px' : '10px 24px',
+                  padding: isMobile ? '8px 16px' : '10px 20px',
                   border: 'none',
                   borderRadius: '40px',
                   cursor: 'pointer',
                   fontWeight: 'bold',
-                  fontSize: isMobile ? '12px' : '13px',
+                  fontSize: isMobile ? '11px' : '12px',
                   flex: 1,
                   transition: 'all 0.2s',
                   boxShadow: '0 4px 16px rgba(245,158,11,0.3)'

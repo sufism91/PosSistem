@@ -25,7 +25,7 @@ function ManageTables() {
   // ============================================================
   const translations = {
     // Header
-    manage_tables: { en: '🪑 Manage Tables', ms: '🪑 Urus Meja' },
+    manage_tables: { en: '🪑 Manage Tables', ms: ' Urus Meja' },
     manage_tables_desc: { en: 'Manage restaurant tables and QR codes', ms: 'Urus meja restoran dan kod QR' },
     
     // Labels
@@ -43,12 +43,12 @@ function ManageTables() {
     status_inactive: { en: 'Inactive', ms: 'Tidak Aktif' },
     
     // Buttons
-    add_table: { en: '➕ Add Table', ms: '➕ Tambah Meja' },
-    edit_capacity: { en: '✏️ Capacity', ms: '✏️ Kapasiti' },
-    edit_capacity_for: { en: '✏️ Edit Capacity For', ms: '✏️ Edit Kapasiti Untuk' },
-    delete: { en: '🗑️ Delete', ms: '🗑️ Hapus' },
-    save: { en: '💾 Save', ms: '💾 Simpan' },
-    cancel: { en: '❌ Cancel', ms: '❌ Batal' },
+    add_table: { en: '➕ Add Table', ms: ' Tambah Meja' },
+    edit_capacity: { en: '✏️ Capacity', ms: 'Kapasiti' },
+    edit_capacity_for: { en: '✏️ Edit Capacity For', ms: 'Edit Kapasiti Untuk' },
+    delete: { en: '🗑️ Delete', ms: ' Hapus' },
+    save: { en: '💾 Save', ms: ' Simpan' },
+    cancel: { en: '❌ Cancel', ms: ' Batal' },
     confirm_delete: { en: 'Confirm Delete', ms: 'Sahkan Hapus' },
     
     // Messages

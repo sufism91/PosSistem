@@ -85,7 +85,7 @@ function KitchenApp() {
   const [readyOrders, setReadyOrders] = useState([])
   const [completedOrders, setCompletedOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  const [soundEnabled, setSoundEnabled] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true) // <-- SET TRUE
   const [restaurantName, setRestaurantName] = useState('Restoran Kita')
   const [activeTab, setActiveTab] = useState('food')
   const [kitchenEnabled, setKitchenEnabled] = useState(true)
@@ -100,9 +100,11 @@ function KitchenApp() {
   // INIT SOUND ON USER INTERACTION
   // ============================================================
   useEffect(() => {
+    console.log('🔊 Kitchen: Initializing sound...')
     initSound()
     
     const unlockOnInteraction = () => {
+      console.log('🔓 Kitchen: Unlocking audio on user interaction...')
       unlockAudio()
       document.removeEventListener('click', unlockOnInteraction)
       document.removeEventListener('touchstart', unlockOnInteraction)
@@ -123,10 +125,11 @@ function KitchenApp() {
   const playKitchenSound = () => {
     console.log('🔔 Kitchen: playKitchenSound called, soundEnabled:', soundEnabled)
     
-    if (!soundEnabled) {
-      console.log('🔇 Kitchen sound disabled')
-      return
-    }
+    // FORCE PLAY - jangan check soundEnabled dulu
+    // if (!soundEnabled) {
+    //   console.log('🔇 Kitchen sound disabled')
+    //   return
+    // }
     
     playSound()
   }
@@ -135,11 +138,14 @@ function KitchenApp() {
   // TEST SOUND
   // ============================================================
   const testSound = () => {
-    console.log('🧪 Kitchen test sound button clicked!')
+    console.log('🧪🧪🧪 Kitchen test sound button clicked!')
+    console.log('🔊 soundEnabled:', soundEnabled)
     initSound()
     unlockAudio()
-    playSound()
-    toast.success(`🔊 ${t('sound_test')}...`)
+    setTimeout(() => {
+      playSound()
+      toast.success(`🔊 ${t('sound_test')}...`)
+    }, 200)
   }
 
   // ============================================================
@@ -319,7 +325,6 @@ function KitchenApp() {
   useEffect(() => {
     const checkOrders = async () => {
       try {
-        // Check for pending orders
         const { data } = await supabase
           .from('customer_orders')
           .select('id, status')
@@ -330,9 +335,8 @@ function KitchenApp() {
         const existingIds = notifiedOrderIds
         const newIds = currentIds.filter(id => !existingIds.has(id))
         
-        // Play sound for new orders
         if (newIds.length > 0) {
-          console.log(`🔔 Kitchen: ${newIds.length} new order(s)!`)
+          console.log(`🔔 Kitchen interval: ${newIds.length} new order(s)!`)
           playKitchenSound()
           
           setNotifiedOrderIds(prev => {
@@ -342,9 +346,8 @@ function KitchenApp() {
           })
         }
         
-        // 🔔 REPEAT SOUND EVERY 5 SECONDS IF THERE ARE PENDING ORDERS
         if (currentIds.length > 0) {
-          console.log(`🔔 Kitchen: ${currentIds.length} order(s) pending, reminder sound...`)
+          console.log(`🔔 Kitchen interval: ${currentIds.length} order(s) pending, reminder sound...`)
           playKitchenSound()
         }
         
@@ -353,10 +356,7 @@ function KitchenApp() {
       }
     }
     
-    // Check immediately
     checkOrders()
-    
-    // Check every 5 seconds
     const interval = setInterval(checkOrders, 5000)
     
     return () => clearInterval(interval)
@@ -477,7 +477,6 @@ function KitchenApp() {
   // ============================================================
   async function updateOrderStatus(orderId, status) {
     try {
-      // Remove from notified set when order is no longer pending
       setNotifiedOrderIds(prev => {
         const newSet = new Set(prev)
         newSet.delete(orderId)
@@ -521,7 +520,6 @@ function KitchenApp() {
     
     if (window.confirm(t('confirm_complete_all'))) {
       for (const order of ordersToComplete) {
-        // Remove from notified set
         setNotifiedOrderIds(prev => {
           const newSet = new Set(prev)
           newSet.delete(order.id)
@@ -974,7 +972,6 @@ function KitchenApp() {
               </div>
             </div>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-              {/* TEST SOUND BUTTON */}
               <button 
                 onClick={testSound}
                 style={{ 
@@ -997,8 +994,10 @@ function KitchenApp() {
               
               <button 
                 onClick={() => { 
-                  setSoundEnabled(!soundEnabled)
-                  toast.success(soundEnabled ? '🔇 Sound OFF' : '🔊 Sound ON')
+                  const newState = !soundEnabled
+                  setSoundEnabled(newState)
+                  console.log('🔊 Sound toggled to:', newState)
+                  toast.success(newState ? '🔊 Sound ON' : '🔇 Sound OFF')
                 }} 
                 style={{ 
                   background: soundEnabled 

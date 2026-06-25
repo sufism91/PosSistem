@@ -1,4 +1,4 @@
-// utils/sound.js
+// utils/sound.js - FIXED VERSION
 
 let audio = null
 let isReady = false
@@ -29,6 +29,11 @@ export const playSound = () => {
   if (!audio) {
     console.log('⚠️ No audio, initializing...')
     initSound()
+    setTimeout(() => {
+      if (audio) {
+        playSound()
+      }
+    }, 300)
     return
   }
   try {
@@ -37,7 +42,20 @@ export const playSound = () => {
     if (promise !== undefined) {
       promise
         .then(() => console.log('✅ Sound played!'))
-        .catch((err) => console.error('❌ Play failed:', err))
+        .catch((err) => {
+          console.error('❌ Play failed:', err)
+          if (err.name === 'NotAllowedError') {
+            const retry = () => {
+              if (audio) {
+                audio.play().catch(() => {})
+              }
+              document.removeEventListener('click', retry)
+              document.removeEventListener('touchstart', retry)
+            }
+            document.addEventListener('click', retry)
+            document.addEventListener('touchstart', retry)
+          }
+        })
     }
   } catch (err) {
     console.error('Play error:', err)
@@ -51,12 +69,17 @@ export const unlockAudio = () => {
     return
   }
   try {
-    audio.play()
-      .then(() => {
-        audio.pause()
-        audio.currentTime = 0
-        console.log('✅ Audio unlocked!')
-      })
-      .catch(() => {})
+    const promise = audio.play()
+    if (promise !== undefined) {
+      promise
+        .then(() => {
+          audio.pause()
+          audio.currentTime = 0
+          console.log('✅ Audio unlocked!')
+        })
+        .catch(() => {
+          console.log('⚠️ Audio unlock failed, will retry on play')
+        })
+    }
   } catch (err) {}
 }

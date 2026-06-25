@@ -19,7 +19,7 @@ function StaffApp() {
       new_order: { en: '🆕 New Orders', ms: ' Pesanan Baru' },
       unpaid: { en: '💰 Unpaid', ms: ' Belum Bayar' },
       history: { en: '📜 History', ms: ' Sejarah' },
-      dine_in: { en: '🍽️ Dine In', ms: 'Makan di Sini' },
+      dine_in: { en: '🍽️ Dine In', ms: ' Makan di Sini' },
       take_away: { en: '🥡 Take Away', ms: ' Bungkus' },
       table: { en: 'Table', ms: 'Meja' },
       customer_name: { en: 'Customer Name', ms: 'Nama Pelanggan' },
@@ -81,7 +81,7 @@ function StaffApp() {
       please_select_option: { en: '⚠️ Please select an option', ms: ' Sila pilih pilihan' },
       cart_empty_msg: { en: '⚠️ Cart is empty', ms: ' Keranjang kosong' },
       confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
-      no_unpaid_orders_msg: { en: '📭 No unpaid orders', ms: ' Tiada pesanan belum bayar' },
+      no_unpaid_orders_msg: { en: '📭 No unpaid orders', ms: '📭 Tiada pesanan belum bayar' },
       new_order_started: { en: '📝 New order started!', ms: ' Pesanan baru dimulakan!' },
       order_paid: { en: '✅ Order paid!', ms: '✅ Pesanan dibayar!' },
       error_checkout: { en: '❌ Checkout error', ms: ' Ralat bayaran' },
@@ -110,7 +110,7 @@ function StaffApp() {
       download_receipt: { en: 'Download Receipt', ms: 'Muat Turun Resit' },
       confirm_order: { en: 'Confirm Order', ms: 'Sahkan Pesanan' },
       no_new_orders: { en: '📭 No new orders to confirm', ms: ' Tiada pesanan baru untuk disahkan' },
-      no_history_orders: { en: '📭 No order history', ms: 'Tiada sejarah pesanan' },
+      no_history_orders: { en: '📭 No order history', ms: ' Tiada sejarah pesanan' },
       pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
       pos_subtitle: { en: 'Take orders and manage payments', ms: 'Ambil pesanan dan urus pembayaran' },
       sound_test: { en: '🔊 Test Sound', ms: ' Uji Bunyi' },
@@ -172,11 +172,11 @@ function StaffApp() {
   // INIT SOUND
   // ============================================================
   useEffect(() => {
-    console.log('🔊 Initializing sound...')
+    console.log('🔊 Staff: Initializing sound...')
     initSound()
     
     const unlock = () => {
-      console.log('🔓 Unlocking audio on user interaction...')
+      console.log('🔓 Staff: Unlocking audio on user interaction...')
       unlockAudio()
       document.removeEventListener('click', unlock)
       document.removeEventListener('touchstart', unlock)
@@ -225,14 +225,13 @@ function StaffApp() {
   // LOAD DATA
   // ============================================================
   useEffect(() => {
-    console.log('📊 Loading initial data...')
+    console.log('📊 Staff: Loading initial data...')
     loadAllData()
     loadCustomerOrders()
     loadUnpaidOrders()
     loadOrderHistory()
     loadSettings()
 
-    // ===== SUPABASE SUBSCRIPTIONS =====
     const menuSub = supabase.channel('menu_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'menu' }, () => loadMenu())
       .subscribe()
@@ -243,7 +242,7 @@ function StaffApp() {
     
     const orderSub = supabase.channel('order_changes')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'customer_orders' }, () => {
-        console.log('🔄 Realtime: Order changed!')
+        console.log('🔄 Staff Realtime: Order changed!')
         loadCustomerOrders()
         loadUnpaidOrders()
         loadOrderHistory()
@@ -272,7 +271,6 @@ function StaffApp() {
         const existingIds = notifiedOrderIds
         const newIds = currentIds.filter(id => !existingIds.has(id))
         
-        // Play sound for new orders
         if (newIds.length > 0) {
           console.log(`🔔 Staff: ${newIds.length} new order(s)!`)
           playSound()
@@ -284,7 +282,6 @@ function StaffApp() {
           })
         }
         
-        // 🔔 REPEAT SOUND EVERY 5 SECONDS IF THERE ARE PENDING ORDERS
         if (currentIds.length > 0) {
           console.log(`🔔 Staff: ${currentIds.length} order(s) pending, reminder sound...`)
           playSound()
@@ -295,10 +292,7 @@ function StaffApp() {
       }
     }
     
-    // Check immediately
     checkOrders()
-    
-    // Check every 5 seconds
     const interval = setInterval(checkOrders, 5000)
     
     return () => clearInterval(interval)
@@ -362,7 +356,7 @@ function StaffApp() {
   }
 
   async function loadCustomerOrders() {
-    console.log('📊 loadCustomerOrders called')
+    console.log('📊 Staff: loadCustomerOrders called')
     try {
       const { data } = await supabase
         .from('customer_orders')
@@ -370,7 +364,7 @@ function StaffApp() {
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
       
-      console.log(`📊 Found ${data?.length || 0} pending orders`)
+      console.log(`📊 Staff: Found ${data?.length || 0} pending orders`)
       setCustomerOrders(data || [])
       
     } catch (err) {
@@ -601,10 +595,8 @@ function StaffApp() {
   // ============================================================
   const updateOrderStatus = async (orderId, status) => {
     if (status === 'accepted') {
-      // 🔔 PLAY SOUND BILA ORDER DITERIMA
       playSound()
       
-      // Remove from notified set
       setNotifiedOrderIds(prev => {
         const newSet = new Set(prev)
         newSet.delete(orderId)
@@ -748,7 +740,7 @@ function StaffApp() {
   // TEST SOUND
   // ============================================================
   const testSound = () => {
-    console.log('🧪 Test sound button clicked!')
+    console.log('🧪 Staff: Test sound button clicked!')
     initSound()
     unlockAudio()
     setTimeout(() => {
@@ -811,7 +803,6 @@ function StaffApp() {
     
     return (
       <>
-        {/* Floating button */}
         <div 
           onClick={() => setShowMobileCart(true)}
           style={{ 
@@ -842,7 +833,6 @@ function StaffApp() {
           </span>
         </div>
         
-        {/* Bottom Sheet */}
         {showMobileCart && (
           <div style={{ 
             position: 'fixed', 
@@ -859,7 +849,6 @@ function StaffApp() {
             padding: '20px',
             animation: 'slideUp 0.3s ease'
           }}>
-            {/* Handle bar */}
             <div 
               onClick={() => setShowMobileCart(false)}
               style={{ 
@@ -1099,7 +1088,6 @@ function StaffApp() {
               🧾 {t('pos')} {orderType === 'take_away' ? `(${t('take_away')})` : `(${t('dine_in')})`}
             </h1>
             
-            {/* Categories */}
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '24px' }}>
               {categoriesList.map(cat => (
                 <button 
@@ -1121,9 +1109,7 @@ function StaffApp() {
               ))}
             </div>
             
-            {/* Menu + Cart */}
             <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row' }}>
-              {/* Menu Grid */}
               <div style={{ flex: isMobile ? 1 : 2 }}>
                 <div style={{ display: 'grid', gridTemplateColumns: isMobile ? 'repeat(auto-fill, minmax(150px, 1fr))' : 'repeat(auto-fill, minmax(170px, 1fr))', gap: '20px' }}>
                   {filteredMenu.map(item => {
@@ -1197,7 +1183,6 @@ function StaffApp() {
                 </div>
               </div>
               
-              {/* Desktop Cart - Hidden on Mobile */}
               {!isMobile && (
                 <div style={{ 
                   flex: 1, 
@@ -1283,77 +1268,74 @@ function StaffApp() {
         {/* ============================================================ */}
         {/* ORDERS TAB */}
         {/* ============================================================ */}
-        {/* ============================================================ */}
-{/* ORDERS TAB */}
-{/* ============================================================ */}
-{activeTab === 'orders' && (
-  <div>
-    <h2 style={{ color: textColor, marginBottom: '24px', fontSize: '20px', fontWeight: 'bold', borderLeft: '4px solid #ef4444', paddingLeft: '14px' }}>
-      🆕 {t('new_order')}
-    </h2>
-    {customerOrders.length === 0 ? (
-      <div style={{ textAlign: 'center', padding: '80px 20px', ...glassEffect, borderRadius: '28px' }}>
-        <span style={{ fontSize: '64px', opacity: 0.5 }}>📭</span>
-        <p style={{ color: textMuted, marginTop: '16px' }}>{t('no_new_orders')}</p>
-      </div>
-    ) : (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {customerOrders.map(order => (
-          <div key={order.id} style={{ ...glassEffect, borderRadius: '28px', padding: '24px', borderLeft: '4px solid #ef4444' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <span style={{ fontSize: '28px' }}>{order.order_type === 'take_away' ? '🥡' : '🍽️'}</span>
-                <h3 style={{ margin: 0, fontSize: '16px', color: textColor, fontWeight: 'bold' }}>
-                  {order.order_type === 'take_away' ? t('take_away') : `${t('table')} ${order.table_number}`}
-                </h3>
-                <span style={{ background: '#ef4444', color: 'white', padding: '4px 12px', borderRadius: '40px', fontSize: '10px', fontWeight: 'bold' }}>
-                  {t('pending')}
-                </span>
+        {activeTab === 'orders' && (
+          <div>
+            <h2 style={{ color: textColor, marginBottom: '24px', fontSize: '20px', fontWeight: 'bold', borderLeft: '4px solid #ef4444', paddingLeft: '14px' }}>
+              🆕 {t('new_order')}
+            </h2>
+            {customerOrders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '80px 20px', ...glassEffect, borderRadius: '28px' }}>
+                <span style={{ fontSize: '64px', opacity: 0.5 }}>📭</span>
+                <p style={{ color: textMuted, marginTop: '16px' }}>{t('no_new_orders')}</p>
               </div>
-              <div style={{ fontSize: '12px', color: textMuted }}>🕐 {formatMalaysiaTime(order.created_at)}</div>
-            </div>
-            <div style={{ marginBottom: '16px' }}>
-              <span style={{ fontWeight: 'bold', color: textColor }}>{t('customer_name')}:</span>
-              <span style={{ color: textColor, marginLeft: '8px' }}>{order.customer_name || 'Walk-in'}</span>
-              {order.customer_phone && <span style={{ marginLeft: '12px', fontSize: '12px', color: textMuted }}>📞 {order.customer_phone}</span>}
-            </div>
-            <div style={{ background: secondaryBg, borderRadius: '20px', padding: '16px', margin: '16px 0' }}>
-              {renderOrderItems(order.items)}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${borderColor}`, flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <span style={{ fontSize: '14px', color: textMuted }}>{t('total')}:</span>
-                <span style={{ fontSize: '22px', fontWeight: 'bold', color: priceColor, marginLeft: '8px' }}>RM {order.total}</span>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                {customerOrders.map(order => (
+                  <div key={order.id} style={{ ...glassEffect, borderRadius: '28px', padding: '24px', borderLeft: '4px solid #ef4444' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ fontSize: '28px' }}>{order.order_type === 'take_away' ? '🥡' : '🍽️'}</span>
+                        <h3 style={{ margin: 0, fontSize: '16px', color: textColor, fontWeight: 'bold' }}>
+                          {order.order_type === 'take_away' ? t('take_away') : `${t('table')} ${order.table_number}`}
+                        </h3>
+                        <span style={{ background: '#ef4444', color: 'white', padding: '4px 12px', borderRadius: '40px', fontSize: '10px', fontWeight: 'bold' }}>
+                          {t('pending')}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: textMuted }}>🕐 {formatMalaysiaTime(order.created_at)}</div>
+                    </div>
+                    <div style={{ marginBottom: '16px' }}>
+                      <span style={{ fontWeight: 'bold', color: textColor }}>{t('customer_name')}:</span>
+                      <span style={{ color: textColor, marginLeft: '8px' }}>{order.customer_name || 'Walk-in'}</span>
+                      {order.customer_phone && <span style={{ marginLeft: '12px', fontSize: '12px', color: textMuted }}>📞 {order.customer_phone}</span>}
+                    </div>
+                    <div style={{ background: secondaryBg, borderRadius: '20px', padding: '16px', margin: '16px 0' }}>
+                      {renderOrderItems(order.items)}
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px', paddingTop: '16px', borderTop: `1px solid ${borderColor}`, flexWrap: 'wrap', gap: '12px' }}>
+                      <div>
+                        <span style={{ fontSize: '14px', color: textMuted }}>{t('total')}:</span>
+                        <span style={{ fontSize: '22px', fontWeight: 'bold', color: priceColor, marginLeft: '8px' }}>RM {order.total}</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px' }}>
+                        <button 
+                          onClick={() => updateOrderStatus(order.id, 'accepted')} 
+                          style={{ 
+                            background: kitchenEnabled ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'linear-gradient(135deg, #06b6d4, #0891b2)', 
+                            color: 'white', 
+                            padding: '10px 24px', 
+                            border: 'none', 
+                            borderRadius: '40px', 
+                            cursor: 'pointer', 
+                            fontWeight: 'bold' 
+                          }}
+                        >
+                          {kitchenEnabled ? `✅ ${t('accept')} & ${t('start_cooking')}` : `✅ ${t('accept')} (${t('ready')})`}
+                        </button>
+                        <button 
+                          onClick={() => updateOrderStatus(order.id, 'cancelled')} 
+                          style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', padding: '10px 24px', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                          ❌ {t('cancel')}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <button 
-                  onClick={() => updateOrderStatus(order.id, 'accepted')} 
-                  style={{ 
-                    background: kitchenEnabled ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'linear-gradient(135deg, #06b6d4, #0891b2)', 
-                    color: 'white', 
-                    padding: '10px 24px', 
-                    border: 'none', 
-                    borderRadius: '40px', 
-                    cursor: 'pointer', 
-                    fontWeight: 'bold' 
-                  }}
-                >
-                  {kitchenEnabled ? `✅ ${t('accept')} & ${t('start_cooking')}` : `✅ ${t('accept')} (${t('ready')})`}
-                </button>
-                <button 
-                  onClick={() => updateOrderStatus(order.id, 'cancelled')} 
-                  style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', padding: '10px 24px', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  ❌ {t('cancel')}
-                </button>
-              </div>
-            </div>
+            )}
           </div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
+        )}
 
         {/* ============================================================ */}
         {/* UNPAID TAB */}
@@ -1376,7 +1358,7 @@ function StaffApp() {
                   const tax = order.tax || (subtotal * (taxPercent / 100))
                   const grandTotal = order.grand_total || (subtotal + sc + tax)
                   return (
-                    <div key={order.id} style={{ ...glassEffect, borderRadius: '28px', padding: '24px', borderLeft: `4px solid #eab308` }}>
+                    <div key={order.id} style={{ ...glassEffect, borderRadius: '28px', padding: '24px', borderLeft: '4px solid #eab308' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <span style={{ fontSize: '24px' }}>{order.order_type === 'take_away' ? '🥡' : '🍽️'}</span>

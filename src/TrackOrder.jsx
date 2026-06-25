@@ -17,7 +17,7 @@ function TrackOrder() {
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
   
-  // Settings
+  // ===== SETTINGS - SYNC DARI DATABASE =====
   const [kitchenEnabled, setKitchenEnabled] = useState(true)
   const [autoCompleteEnabled, setAutoCompleteEnabled] = useState(false)
   const [autoCompleteMinutes, setAutoCompleteMinutes] = useState(5)
@@ -72,6 +72,7 @@ function TrackOrder() {
     step_ready: { en: 'Ready', ms: 'Sedia' },
     step_completed: { en: 'Completed', ms: 'Selesai' },
     auto_complete_info: { en: 'Order will be auto completed in ~', ms: 'Pesanan akan siap secara automatik dalam ~' },
+    auto_complete: { en: 'Auto Complete', ms: 'Selesai Automatik' },
   }
 
   const t = (key) => {
@@ -155,6 +156,7 @@ function TrackOrder() {
     }
   }
 
+  // ===== LOAD SETTINGS - SYNC DENGAN MANAGE SETTINGS =====
   async function loadSettings() {
     try {
       const { data } = await supabase.from('settings').select('key, value')
@@ -166,6 +168,8 @@ function TrackOrder() {
         if (kitchen) setKitchenEnabled(kitchen.value === 'true')
         if (autoComplete) setAutoCompleteEnabled(autoComplete.value === 'true')
         if (autoCompleteMin) setAutoCompleteMinutes(parseInt(autoCompleteMin.value) || 5)
+        
+        console.log('✅ Settings loaded:', { kitchenEnabled: kitchen?.value, autoCompleteEnabled: autoComplete?.value, autoCompleteMinutes: autoCompleteMin?.value })
       }
     } catch (err) {
       console.error('Error loading settings:', err)
@@ -257,10 +261,12 @@ function TrackOrder() {
   }
 
   // ============================================================
-  // HELPERS
+  // HELPERS - FIXED STATUS (Tambah 'new')
   // ============================================================
   const getStatusInfo = (status) => {
+    // ===== FIX: Tambah 'new' status =====
     switch(status) {
+      case 'new':
       case 'pending':
         return { 
           label: t('pending'), 
@@ -312,13 +318,17 @@ function TrackOrder() {
     }
   }
 
+  // ===== FIX: Estimated Time - Sync dengan settings =====
   const getEstimatedTime = (createdAt, status) => {
     if (status === 'ready' || status === 'completed') return t('almost_ready')
     if (status === 'cancelled') return t('cancelled_status')
-    if (status === 'pending' && !kitchenEnabled && autoCompleteEnabled) {
-      return `~${autoCompleteMinutes} ${t('minutes')}`
+    
+    // ===== CHECK KITCHEN ENABLED & AUTO COMPLETE =====
+    if (!kitchenEnabled && autoCompleteEnabled) {
+      return `~${autoCompleteMinutes} ${t('minutes')} (${t('auto_complete')})`
     }
     
+    // Kitchen enabled - estimated 15 minutes
     const created = new Date(createdAt)
     const now = new Date()
     const elapsed = Math.floor((now - created) / 60000)
@@ -334,10 +344,11 @@ function TrackOrder() {
     return '🍽️ ' + t('dine_in')
   }
 
+  // ===== FIX: Format time with Malaysia timezone =====
   const formatTime = (dateString) => {
     if (!dateString) return '-'
     const date = new Date(dateString)
-    return date.toLocaleTimeString(language === 'bm' ? 'ms-MY' : 'en-US', { 
+    return date.toLocaleTimeString('ms-MY', { 
       timeZone: 'Asia/Kuala_Lumpur',
       hour: '2-digit',
       minute: '2-digit',
@@ -345,10 +356,11 @@ function TrackOrder() {
     })
   }
 
+  // ===== FIX: Format date with Malaysia timezone =====
   const formatDate = (dateString) => {
     if (!dateString) return '-'
     const date = new Date(dateString)
-    return date.toLocaleDateString(language === 'bm' ? 'ms-MY' : 'en-US', { 
+    return date.toLocaleDateString('ms-MY', { 
       timeZone: 'Asia/Kuala_Lumpur',
       day: '2-digit',
       month: '2-digit',
@@ -709,7 +721,7 @@ function TrackOrder() {
               <StepBar currentStep={getStatusInfo(order.status).step} />
             )}
 
-            {/* Estimated Time */}
+            {/* Estimated Time - Sync dengan settings */}
             {order.status !== 'cancelled' && (
               <div style={{ 
                 background: secondaryBg, 

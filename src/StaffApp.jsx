@@ -615,38 +615,38 @@ function StaffApp() {
   // UPDATE ORDER STATUS - FIXED: Accept -> 'confirmed'
   // ============================================================
   const updateOrderStatus = async (orderId, status) => {
-    if (status === 'accepted') {
-      // 🔔 PLAY SOUND BILA ORDER DITERIMA
-      playSound()
-      
-      // Remove from notified set
-      setNotifiedOrderIds(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(orderId)
-        return newSet
-      })
-      
-      // ===== FIX: Tukar status ke 'confirmed', BUKAN 'preparing' =====
-      await supabase.from('customer_orders').update({ 
-        status: 'confirmed', 
-        order_status: 'confirmed',
-        confirmed_at: new Date().toISOString()
-      }).eq('id', orderId)
-      
-      setCustomerOrders(prev => prev.filter(order => order.id !== orderId))
-      
-      // ===== PENTING: Tunjuk mesej yang betul =====
-      toast.success('✅ Pesanan diterima! Menunggu dapur mula masak.')
-      
-      loadUnpaidOrders()
-      loadCustomerOrders()
-    } else if (status === 'cancelled') {
-      await supabase.from('customer_orders').update({ status: 'cancelled', payment_status: 'cancelled' }).eq('id', orderId)
-      setCustomerOrders(prev => prev.filter(order => order.id !== orderId))
-      toast.error('❌ ' + t('cancel'))
-      loadCustomerOrders()
-    }
+  if (status === 'accepted') {
+    // 🔔 PLAY SOUND BILA ORDER DITERIMA
+    playSound()
+    
+    // Remove from notified set
+    setNotifiedOrderIds(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(orderId)
+      return newSet
+    })
+    
+    // ===== FIX: Tukar status ke 'confirmed', BUKAN 'preparing' =====
+    await supabase.from('customer_orders').update({ 
+      status: 'confirmed', 
+      order_status: 'confirmed',
+      confirmed_at: new Date().toISOString()
+    }).eq('id', orderId)
+    
+    setCustomerOrders(prev => prev.filter(order => order.id !== orderId))
+    
+    // ===== PENTING: Tunjuk mesej yang betul =====
+    toast.success('✅ Pesanan diterima! Menunggu dapur mula masak.')
+    
+    loadUnpaidOrders()
+    loadCustomerOrders()
+  } else if (status === 'cancelled') {
+    await supabase.from('customer_orders').update({ status: 'cancelled', payment_status: 'cancelled' }).eq('id', orderId)
+    setCustomerOrders(prev => prev.filter(order => order.id !== orderId))
+    toast.error('❌ ' + t('cancel'))
+    loadCustomerOrders()
   }
+}
 
   // ============================================================
   // PAYMENT FUNCTIONS

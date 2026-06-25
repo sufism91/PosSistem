@@ -63,6 +63,7 @@ function KitchenApp() {
     hours_short: { en: 'h', ms: 'j' },
     order_confirmed: { en: '✅ Order confirmed!', ms: '✅ Pesanan disahkan!' },
     confirmed: { en: 'Confirmed', ms: 'Disahkan' },
+    customer_phone: { en: 'Phone', ms: 'Telefon' },
   }
 
   const t = (key) => {
@@ -491,7 +492,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // RENDER ORDER CARD
+  // RENDER ORDER CARD - FIXED: Show Phone & Notes
   // ============================================================
   const renderOrderCard = (order, showActionButtons = true) => {
     const waitingColor = getWaitingColor(order.created_at)
@@ -585,6 +586,18 @@ function KitchenApp() {
           }}>
             👤 {order.customer_name || t('guest')}
           </h4>
+          
+          {/* ===== TAMBAH: No Telefon ===== */}
+          {order.customer_phone && (
+            <div style={{ 
+              fontSize: isMobile ? '11px' : '12px', 
+              color: textMuted, 
+              marginTop: '2px' 
+            }}>
+              📞 {order.customer_phone}
+            </div>
+          )}
+          
           {order.order_number && (
             <p style={{ 
               fontSize: isMobile ? '10px' : '12px', 
@@ -595,6 +608,21 @@ function KitchenApp() {
             </p>
           )}
         </div>
+        
+        {/* ===== TAMBAH: Special Notes ===== */}
+        {order.notes && (
+          <div style={{ 
+            background: 'rgba(245, 158, 11, 0.15)', 
+            padding: isMobile ? '8px 12px' : '10px 14px', 
+            borderRadius: '12px', 
+            marginBottom: '10px', 
+            fontSize: isMobile ? '11px' : '12px', 
+            color: '#f59e0b',
+            borderLeft: `3px solid #f59e0b`
+          }}>
+            📝 {t('note')}: {order.notes}
+          </div>
+        )}
         
         <div style={{ 
           margin: '12px 0', 

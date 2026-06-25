@@ -43,6 +43,9 @@ function CustomerMenu() {
   const [activePromos, setActivePromos] = useState([])
   const [promoItems, setPromoItems] = useState([])
 
+  // ===== PRINT SETTINGS =====
+  const [autoPrintCustomerOrder, setAutoPrintCustomerOrder] = useState(true)
+
   // ============================================================
   // TRANSLATIONS
   // ============================================================
@@ -111,6 +114,18 @@ function CustomerMenu() {
     error_submit: { en: 'Error submitting order', ms: 'Ralat menghantar pesanan' },
     please_enter_table: { en: 'Please enter table number', ms: 'Sila masukkan nombor meja' },
     select_size_btn: { en: 'Select Size', ms: 'Pilih Saiz' },
+    receipt_title: { en: 'RECEIPT', ms: 'RESIT' },
+    receipt_thankyou: { en: 'Thank you for dining with us!', ms: 'Terima kasih kerana makan di sini!' },
+    receipt_order: { en: 'Order', ms: 'Pesanan' },
+    receipt_table: { en: 'Table', ms: 'Meja' },
+    receipt_customer: { en: 'Customer', ms: 'Pelanggan' },
+    receipt_item: { en: 'Item', ms: 'Item' },
+    receipt_qty: { en: 'Qty', ms: 'Kuantiti' },
+    receipt_price: { en: 'Price', ms: 'Harga' },
+    receipt_total: { en: 'TOTAL', ms: 'JUMLAH' },
+    receipt_paid: { en: 'Paid', ms: 'Dibayar' },
+    receipt_unpaid: { en: 'Unpaid', ms: 'Belum Bayar' },
+    note: { en: 'Note', ms: 'Nota' },
   }
 
   const translate = (key) => {
@@ -203,6 +218,7 @@ function CustomerMenu() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'settings' }, () => {
         loadSpecialMenu()
         loadRestaurantInfo()
+        loadSettings()
       })
       .subscribe()
 
@@ -277,8 +293,14 @@ function CustomerMenu() {
       if (data) {
         const sc = data.find(s => s.key === 'service_charge')
         const tx = data.find(s => s.key === 'tax')
+        // ===== TAMBAH INI =====
+        const autoPrint = data.find(s => s.key === 'auto_print_customer_order')
+        // ======================
         if (sc) setServiceChargePercent(parseFloat(sc.value) || 0)
         if (tx) setTaxPercent(parseFloat(tx.value) || 0)
+        // ===== TAMBAH INI =====
+        if (autoPrint) setAutoPrintCustomerOrder(autoPrint.value === 'true')
+        // ======================
       }
     } catch (err) {
       console.error('Error loading settings:', err)
@@ -650,7 +672,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ORDER FUNCTIONS - FIXED
+  // ORDER FUNCTIONS
   // ============================================================
   const handlePlaceOrder = () => {
     if (cart.length === 0) { toast.error(translate('empty_cart')); return }
@@ -658,6 +680,74 @@ function CustomerMenu() {
     setShowConfirmModal(true)
   }
 
+  // ============================================================
+  // PRINT CUSTOMER RECEIPT
+  // ============================================================
+  const printCustomerReceipt = (order) => {
+    const content = `
+      <!DOCTYPE html>
+      <html>
+      <head><title>🧾 ${translate('receipt_title')}</title>
+      <style>
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Courier New',monospace;padding:20px;background:white;color:black}
+        .receipt{max-width:320px;margin:0 auto;font-size:12px}
+        .header{text-align:center;border-bottom:1px dashed #ccc;padding-bottom:10px;margin-bottom:10px}
+        .header h1{font-size:18px}
+        .header .sub{font-size:11px;color:#666}
+        .divider{border-top:1px dashed #ccc;margin:8px 0}
+        .items{width:100%;margin:8px 0;border-collapse:collapse}
+        .items th,.items td{text-align:left;padding:4px 0;font-size:12px}
+        .items th:last-child,.items td:last-child{text-align:right}
+        .items th{border-bottom:1px solid #ccc;font-size:11px;color:#666}
+        .total-row{font-size:16px;font-weight:bold;color:#22c55e}
+        .footer{text-align:center;margin-top:12px;border-top:1px dashed #ccc;padding-top:10px;font-size:11px;color:#666}
+        .notes{margin:10px 0;padding:8px;background:#fef3c7;border-radius:6px;font-size:11px;color:#92400e}
+        @media print{body{margin:0;padding:10px}}
+      </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="header">
+            <h1>${restaurantName}</h1>
+            <div class="sub">${translate('receipt_order')}: ${order.order_number}</div>
+            <div class="sub">${order.order_type === 'take_away' ? '🥡 ' + translate('take_away') : '🍽️ ' + translate('table') + ' ' + (order.table_number || '')}</div>
+            <div class="sub">👤 ${order.customer_name || translate('guest')}</div>
+            ${order.customer_phone ? `<div class="sub">📞 ${order.customer_phone}</div>` : ''}
+            <div class="sub">${new Date(order.created_at).toLocaleString()}</div>
+          </div>
+          <table class="items">
+            <thead><tr><th>${translate('receipt_item')}</th><th>${translate('receipt_qty')}</th><th>${translate('receipt_price')}</th></tr></thead>
+            <tbody>
+              ${order.items?.map(item => `
+                <tr>
+                  <td>${item.name}${item.option_type ? ` (${item.option_type})` : ''}</td>
+                  <td style="text-align:center">${item.quantity}</td>
+                  <td style="text-align:right">RM ${(item.price * item.quantity).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="divider"></div>
+          <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:bold;padding:4px 0;">
+            <span>${translate('receipt_total')}</span>
+            <span style="color:#22c55e">RM ${order.total.toFixed(2)}</span>
+          </div>
+          ${order.notes ? `<div class="notes">📝 ${translate('note')}: ${order.notes}</div>` : ''}
+          <div class="footer">⭐ ⭐ ⭐ ⭐ ⭐<br>${translate('receipt_thankyou')}</div>
+        </div>
+        <script>window.onload=()=>{setTimeout(()=>{window.print();setTimeout(()=>window.close(),500)},300)}<\/script>
+      </body>
+      </html>
+    `
+    const printWindow = window.open('', '_blank', 'width=400,height=600')
+    printWindow.document.write(content)
+    printWindow.document.close()
+  }
+
+  // ============================================================
+  // SUBMIT ORDER - FIXED
+  // ============================================================
   const submitOrderConfirmed = async () => {
     setShowConfirmModal(false)
     
@@ -708,11 +798,17 @@ function CustomerMenu() {
         setCart([])
         setShowCart(false)
         
-        // ===== FIX: Use ORDER_NUMBER not ID =====
         const orderId = data?.[0]?.order_number || orderNumber
         toast.success(`✓ ${translate('order_number')} ${orderNumber} ${translate('order_sent')}`)
         
-        // Redirect to Track Order after 2 seconds
+        // ===== PRINT RECEIPT IF ENABLED =====
+        if (autoPrintCustomerOrder && data?.[0]) {
+          setTimeout(() => {
+            printCustomerReceipt(data[0])
+          }, 500)
+        }
+        // ===================================
+        
         setTimeout(() => {
           window.location.href = `/track?order=${orderId}`
         }, 2000)
@@ -802,7 +898,7 @@ function CustomerMenu() {
   const cartItemCount = getCartItemCount()
 
   // ============================================================
-  // RENDER
+  // RENDER - SAME AS BEFORE
   // ============================================================
   return (
     <div style={{ minHeight: '100vh', background: bgColor }}>

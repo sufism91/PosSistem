@@ -275,65 +275,73 @@ function TrackOrder() {
   // HELPERS
   // ============================================================
   const getStatusInfo = (status) => {
-    switch(status) {
-      case 'new':
-        return { 
-          label: '🆕 Baru Diterima', 
-          color: '#3b82f6', 
-          icon: '📋', 
-          step: 1, 
-          description: 'Pesanan baru diterima, menunggu pengesahan dapur.' 
-        }
-      case 'pending':
-        return { 
-          label: '⏳ Menunggu', 
-          color: '#eab308', 
-          icon: '⏳', 
-          step: 1, 
-          description: 'Pesanan anda sedang menunggu pengesahan.' 
-        }
-      case 'preparing':
-        return { 
-          label: '🔪 Sedang Disiapkan', 
-          color: '#f97316', 
-          icon: '🔪', 
-          step: 2, 
-          description: 'Pesanan anda sedang disediakan di dapur.' 
-        }
-      case 'ready':
-        return { 
-          label: '✅ Sedia', 
-          color: '#22c55e', 
-          icon: '✅', 
-          step: 3, 
-          description: 'Pesanan anda sedia! Sila datang ke kaunter.' 
-        }
-      case 'completed':
-        return { 
-          label: '📦 Selesai', 
-          color: '#3b82f6', 
-          icon: '📦', 
-          step: 4, 
-          description: 'Pesanan selesai. Terima kasih!' 
-        }
-      case 'cancelled':
-        return { 
-          label: '❌ Dibatalkan', 
-          color: '#ef4444', 
-          icon: '❌', 
-          step: 0, 
-          description: 'Pesanan ini telah dibatalkan.' 
-        }
-      default:
-        return { 
-          label: '❓ Tidak Diketahui', 
-          color: '#6c757d', 
-          icon: '❓', 
-          step: 0, 
-          description: 'Status tidak diketahui.' 
-        }
-    }
+  switch(status) {
+    case 'new':
+      return { 
+        label: '🆕 Baru Diterima', 
+        color: '#3b82f6', 
+        icon: '📋', 
+        step: 1, 
+        description: 'Pesanan baru diterima, menunggu pengesahan dapur.' 
+      }
+    case 'pending':
+      return { 
+        label: '⏳ Menunggu', 
+        color: '#eab308', 
+        icon: '⏳', 
+        step: 1, 
+        description: 'Pesanan anda sedang menunggu pengesahan.' 
+      }
+    case 'confirmed':
+      return { 
+        label: '✅ Disahkan', 
+        color: '#8b5cf6', 
+        icon: '✅', 
+        step: 2, 
+        description: 'Pesanan telah disahkan, menunggu dapur mula masak.' 
+      }
+    case 'preparing':
+      return { 
+        label: '🔪 Sedang Disiapkan', 
+        color: '#f97316', 
+        icon: '🔪', 
+        step: 2, 
+        description: 'Pesanan anda sedang disediakan di dapur.' 
+      }
+    case 'ready':
+      return { 
+        label: '✅ Sedia', 
+        color: '#22c55e', 
+        icon: '✅', 
+        step: 3, 
+        description: 'Pesanan anda sedia! Sila datang ke kaunter.' 
+      }
+    case 'completed':
+      return { 
+        label: '📦 Selesai', 
+        color: '#3b82f6', 
+        icon: '📦', 
+        step: 4, 
+        description: 'Pesanan selesai. Terima kasih!' 
+      }
+    case 'cancelled':
+      return { 
+        label: '❌ Dibatalkan', 
+        color: '#ef4444', 
+        icon: '❌', 
+        step: 0, 
+        description: 'Pesanan ini telah dibatalkan.' 
+      }
+    default:
+      return { 
+        label: '❓ Tidak Diketahui', 
+        color: '#6c757d', 
+        icon: '❓', 
+        step: 0, 
+        description: 'Status tidak diketahui.' 
+      }
   }
+}
 
   const getEstimatedTime = (createdAt, status) => {
     if (status === 'ready' || status === 'completed') {
@@ -343,6 +351,10 @@ function TrackOrder() {
     if (status === 'cancelled') {
       return '❌ Dibatalkan'
     }
+
+    if (status === 'confirmed') {
+    return '⏳ Menunggu dapur mula masak'
+  }
     
     if (!kitchenEnabled && autoCompleteEnabled) {
       return `⏱️ ~${autoCompleteMinutes} minit (Auto Complete)`

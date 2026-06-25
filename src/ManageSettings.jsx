@@ -42,7 +42,10 @@ function ManageSettings() {
     login_branding_text: 'POS System for Small & Medium Restaurants',
     login_footer_text: '© 2024 KedaiPOS • POS System',
     auto_complete_enabled: true,
-    auto_complete_minutes: 5
+    auto_complete_minutes: 5,
+    // ===== TAMBAH INI =====
+    auto_print_customer_order: true,
+    // ======================
   })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -93,7 +96,7 @@ function ManageSettings() {
         data.forEach(item => {
           if (item.key === 'service_charge' || item.key === 'tax' || item.key === 'auto_complete_minutes') {
             newSettings[item.key] = parseFloat(item.value) || 0
-          } else if (item.key === 'auto_print' || item.key === 'notification_sound' || item.key === 'kitchen_enabled' || item.key === 'special_menu_enabled' || item.key === 'auto_complete_enabled') {
+          } else if (item.key === 'auto_print' || item.key === 'notification_sound' || item.key === 'kitchen_enabled' || item.key === 'special_menu_enabled' || item.key === 'auto_complete_enabled' || item.key === 'auto_print_customer_order') {
             newSettings[item.key] = item.value === 'true'
           } else {
             newSettings[item.key] = item.value
@@ -160,7 +163,10 @@ function ManageSettings() {
         { key: 'login_branding_text', value: settings.login_branding_text },
         { key: 'login_footer_text', value: settings.login_footer_text },
         { key: 'auto_complete_enabled', value: settings.auto_complete_enabled.toString() },
-        { key: 'auto_complete_minutes', value: settings.auto_complete_minutes.toString() }
+        { key: 'auto_complete_minutes', value: settings.auto_complete_minutes.toString() },
+        // ===== TAMBAH INI =====
+        { key: 'auto_print_customer_order', value: settings.auto_print_customer_order.toString() },
+        // ======================
       ]
       let hasError = false
       for (const update of updates) {
@@ -183,7 +189,7 @@ function ManageSettings() {
   const updateSetting = (key, value) => { setSettings(prev => ({ ...prev, [key]: value })) }
 
   // ============================================================
-  // DELETE DATA FUNCTIONS - FIXED TABLE NAMES
+  // DELETE DATA FUNCTIONS
   // ============================================================
   
   async function deleteAllOrders() {
@@ -202,7 +208,6 @@ function ManageSettings() {
       const { error } = await supabase.from('menu').delete().neq('id', 0)
       if (error) throw error
       
-      // Also delete drink options and menu options
       await supabase.from('drink_options').delete().neq('id', 0)
       await supabase.from('menu_options').delete().neq('id', 0)
       
@@ -226,14 +231,11 @@ function ManageSettings() {
 
   async function deleteAllStaff() {
     try {
-      // Try 'profiles' first (common in Supabase)
       let error = null
       const { error: err1 } = await supabase.from('profiles').delete().neq('username', 'admin')
       if (err1) {
-        // Fallback to 'users'
         const { error: err2 } = await supabase.from('users').delete().neq('username', 'admin')
         if (err2) {
-          // Try 'staff' table
           const { error: err3 } = await supabase.from('staff').delete().neq('username', 'admin')
           if (err3) {
             error = err3
@@ -261,14 +263,12 @@ function ManageSettings() {
 
   async function resetAllData() {
     try {
-      // Delete from all tables
       const tables = ['customer_orders', 'menu', 'categories', 'tables']
       for (const table of tables) {
         const { error } = await supabase.from(table).delete().neq('id', 0)
         if (error) console.error(`Error deleting ${table}:`, error)
       }
       
-      // Also delete drink_options and menu_options
       await supabase.from('drink_options').delete().neq('id', 0)
       await supabase.from('menu_options').delete().neq('id', 0)
       
@@ -289,7 +289,8 @@ function ManageSettings() {
         { key: 'login_branding_text', value: 'POS System for Small & Medium Restaurants' },
         { key: 'login_footer_text', value: '© 2024 KedaiPOS • POS System' },
         { key: 'auto_complete_enabled', value: 'true' },
-        { key: 'auto_complete_minutes', value: '5' }
+        { key: 'auto_complete_minutes', value: '5' },
+        { key: 'auto_print_customer_order', value: 'true' },
       ]
       
       for (const setting of defaultSettings) {
@@ -714,6 +715,60 @@ function ManageSettings() {
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>© {t('footer_text')}</label>
                 <input type="text" value={settings.login_footer_text} onChange={(e) => updateSetting('login_footer_text', e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} />
+              </div>
+            </div>
+
+            {/* Section 9: Customer Order Auto Print - TAMBAH INI */}
+            <div style={{ marginBottom: '28px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '24px' }}>🧾</span>
+                <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>
+                  {language === 'bm' ? 'Cetakan Pesanan Pelanggan' : 'Customer Order Printing'}
+                </h3>
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: secondaryBg, borderRadius: '20px' }}>
+                <div>
+                  <label style={{ fontWeight: 'bold', fontSize: '14px', color: textColor }}>
+                    {language === 'bm' ? '🧾 Cetak Resit Automatik (Pesanan Pelanggan)' : '🧾 Auto Print Receipt (Customer Order)'}
+                  </label>
+                  <p style={{ fontSize: '11px', color: textMuted, marginTop: '4px' }}>
+                    {language === 'bm' 
+                      ? 'Cetak resit secara automatik apabila pelanggan membuat pesanan' 
+                      : 'Auto print receipt when customer places order'}
+                  </p>
+                </div>
+                <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '26px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={settings.auto_print_customer_order} 
+                    onChange={(e) => updateSetting('auto_print_customer_order', e.target.checked)} 
+                    style={{ opacity: 0, width: 0, height: 0 }} 
+                  />
+                  <span style={{ 
+                    position: 'absolute', 
+                    cursor: 'pointer', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    backgroundColor: settings.auto_print_customer_order ? '#22c55e' : '#64748b', 
+                    transition: '.3s', 
+                    borderRadius: '34px' 
+                  }}>
+                    <span style={{ 
+                      position: 'absolute', 
+                      height: '20px', 
+                      width: '20px', 
+                      left: '3px', 
+                      bottom: '3px', 
+                      backgroundColor: 'white', 
+                      transition: '.3s', 
+                      borderRadius: '50%', 
+                      transform: settings.auto_print_customer_order ? 'translateX(26px)' : 'none' 
+                    }} />
+                  </span>
+                </label>
               </div>
             </div>
 

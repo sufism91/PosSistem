@@ -293,14 +293,10 @@ function CustomerMenu() {
       if (data) {
         const sc = data.find(s => s.key === 'service_charge')
         const tx = data.find(s => s.key === 'tax')
-        // ===== TAMBAH INI =====
         const autoPrint = data.find(s => s.key === 'auto_print_customer_order')
-        // ======================
         if (sc) setServiceChargePercent(parseFloat(sc.value) || 0)
         if (tx) setTaxPercent(parseFloat(tx.value) || 0)
-        // ===== TAMBAH INI =====
         if (autoPrint) setAutoPrintCustomerOrder(autoPrint.value === 'true')
-        // ======================
       }
     } catch (err) {
       console.error('Error loading settings:', err)
@@ -662,13 +658,19 @@ function CustomerMenu() {
     setShowCart(true)
   }
 
-  const removeFromCart = (id) => {
-    const existing = cart.find(x => x.id === id)
-    if (existing.quantity === 1) {
+  // ============================================================
+  // ===== QUANTITY CONTROL IN CART =====
+  // ============================================================
+  const updateCartQuantity = (id, newQuantity) => {
+    if (newQuantity <= 0) {
       setCart(cart.filter(x => x.id !== id))
     } else {
-      setCart(cart.map(x => x.id === id ? { ...x, quantity: x.quantity - 1 } : x))
+      setCart(cart.map(x => x.id === id ? { ...x, quantity: newQuantity } : x))
     }
+  }
+
+  const removeFromCart = (id) => {
+    setCart(cart.filter(x => x.id !== id))
   }
 
   // ============================================================
@@ -746,7 +748,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // SUBMIT ORDER - FIXED
+  // SUBMIT ORDER
   // ============================================================
   const submitOrderConfirmed = async () => {
     setShowConfirmModal(false)
@@ -801,13 +803,11 @@ function CustomerMenu() {
         const orderId = data?.[0]?.order_number || orderNumber
         toast.success(`✓ ${translate('order_number')} ${orderNumber} ${translate('order_sent')}`)
         
-        // ===== PRINT RECEIPT IF ENABLED =====
         if (autoPrintCustomerOrder && data?.[0]) {
           setTimeout(() => {
             printCustomerReceipt(data[0])
           }, 500)
         }
-        // ===================================
         
         setTimeout(() => {
           window.location.href = `/track?order=${orderId}`
@@ -898,7 +898,7 @@ function CustomerMenu() {
   const cartItemCount = getCartItemCount()
 
   // ============================================================
-  // RENDER - SAME AS BEFORE
+  // RENDER
   // ============================================================
   return (
     <div style={{ minHeight: '100vh', background: bgColor }}>
@@ -1848,7 +1848,7 @@ function CustomerMenu() {
       )}
 
       {/* ========================================================== */}
-      {/* CART DRAWER */}
+      {/* CART DRAWER - WITH QUANTITY CONTROLS */}
       {/* ========================================================== */}
       {showCart && (
         <div style={{ 
@@ -1874,7 +1874,7 @@ function CustomerMenu() {
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h2 style={{ margin: 0, fontSize: isMobile ? '16px' : '18px', color: 'white' }}>
-                {translate('your_order')} ({cartItemCount})
+                🛒 {translate('your_order')} ({cartItemCount})
               </h2>
               <button 
                 onClick={() => setShowCart(false)}
@@ -1919,13 +1919,15 @@ function CustomerMenu() {
                     alignItems: 'center',
                     marginBottom: '10px',
                     paddingBottom: '8px',
-                    borderBottom: `1px solid ${borderColor}`
+                    borderBottom: `1px solid ${borderColor}`,
+                    gap: '6px'
                   }}>
-                    <div style={{ flex: 1 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ 
                         fontWeight: 'bold',
                         fontSize: isMobile ? '12px' : '13px',
-                        color: textColor
+                        color: textColor,
+                        wordBreak: 'break-word'
                       }}>
                         {item.name}
                         {item.is_free && (
@@ -1951,35 +1953,88 @@ function CustomerMenu() {
                         fontSize: isMobile ? '9px' : '10px',
                         color: textMuted
                       }}>
-                        x{item.quantity}
+                        RM {item.price.toFixed(2)} / each
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <span style={{ 
-                        fontWeight: 'bold',
-                        color: successColor,
-                        fontSize: isMobile ? '12px' : '13px'
-                      }}>
-                        RM {(item.price * item.quantity).toFixed(2)}
-                      </span>
+                    
+                    {/* ===== QUANTITY CONTROLS ===== */}
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '4px',
+                      background: secondaryBg,
+                      borderRadius: '30px',
+                      padding: '3px',
+                      border: `1px solid ${borderColor}`,
+                      flexShrink: 0
+                    }}>
                       <button 
-                        onClick={() => removeFromCart(item.id)}
+                        onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
                         style={{ 
-                          background: dangerColor,
-                          color: 'white',
-                          border: 'none',
+                          width: isMobile ? '26px' : '30px',
+                          height: isMobile ? '26px' : '30px',
                           borderRadius: '50%',
-                          width: isMobile ? '20px' : '24px',
-                          height: isMobile ? '20px' : '24px',
+                          background: darkMode ? 'rgba(255,255,255,0.1)' : '#f1f5f9',
+                          border: 'none',
                           cursor: 'pointer',
-                          fontSize: isMobile ? '9px' : '10px',
+                          fontSize: isMobile ? '14px' : '16px',
+                          color: textColor,
                           fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
                           transition: 'all 0.2s'
                         }}
+                        onMouseEnter={e => e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.2)' : '#e2e8f0'}
+                        onMouseLeave={e => e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.1)' : '#f1f5f9'}
                       >
-                        ✕
+                        −
+                      </button>
+                      
+                      <span style={{ 
+                        minWidth: '22px',
+                        textAlign: 'center',
+                        fontWeight: 'bold',
+                        fontSize: isMobile ? '14px' : '16px',
+                        color: textColor
+                      }}>
+                        {item.quantity}
+                      </span>
+                      
+                      <button 
+                        onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+                        style={{ 
+                          width: isMobile ? '26px' : '30px',
+                          height: isMobile ? '26px' : '30px',
+                          borderRadius: '50%',
+                          background: `linear-gradient(135deg, ${accentColor}, #d97706)`,
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: isMobile ? '14px' : '16px',
+                          color: 'white',
+                          fontWeight: 'bold',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                      >
+                        +
                       </button>
                     </div>
+                    
+                    <span style={{ 
+                      fontWeight: 'bold',
+                      color: successColor,
+                      fontSize: isMobile ? '12px' : '13px',
+                      minWidth: '65px',
+                      textAlign: 'right',
+                      flexShrink: 0
+                    }}>
+                      RM {(item.price * item.quantity).toFixed(2)}
+                    </span>
                   </div>
                 ))}
                 
@@ -2052,8 +2107,6 @@ function CustomerMenu() {
                     background: inputBg,
                     transition: 'all 0.2s'
                   }}
-                  onFocus={e => e.currentTarget.style.borderColor = accentColor}
-                  onBlur={e => e.currentTarget.style.borderColor = borderColor}
                 />
                 <input 
                   type="tel"
@@ -2072,8 +2125,6 @@ function CustomerMenu() {
                     background: inputBg,
                     transition: 'all 0.2s'
                   }}
-                  onFocus={e => e.currentTarget.style.borderColor = accentColor}
-                  onBlur={e => e.currentTarget.style.borderColor = borderColor}
                 />
                 <textarea 
                   placeholder={translate('special_notes')}
@@ -2093,8 +2144,6 @@ function CustomerMenu() {
                     background: inputBg,
                     transition: 'all 0.2s'
                   }}
-                  onFocus={e => e.currentTarget.style.borderColor = accentColor}
-                  onBlur={e => e.currentTarget.style.borderColor = borderColor}
                 />
               </>
             )}

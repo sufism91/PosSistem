@@ -93,7 +93,7 @@ function CustomerMenu() {
     drink_type: { en: 'Select drink type', ms: 'Pilih jenis minuman' },
     hot: { en: 'Hot', ms: 'Panas' },
     cold: { en: 'Cold', ms: 'Sejuk' },
-    takeaway: { en: 'Takeaway', ms: 'Bungkus' },
+    bungkus: { en: 'Takeaway', ms: 'Bungkus' },
     add_to_cart: { en: 'Add to Cart', ms: 'Tambah ke Keranjang' },
     cancel: { en: 'Cancel', ms: 'Batal' },
     choose_size: { en: 'Choose size / option', ms: 'Pilih saiz / pilihan' },
@@ -131,7 +131,7 @@ function CustomerMenu() {
   }, [])
 
   // ============================================================
-  // THEME COLORS - CANTIK & JELAS
+  // THEME COLORS
   // ============================================================
   const bgColor = darkMode ? '#0a0a16' : '#fef3c7'
   const cardBg = darkMode ? 'rgba(20, 20, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)'
@@ -260,7 +260,13 @@ function CustomerMenu() {
     const optionsMap = {}
     data?.forEach(opt => {
       if (!optionsMap[opt.drink_name]) optionsMap[opt.drink_name] = []
-      optionsMap[opt.drink_name].push({ type: opt.option_type, price: parseFloat(opt.price) || 0, image_url: opt.image_url || opt.option_image_url || opt.image || null })
+      optionsMap[opt.drink_name].push({
+        id: opt.id,
+        type: opt.option_type,
+        option_type: opt.option_type,
+        price: parseFloat(opt.price) || 0,
+        image_url: opt.image_url || opt.option_image_url || opt.image || null
+      })
     })
     setDrinkOptions(optionsMap)
   }
@@ -279,9 +285,6 @@ function CustomerMenu() {
     }
   }
 
-  // ============================================================
-  // SPECIAL MENU - SYNC WITH MENU TABLE
-  // ============================================================
   async function loadSpecialMenu() {
     try {
       const { data: enabledData } = await supabase.from('settings').select('value').eq('key', 'special_menu_enabled').single()
@@ -401,11 +404,7 @@ function CustomerMenu() {
   // ============================================================
   // HELPERS
   // ============================================================
-  // ============================================================
-  // GET CATEGORIES - SHOW ALL (SAME AS STAFFAPP)
-  // ============================================================
   const getCategoriesForMenu = () => {
-    // SHOW ALL CATEGORIES - SAME AS STAFFAPP
     return categories
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
       .map(cat => cat.name)
@@ -501,7 +500,7 @@ function CustomerMenu() {
   const addDrinkToCart = () => {
     if (!selectedDrink) return
     const options = drinkOptions[selectedDrink.name]
-    const selected = options?.find(opt => opt.type === selectedOption)
+    const selected = options?.find(o => o.type === selectedOption || o.option_type === selectedOption)
     if (!selected) return
     setAddingItem(selectedDrink.id)
     setTimeout(() => setAddingItem(null), 300)
@@ -509,7 +508,7 @@ function CustomerMenu() {
     let optionLabel = ''
     if (selectedOption === 'Panas') optionLabel = translate('hot')
     else if (selectedOption === 'Sejuk') optionLabel = translate('cold')
-    else if (selectedOption === 'Bungkus') optionLabel = translate('takeaway')
+    else if (selectedOption === 'Bungkus') optionLabel = translate('bungkus')
     
     setCart([...cart, { 
       id: `${selectedDrink.id}_${selectedOption}_${Date.now()}`,
@@ -520,7 +519,7 @@ function CustomerMenu() {
       is_promo_item: false,
       category: 'Minuman',
       option_type: selectedOption,
-      image_url: getDrinkOptionImage(selectedDrink, selected)
+      image_url: selected.image_url || null
     }])
     setShowDrinkModal(false)
     setSelectedDrink(null)
@@ -684,7 +683,7 @@ function CustomerMenu() {
     const tax = getTax()
 
     try {
-      const { error } = await supabase.from('customer_orders').insert([normalizeOrderForInsert({
+      const { data, error } = await supabase.from('customer_orders').insert([normalizeOrderForInsert({
         order_number: orderNumber,
         order_type: 'dine_in',
         table_number: parseInt(tableNumber),
@@ -699,7 +698,7 @@ function CustomerMenu() {
         status: ORDER_STATUS.NEW,
         order_status: ORDER_STATUS.NEW,
         payment_status: PAYMENT_STATUS.UNPAID
-      })])
+      })]).select()
 
       if (error) {
         console.error('Submit error:', error)
@@ -708,7 +707,14 @@ function CustomerMenu() {
         setSubmitted(true)
         setCart([])
         setShowCart(false)
+        
+        const orderId = data?.[0]?.id || orderNumber
         toast.success(`✓ ${translate('order_number')} ${orderNumber} ${translate('order_sent')}`)
+        
+        // Redirect to Track Order after 2 seconds
+        setTimeout(() => {
+          window.location.href = `/track?order=${orderId}`
+        }, 2000)
       }
     } catch (err) {
       console.error('Exception:', err)
@@ -726,10 +732,9 @@ function CustomerMenu() {
   const getCartItemCount = () => cart.reduce((sum, item) => sum + item.quantity, 0)
 
   // ============================================================
-  // FILTERS - SHOW ALL CATEGORIES (SYNC WITH STAFFAPP)
+  // FILTERS
   // ============================================================
   const allCategories = getCategoriesForMenu()
-  
   const categoryNames = ['All']
   allCategories.forEach(cat => categoryNames.push(cat))
   
@@ -737,9 +742,6 @@ function CustomerMenu() {
     categoryNames.unshift('🔥 Promosi')
   }
   
-  // ============================================================
-  // GET FILTERED MENU - SHOW PARENT + SUB CATEGORIES (FOR ALL CATEGORIES)
-  // ============================================================
   const getFilteredMenu = () => {
     if (selectedCategory === '🔥 Promosi') {
       return promoItems
@@ -748,12 +750,10 @@ function CustomerMenu() {
       return menu
     }
     
-    // Check if selected category is a parent category
     const selectedCat = categories.find(c => c.name === selectedCategory)
     const isParentCategory = selectedCat?.parent_id === null
     
     if (isParentCategory) {
-      // If parent category, show all items in this parent + its sub-categories
       const subCategoryNames = categories
         .filter(c => c.parent_id === selectedCat.id)
         .map(c => c.name)
@@ -764,7 +764,6 @@ function CustomerMenu() {
       )
     }
     
-    // If sub-category, show only items in that sub-category
     return menu.filter(item => item.category === selectedCategory)
   }
 
@@ -802,7 +801,7 @@ function CustomerMenu() {
   const cartItemCount = getCartItemCount()
 
   // ============================================================
-  // RENDER
+  // RENDER - FLOATING CART
   // ============================================================
   return (
     <div style={{ minHeight: '100vh', background: bgColor }}>
@@ -1158,7 +1157,7 @@ function CustomerMenu() {
         </div>
       )}
 
-      {/* ===== CATEGORY FILTERS - SHOW ALL ===== */}
+      {/* ===== CATEGORY FILTERS ===== */}
       <div style={{ maxWidth: '1280px', margin: '12px auto', padding: isMobile ? '0 12px' : '0 20px' }}>
         <div style={{ 
           display: 'flex',
@@ -1198,7 +1197,7 @@ function CustomerMenu() {
       </div>
 
       {/* ===== MENU GRID ===== */}
-      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '0 12px 20px 12px' : '0 20px 32px 20px' }}>
+      <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '0 12px 100px 12px' : '0 20px 120px 20px' }}>
         {filteredMenu.length === 0 ? (
           <div style={{ 
             textAlign: 'center',
@@ -1223,6 +1222,7 @@ function CustomerMenu() {
               const hasImage = item.image_url && item.image_url.trim() !== ''
               const panasPrice = hasDrinkOptions ? drinkOptions[item.name]?.find(o => o.type === 'Panas')?.price : null
               const sejukPrice = hasDrinkOptions ? drinkOptions[item.name]?.find(o => o.type === 'Sejuk')?.price : null
+              const bungkusPrice = hasDrinkOptions ? drinkOptions[item.name]?.find(o => o.type === 'Bungkus')?.price : null
               const isAdding = addingItem === item.id
               const isClicked = clickedItemId === item.id
               const hasSizeOptions = item.has_options === true
@@ -1391,6 +1391,15 @@ function CustomerMenu() {
                             🧊 RM {sejukPrice?.toFixed(2)}
                           </span>
                         )}
+                        {bungkusPrice && (
+                          <span style={{ 
+                            color: '#8b5cf6',
+                            fontSize: isMobile ? '8px' : '10px',
+                            fontWeight: 'bold'
+                          }}>
+                            📦 RM {bungkusPrice?.toFixed(2)}
+                          </span>
+                        )}
                       </div>
                     ) : !isPromoItem && !hasSizeOptions && (
                       <div style={{ 
@@ -1435,7 +1444,65 @@ function CustomerMenu() {
       </div>
 
       {/* ========================================================== */}
-      {/* MODALS - Same as before but with better colors */}
+      {/* FLOATING CART BUTTON - BETTER DESIGN */}
+      {/* ========================================================== */}
+      {cartItemCount > 0 && (
+        <button 
+          onClick={() => setShowCart(true)}
+          style={{ 
+            position: 'fixed',
+            bottom: isMobile ? '16px' : '24px',
+            right: isMobile ? '16px' : '24px',
+            width: isMobile ? '56px' : '64px',
+            height: isMobile ? '56px' : '64px',
+            borderRadius: '50%',
+            background: `linear-gradient(135deg, ${accentColor}, #d97706)`,
+            color: 'white',
+            border: 'none',
+            fontSize: isMobile ? '22px' : '26px',
+            cursor: 'pointer',
+            boxShadow: '0 8px 32px rgba(245,158,11,0.5)',
+            zIndex: 100,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            animation: 'float 2s ease-in-out infinite'
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = 'scale(1.1)'
+            e.currentTarget.style.boxShadow = '0 12px 40px rgba(245,158,11,0.6)'
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = 'scale(1)'
+            e.currentTarget.style.boxShadow = '0 8px 32px rgba(245,158,11,0.5)'
+          }}
+        >
+          🛒
+          <span style={{ 
+            position: 'absolute',
+            top: '-4px',
+            right: '-4px',
+            background: dangerColor,
+            color: 'white',
+            borderRadius: '50%',
+            width: isMobile ? '22px' : '26px',
+            height: isMobile ? '22px' : '26px',
+            fontSize: isMobile ? '10px' : '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 'bold',
+            boxShadow: '0 4px 12px rgba(239,68,68,0.4)',
+            border: `2px solid ${darkMode ? '#0a0a16' : '#fef3c7'}`
+          }}>
+            {cartItemCount}
+          </span>
+        </button>
+      )}
+
+      {/* ========================================================== */}
+      {/* MODALS - Same as before */}
       {/* ========================================================== */}
 
       {/* ===== SIZE OPTIONS MODAL ===== */}
@@ -1575,7 +1642,7 @@ function CustomerMenu() {
               flexWrap: 'wrap',
               justifyContent: 'center'
             }}>
-              {drinkOptions[selectedDrink.name]?.some(o => o.type === 'Panas') && (
+              {drinkOptions[selectedDrink.name]?.some(o => o.type === 'Panas' || o.option_type === 'Panas') && (
                 <button 
                   onClick={() => setSelectedOption('Panas')}
                   style={{ 
@@ -1594,11 +1661,11 @@ function CustomerMenu() {
                 >
                   🔥 {translate('hot')}
                   <br />
-                  <small>RM {drinkOptions[selectedDrink.name]?.find(o => o.type === 'Panas')?.price?.toFixed(2) || '0.00'}</small>
+                  <small>RM {drinkOptions[selectedDrink.name]?.find(o => o.type === 'Panas' || o.option_type === 'Panas')?.price?.toFixed(2) || '0.00'}</small>
                 </button>
               )}
               
-              {drinkOptions[selectedDrink.name]?.some(o => o.type === 'Sejuk') && (
+              {drinkOptions[selectedDrink.name]?.some(o => o.type === 'Sejuk' || o.option_type === 'Sejuk') && (
                 <button 
                   onClick={() => setSelectedOption('Sejuk')}
                   style={{ 
@@ -1617,7 +1684,30 @@ function CustomerMenu() {
                 >
                   🧊 {translate('cold')}
                   <br />
-                  <small>RM {drinkOptions[selectedDrink.name]?.find(o => o.type === 'Sejuk')?.price?.toFixed(2) || '0.00'}</small>
+                  <small>RM {drinkOptions[selectedDrink.name]?.find(o => o.type === 'Sejuk' || o.option_type === 'Sejuk')?.price?.toFixed(2) || '0.00'}</small>
+                </button>
+              )}
+              
+              {drinkOptions[selectedDrink.name]?.some(o => o.type === 'Bungkus' || o.option_type === 'Bungkus') && (
+                <button 
+                  onClick={() => setSelectedOption('Bungkus')}
+                  style={{ 
+                    flex: 1,
+                    minWidth: isMobile ? '70px' : '90px',
+                    padding: isMobile ? '12px' : '14px',
+                    background: selectedOption === 'Bungkus' ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : secondaryBg,
+                    color: selectedOption === 'Bungkus' ? 'white' : textColor,
+                    border: selectedOption === 'Bungkus' ? 'none' : `1px solid ${borderColor}`,
+                    borderRadius: '14px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: isMobile ? '11px' : '13px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  📦 {translate('bungkus')}
+                  <br />
+                  <small>RM {drinkOptions[selectedDrink.name]?.find(o => o.type === 'Bungkus' || o.option_type === 'Bungkus')?.price?.toFixed(2) || '0.00'}</small>
                 </button>
               )}
             </div>
@@ -1658,55 +1748,6 @@ function CustomerMenu() {
             </button>
           </div>
         </div>
-      )}
-
-      {/* ========================================================== */}
-      {/* FLOATING CART BUTTON */}
-      {/* ========================================================== */}
-      {cartItemCount > 0 && (
-        <button 
-          onClick={() => setShowCart(true)}
-          style={{ 
-            position: 'fixed',
-            bottom: '16px',
-            right: '16px',
-            width: isMobile ? '48px' : '60px',
-            height: isMobile ? '48px' : '60px',
-            borderRadius: '50%',
-            background: `linear-gradient(135deg, ${accentColor}, #d97706)`,
-            color: 'white',
-            border: 'none',
-            fontSize: isMobile ? '20px' : '24px',
-            cursor: 'pointer',
-            boxShadow: '0 4px 20px rgba(245,158,11,0.4)',
-            zIndex: 1000,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            transition: 'all 0.2s'
-          }}
-          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-        >
-          🛒
-          <span style={{ 
-            position: 'absolute',
-            top: '-4px',
-            right: '-4px',
-            background: dangerColor,
-            color: 'white',
-            borderRadius: '50%',
-            width: isMobile ? '18px' : '22px',
-            height: isMobile ? '18px' : '22px',
-            fontSize: isMobile ? '9px' : '11px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 'bold'
-          }}>
-            {cartItemCount}
-          </span>
-        </button>
       )}
 
       {/* ===== CART DRAWER ===== */}
@@ -2190,6 +2231,11 @@ function CustomerMenu() {
             100% { opacity: 1; transform: scale(1) translateY(0); } 
           }
           
+          @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+          }
+          
           ::-webkit-scrollbar { 
             width: 6px; 
             height: 6px; 
@@ -2224,20 +2270,9 @@ function CustomerMenu() {
             box-shadow: 0 0 0 3px rgba(245,158,11,0.12);
           }
           
-          /* Table number input - ALWAYS BLACK */
           input[type="number"] {
             color: #000000 !important;
             -webkit-text-fill-color: #000000 !important;
-          }
-          
-          /* Dark mode override for table number */
-          .dark-mode input[type="number"] {
-            color: #000000 !important;
-            -webkit-text-fill-color: #000000 !important;
-          }
-          
-          .card-hover {
-            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
           }
         `}
       </style>

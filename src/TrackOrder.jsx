@@ -26,28 +26,23 @@ function TrackOrder() {
   // COMPLETE TRANSLATIONS
   // ============================================================
   const translations = {
-    // Header
-    track_title: { en: '🔍 Track Your Order', ms: ' Jejak Pesanan Anda' },
+    track_title: { en: '🔍 Track Your Order', ms: '🔍 Jejak Pesanan Anda' },
     track_subtitle: { en: 'Enter your order number to check status', ms: 'Masukkan nombor pesanan untuk semak status' },
     enter_order: { en: 'Enter order ID or number', ms: 'Masukkan ID atau nombor pesanan' },
     searching: { en: 'Searching...', ms: 'Mencari...' },
-    track: { en: '🔍 Track', ms: ' Jejak' },
-    
-    // Messages
+    track: { en: '🔍 Track', ms: '🔍 Jejak' },
     order_not_found: { en: 'Order not found', ms: 'Pesanan tidak dijumpai' },
     check_order: { en: 'Please check your order ID or number', ms: 'Sila semak ID atau nombor pesanan anda' },
     order_found: { en: 'Order found!', ms: 'Pesanan dijumpai!' },
     enter_order_error: { en: 'Please enter an order ID or number', ms: 'Sila masukkan ID atau nombor pesanan' },
     error_loading: { en: 'Error loading order. Please try again.', ms: 'Ralat memuat pesanan. Sila cuba lagi.' },
-    
-    // Labels
     order_type: { en: 'Order Type', ms: 'Jenis Pesanan' },
     customer: { en: 'Customer', ms: 'Pelanggan' },
     order_items: { en: 'Order Items', ms: 'Item Pesanan' },
     total: { en: 'Total', ms: 'Jumlah' },
     estimated_time: { en: 'Estimated Ready Time', ms: 'Anggaran Masa Siap' },
     almost_ready: { en: 'Almost ready!', ms: 'Hampir siap!' },
-    refresh_status: { en: '🔄 Refresh Status', ms: ' Muat Semula Status' },
+    refresh_status: { en: '🔄 Refresh Status', ms: '🔄 Muat Semula Status' },
     auto_refresh: { en: 'Auto-refresh status', ms: 'Muat semula automatik' },
     order: { en: 'Order', ms: 'Pesanan' },
     at: { en: 'at', ms: 'pada' },
@@ -58,31 +53,24 @@ function TrackOrder() {
     note: { en: 'Note', ms: 'Nota' },
     minutes: { en: 'minutes', ms: 'minit' },
     cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
-    order_again: { en: '🍽️ Order Again →', ms: ' Pesan Lagi →' },
-    
-    // Status
+    order_again: { en: '🍽️ Order Again →', ms: '🍽️ Pesan Lagi →' },
+    back_to_menu: { en: '📋 Back to Menu', ms: '📋 Kembali ke Menu' },
     pending: { en: 'Pending', ms: 'Menunggu' },
     preparing: { en: 'Preparing', ms: 'Sedang Disiapkan' },
     ready: { en: 'Ready', ms: 'Sedia' },
     completed: { en: 'Completed', ms: 'Selesai' },
     cancelled_status: { en: 'Cancelled', ms: 'Dibatalkan' },
     unknown: { en: 'Unknown', ms: 'Tidak Diketahui' },
-    
-    // Status Descriptions
     pending_desc: { en: 'Your order has been received and waiting for confirmation.', ms: 'Pesanan anda telah diterima dan menunggu pengesahan dari dapur.' },
     preparing_desc: { en: 'Your order is being prepared in the kitchen.', ms: 'Pesanan anda sedang disediakan di dapur.' },
     ready_desc: { en: 'Your order is ready! Please proceed to counter.', ms: 'Pesanan anda sedia! Sila datang ke kaunter.' },
     completed_desc: { en: 'Order completed. Thank you!', ms: 'Pesanan selesai. Terima kasih!' },
     cancelled_desc: { en: 'This order has been cancelled.', ms: 'Pesanan ini telah dibatalkan.' },
     unknown_desc: { en: 'Status unknown.', ms: 'Status tidak diketahui.' },
-    
-    // Step Labels
     step_received: { en: 'Received', ms: 'Diterima' },
     step_preparing: { en: 'Preparing', ms: 'Disiapkan' },
     step_ready: { en: 'Ready', ms: 'Sedia' },
     step_completed: { en: 'Completed', ms: 'Selesai' },
-    
-    // Auto Complete
     auto_complete_info: { en: 'Order will be auto completed in ~', ms: 'Pesanan akan siap secara automatik dalam ~' },
   }
 
@@ -184,7 +172,6 @@ function TrackOrder() {
     }
   }
 
-  // ✅ FIXED: Search by both ID and order_number
   async function loadOrder(searchValue, isAutoRefresh = false) {
     if (!searchValue) return
     
@@ -192,25 +179,21 @@ function TrackOrder() {
     if (!isAutoRefresh) setError('')
     
     try {
-      // Try by ID first (UUID)
       let query = supabase
         .from('customer_orders')
         .select('*')
         
-      // Check if it's a UUID or order_number
       const isUUID = searchValue.includes('-') && searchValue.length > 20
       
       if (isUUID) {
         query = query.eq('id', searchValue)
       } else {
-        // Try by order_number
         query = query.eq('order_number', searchValue)
       }
       
       const { data, error } = await query.single()
 
       if (error || !data) {
-        // If not found, try the other way
         let fallbackQuery = supabase
           .from('customer_orders')
           .select('*')
@@ -261,6 +244,16 @@ function TrackOrder() {
       return
     }
     loadOrder(orderNumber.trim())
+  }
+
+  // ============================================================
+  // GO TO MENU
+  // ============================================================
+  const goToMenu = () => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const tableFromUrl = urlParams.get('table')
+    const tableNumber = order?.table_number || tableFromUrl || '1'
+    window.location.href = `/customer-menu?table=${tableNumber}`
   }
 
   // ============================================================
@@ -433,16 +426,6 @@ function TrackOrder() {
         </div>
       </div>
     )
-  }
-
-  // ============================================================
-  // GO TO MENU
-  // ============================================================
-  const goToMenu = () => {
-    const urlParams = new URLSearchParams(window.location.search)
-    const tableFromUrl = urlParams.get('table')
-    const tableNumber = order?.table_number || tableFromUrl || '1'
-    window.location.href = `/menu?table=${tableNumber}`
   }
 
   // ============================================================
@@ -919,7 +902,7 @@ function TrackOrder() {
                   e.currentTarget.style.boxShadow = '0 4px 16px rgba(245,158,11,0.3)'
                 }}
               >
-                {t('order_again')}
+                {order.status === 'completed' || order.status === 'cancelled' ? t('order_again') : t('back_to_menu')}
               </button>
             </div>
           </div>

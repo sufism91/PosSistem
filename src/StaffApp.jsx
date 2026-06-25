@@ -280,7 +280,7 @@ function StaffApp() {
   }, [])
 
   // ============================================================
-  // INTERVAL CHECKING FOR SOUND - FIXED with 'new'
+  // INTERVAL CHECKING FOR SOUND
   // ============================================================
   useEffect(() => {
     const checkOrders = async () => {
@@ -288,7 +288,7 @@ function StaffApp() {
         const { data } = await supabase
           .from('customer_orders')
           .select('id, status')
-          .in('status', ['pending', 'new'])  // <-- FIX: Tambah 'new'
+          .in('status', ['pending', 'new'])
         
         const currentIds = data?.map(o => o.id) || []
         const existingIds = notifiedOrderIds
@@ -384,9 +384,6 @@ function StaffApp() {
     }
   }
 
-  // ============================================================
-  // LOAD NEW ORDERS - FIXED: Tambah 'new'
-  // ============================================================
   async function loadNewOrders() {
     try {
       const { data, error } = await supabase
@@ -410,9 +407,6 @@ function StaffApp() {
     }
   }
 
-  // ============================================================
-  // LOAD UNPAID ORDERS - FIXED: Tambah 'new'
-  // ============================================================
   async function loadUnpaidOrders() {
     try {
       const { data, error } = await supabase
@@ -2637,7 +2631,7 @@ function StaffApp() {
           })}
         </div>
 
-        {/* FLOATING CART BUTTON - HIDDEN ON MOBILE (use bottom sheet instead) */}
+        {/* FLOATING CART BUTTON - HIDDEN ON MOBILE */}
         {cart.length > 0 && !isMobile && (
           <div style={{
             position: 'fixed',

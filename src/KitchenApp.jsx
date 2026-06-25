@@ -85,7 +85,7 @@ function KitchenApp() {
   const [readyOrders, setReadyOrders] = useState([])
   const [completedOrders, setCompletedOrders] = useState([])
   const [loading, setLoading] = useState(true)
-  const [soundEnabled, setSoundEnabled] = useState(true) // <-- SET TRUE
+  const [soundEnabled, setSoundEnabled] = useState(true)
   const [restaurantName, setRestaurantName] = useState('Restoran Kita')
   const [activeTab, setActiveTab] = useState('food')
   const [kitchenEnabled, setKitchenEnabled] = useState(true)
@@ -100,11 +100,9 @@ function KitchenApp() {
   // INIT SOUND ON USER INTERACTION
   // ============================================================
   useEffect(() => {
-    console.log('🔊 Kitchen: Initializing sound...')
     initSound()
     
     const unlockOnInteraction = () => {
-      console.log('🔓 Kitchen: Unlocking audio on user interaction...')
       unlockAudio()
       document.removeEventListener('click', unlockOnInteraction)
       document.removeEventListener('touchstart', unlockOnInteraction)
@@ -125,11 +123,10 @@ function KitchenApp() {
   const playKitchenSound = () => {
     console.log('🔔 Kitchen: playKitchenSound called, soundEnabled:', soundEnabled)
     
-    // FORCE PLAY - jangan check soundEnabled dulu
-    // if (!soundEnabled) {
-    //   console.log('🔇 Kitchen sound disabled')
-    //   return
-    // }
+    if (!soundEnabled) {
+      console.log('🔇 Kitchen sound disabled')
+      return
+    }
     
     playSound()
   }
@@ -138,14 +135,11 @@ function KitchenApp() {
   // TEST SOUND
   // ============================================================
   const testSound = () => {
-    console.log('🧪🧪🧪 Kitchen test sound button clicked!')
-    console.log('🔊 soundEnabled:', soundEnabled)
+    console.log('🧪 Kitchen test sound button clicked!')
     initSound()
     unlockAudio()
-    setTimeout(() => {
-      playSound()
-      toast.success(`🔊 ${t('sound_test')}...`)
-    }, 200)
+    playSound()
+    toast.success(`🔊 ${t('sound_test')}...`)
   }
 
   // ============================================================
@@ -211,8 +205,11 @@ function KitchenApp() {
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'customer_orders' },
         (payload) => {
-          if (payload.new.status === 'pending' || payload.new.status === ORDER_STATUS.CONFIRMED ||
-              payload.new.order_status === 'pending' || payload.new.order_status === ORDER_STATUS.CONFIRMED) {
+          // ===== FIX: Accept 'new' and 'pending' =====
+          if (payload.new.status === 'new' || payload.new.status === 'pending' || 
+              payload.new.status === ORDER_STATUS.CONFIRMED ||
+              payload.new.order_status === 'new' || payload.new.order_status === 'pending' || 
+              payload.new.order_status === ORDER_STATUS.CONFIRMED) {
             
             const hasDrinkItems = payload.new.items?.some(item => 
               item.category === 'Minuman' || 
@@ -320,7 +317,7 @@ function KitchenApp() {
   }, [soundEnabled, kitchenEnabled])
 
   // ============================================================
-  // INTERVAL CHECKING FOR REPEAT SOUND - EVERY 5 SECONDS
+  // INTERVAL CHECKING FOR REPEAT SOUND
   // ============================================================
   useEffect(() => {
     const checkOrders = async () => {
@@ -328,7 +325,7 @@ function KitchenApp() {
         const { data } = await supabase
           .from('customer_orders')
           .select('id, status')
-          .in('status', ['pending', 'confirmed'])
+          .in('status', ['new', 'pending', 'confirmed'])
           .eq('payment_status', 'unpaid')
         
         const currentIds = data?.map(o => o.id) || []
@@ -375,7 +372,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // LOAD ORDERS - FIXED: Accept 'pending' status
+  // LOAD ORDERS - FIXED: Accept 'new' and 'pending'
   // ============================================================
   async function loadOrders() {
     try {
@@ -383,8 +380,8 @@ function KitchenApp() {
         .from('customer_orders')
         .select('*')
         .eq('payment_status', 'unpaid')
-        .in('order_status', ['pending', ORDER_STATUS.CONFIRMED])
-        .in('status', ['pending', ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'confirmed', 'preparing', 'ready'])
+        .in('order_status', ['new', 'pending', ORDER_STATUS.CONFIRMED])
+        .in('status', ['new', 'pending', ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'confirmed', 'preparing', 'ready'])
         .order('created_at', { ascending: false })
       
       const { data: completed } = await supabase
@@ -434,7 +431,7 @@ function KitchenApp() {
           preparing.push(order)
         } else if (order.status === 'ready') {
           ready.push(order)
-        } else if (['pending', ORDER_STATUS.CONFIRMED, 'confirmed'].includes(order.status)) {
+        } else if (['new', 'pending', ORDER_STATUS.CONFIRMED, 'confirmed'].includes(order.status)) {
           if (hasFoodItems) {
             food.push({
               ...order,

@@ -156,7 +156,6 @@ function TrackOrder() {
     }
   }
 
-  // ===== LOAD SETTINGS - SYNC DENGAN MANAGE SETTINGS =====
   async function loadSettings() {
     try {
       const { data } = await supabase.from('settings').select('key, value')
@@ -264,82 +263,93 @@ function TrackOrder() {
   // HELPERS - FIXED STATUS (Tambah 'new')
   // ============================================================
   const getStatusInfo = (status) => {
-    // ===== FIX: Tambah 'new' status =====
     switch(status) {
       case 'new':
+        return { 
+          label: '🆕 Baru Diterima', 
+          color: '#3b82f6', 
+          icon: '📋', 
+          step: 1, 
+          description: 'Pesanan baru diterima, menunggu pengesahan dapur.' 
+        }
       case 'pending':
         return { 
-          label: t('pending'), 
+          label: '⏳ Menunggu', 
           color: '#eab308', 
           icon: '⏳', 
           step: 1, 
-          description: t('pending_desc') 
+          description: 'Pesanan anda sedang menunggu pengesahan.' 
         }
       case 'preparing':
         return { 
-          label: t('preparing'), 
+          label: '🔪 Sedang Disiapkan', 
           color: '#f97316', 
           icon: '🔪', 
           step: 2, 
-          description: t('preparing_desc') 
+          description: 'Pesanan anda sedang disediakan di dapur.' 
         }
       case 'ready':
         return { 
-          label: t('ready'), 
+          label: '✅ Sedia', 
           color: '#22c55e', 
           icon: '✅', 
           step: 3, 
-          description: t('ready_desc') 
+          description: 'Pesanan anda sedia! Sila datang ke kaunter.' 
         }
       case 'completed':
         return { 
-          label: t('completed'), 
+          label: '📦 Selesai', 
           color: '#3b82f6', 
           icon: '📦', 
           step: 4, 
-          description: t('completed_desc') 
+          description: 'Pesanan selesai. Terima kasih!' 
         }
       case 'cancelled':
         return { 
-          label: t('cancelled_status'), 
+          label: '❌ Dibatalkan', 
           color: '#ef4444', 
           icon: '❌', 
           step: 0, 
-          description: t('cancelled_desc') 
+          description: 'Pesanan ini telah dibatalkan.' 
         }
       default:
         return { 
-          label: t('unknown'), 
+          label: '❓ Tidak Diketahui', 
           color: '#6c757d', 
           icon: '❓', 
           step: 0, 
-          description: t('unknown_desc') 
+          description: 'Status tidak diketahui.' 
         }
     }
   }
 
-  // ===== FIX: Estimated Time - Sync dengan settings =====
+  // ===== FIX: Estimated Time =====
   const getEstimatedTime = (createdAt, status) => {
-    if (status === 'ready' || status === 'completed') return t('almost_ready')
-    if (status === 'cancelled') return t('cancelled_status')
-    
-    // Handle 'new' or 'pending'
-    if (status === 'new' || status === 'pending') {
-      if (!kitchenEnabled && autoCompleteEnabled) {
-        return `~${autoCompleteMinutes} ${t('minutes')} (${t('auto_complete')})`
-      }
+    if (status === 'ready' || status === 'completed') {
+      return '✅ Sedia / Selesai'
     }
     
-    // Kitchen enabled - estimated 15 minutes
+    if (status === 'cancelled') {
+      return '❌ Dibatalkan'
+    }
+    
+    if (!kitchenEnabled && autoCompleteEnabled) {
+      return `⏱️ ~${autoCompleteMinutes} minit (Auto Complete)`
+    }
+    
     try {
       const created = new Date(createdAt)
       const now = new Date()
-      const elapsed = Math.floor((now - created) / 60000)
-      const estimated = 15 - elapsed
-      if (estimated <= 0) return t('almost_ready')
-      return `~${estimated} ${t('minutes')}`
+      const elapsedMinutes = Math.floor((now - created) / 60000)
+      const totalEstimated = 15
+      const remaining = totalEstimated - elapsedMinutes
+      
+      if (remaining <= 0) {
+        return '🟢 Hampir siap!'
+      }
+      return `⏱️ ~${remaining} minit lagi`
     } catch (e) {
-      return t('almost_ready')
+      return '🟢 Hampir siap!'
     }
   }
 
@@ -735,7 +745,7 @@ function TrackOrder() {
               <StepBar currentStep={getStatusInfo(order.status).step} />
             )}
 
-            {/* Estimated Time - Sync dengan settings */}
+            {/* Estimated Time */}
             {order.status !== 'cancelled' && (
               <div style={{ 
                 background: secondaryBg, 

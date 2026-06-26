@@ -51,7 +51,7 @@ function KitchenApp() {
     cooking_finished: { en: '✅ Cooking finished!', ms: 'Selesai memasak!' },
     order_completed: { en: '✅ Order completed!', ms: 'Pesanan selesai!' },
     order_cancelled: { en: '❌ Order cancelled!', ms: 'Pesanan dibatalkan!' },
-    waiting: { en: '⏱️ Waiting', ms: '⏱Menunggu' },
+    waiting: { en: '⏱️ Waiting', ms: 'Menunggu' },
     total: { en: 'Total', ms: 'Jumlah' },
     note: { en: '📝 Note', ms: 'Nota' },
     cancel: { en: '❌ Cancel', ms: 'Batal' },
@@ -432,10 +432,11 @@ function KitchenApp() {
   }, [soundEnabled, kitchenEnabled])
 
   // ============================================================
-  // INTERVAL CHECKING - FIXED (Bandingkan jumlah order)
+  // INTERVAL CHECKING - FIXED (Bandingkan jumlah order + isFirstRun)
   // ============================================================
   useEffect(() => {
     let previousCount = 0
+    let isFirstRun = true  // 👈 TAMBAH FLAG
 
     const checkOrders = async () => {
       try {
@@ -450,6 +451,14 @@ function KitchenApp() {
         
         console.log(`📊 Kitchen interval: ${currentCount} orders (prev: ${previousCount})`)
         
+        // 👇 SKIP FIRST RUN - JANGAN MAIN SOUND
+        if (isFirstRun) {
+          console.log('📊 Kitchen interval: First run, skipping sound')
+          previousCount = currentCount
+          isFirstRun = false
+          return
+        }
+        
         if (currentCount > previousCount && previousCount > 0) {
           console.log(`🔔 Kitchen interval: New order! (${previousCount} → ${currentCount})`)
           playKitchenSound()
@@ -462,7 +471,9 @@ function KitchenApp() {
       }
     }
     
+    // Call sekali - ini akan skip sound
     checkOrders()
+    
     const interval = setInterval(checkOrders, 10000)
     return () => clearInterval(interval)
   }, [])

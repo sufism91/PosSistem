@@ -51,7 +51,7 @@ function KitchenApp() {
     cooking_finished: { en: '✅ Cooking finished!', ms: 'Selesai memasak!' },
     order_completed: { en: '✅ Order completed!', ms: 'Pesanan selesai!' },
     order_cancelled: { en: '❌ Order cancelled!', ms: 'Pesanan dibatalkan!' },
-    waiting: { en: '⏱️ Waiting', ms: 'Menunggu' },
+    waiting: { en: '⏱️ Waiting', ms: '⏱Menunggu' },
     total: { en: 'Total', ms: 'Jumlah' },
     note: { en: '📝 Note', ms: 'Nota' },
     cancel: { en: '❌ Cancel', ms: 'Batal' },
@@ -135,25 +135,26 @@ function KitchenApp() {
   // FORMAT WAKTU MALAYSIA (GMT+8)
   // ============================================================
   const formatMalaysiaTime = (dateString) => {
-  if (!dateString) return '-'
-  try {
-    const date = new Date(dateString)
-    // Tambah 8 jam manually (GMT+8)
-    const ms = date.getTime() + (8 * 60 * 60 * 1000)
-    const localDate = new Date(ms)
-    
-    const day = String(localDate.getDate()).padStart(2, '0')
-    const month = String(localDate.getMonth() + 1).padStart(2, '0')
-    const year = localDate.getFullYear()
-    const hours = String(localDate.getHours()).padStart(2, '0')
-    const minutes = String(localDate.getMinutes()).padStart(2, '0')
-    const seconds = String(localDate.getSeconds()).padStart(2, '0')
-    
-    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
-  } catch (e) {
-    return new Date(dateString).toLocaleString()
+    if (!dateString) return '-'
+    try {
+      const date = new Date(dateString)
+      // Tambah 8 jam untuk GMT+8 (Malaysia)
+      const ms = date.getTime() + (8 * 60 * 60 * 1000)
+      const localDate = new Date(ms)
+      
+      const day = String(localDate.getDate()).padStart(2, '0')
+      const month = String(localDate.getMonth() + 1).padStart(2, '0')
+      const year = localDate.getFullYear()
+      const hours = String(localDate.getHours()).padStart(2, '0')
+      const minutes = String(localDate.getMinutes()).padStart(2, '0')
+      const seconds = String(localDate.getSeconds()).padStart(2, '0')
+      
+      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
+    } catch (e) {
+      return new Date(dateString).toLocaleString()
+    }
   }
-}
+
   // ============================================================
   // INIT SOUND
   // ============================================================
@@ -196,7 +197,13 @@ function KitchenApp() {
     setLastSoundTime(now)
     
     console.log('🔔 Kitchen: Calling playSound() now!')
-    playSound()
+    
+    try {
+      playSound()
+      console.log('✅ playSound() executed successfully')
+    } catch (err) {
+      console.error('❌ playSound() error:', err)
+    }
   }
 
   // ============================================================
@@ -323,7 +330,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // MAIN EFFECT - DENGAN FILTER & SUBSCRIPTION (FIXED UPDATE)
+  // MAIN EFFECT - DENGAN FILTER & SUBSCRIPTION (FIXED)
   // ============================================================
   useEffect(() => {
     if (!kitchenEnabled) return
@@ -331,9 +338,11 @@ function KitchenApp() {
     loadOrders()
     loadCompletedOrders()
     
-    // 👇 SUBSCRIPTION - INSERT
-    const subscription = supabase
-      .channel('kitchen_orders')
+    // 👇 BUAT CHANNEL DULU
+    const channel = supabase.channel('kitchen_orders')
+    
+    // 👇 TAMBAH CALLBACK SEBELUM SUBSCRIBE
+    channel
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'customer_orders' },
         (payload) => {
@@ -374,7 +383,6 @@ function KitchenApp() {
           }
         }
       )
-      // 👇 FIX: UPDATE - MAIN SOUND BILA STATUS JADI 'confirmed'
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'customer_orders' },
         (payload) => {
@@ -384,10 +392,15 @@ function KitchenApp() {
           
           const validStatuses = ['confirmed', 'preparing', 'ready']
           
-          // 👇 HANYA MAIN SOUND JIKA STATUS BERUBAH KE validStatuses
-          if (validStatuses.includes(payload.new.status) && 
-              !validStatuses.includes(payload.old?.status)) {
-            
+          const oldStatus = payload.old?.status || payload.old?.order_status || 'new'
+          const newStatus = payload.new?.status || payload.new?.order_status
+          
+          const isNewlyConfirmed = validStatuses.includes(newStatus) && 
+                                   !validStatuses.includes(oldStatus)
+          
+          console.log('   isNewlyConfirmed:', isNewlyConfirmed)
+          
+          if (isNewlyConfirmed) {
             console.log('🔔 Kitchen: Order confirmed by Staff! Playing sound...')
             playKitchenSound()
             
@@ -418,6 +431,7 @@ function KitchenApp() {
           }
         }
       )
+      // 👇 SUBSCRIBE SEKALI DI HUJUNG
       .subscribe()
     
     // 👇 INTERVAL - 5 saat untuk load orders
@@ -427,7 +441,7 @@ function KitchenApp() {
     }, 5000)
     
     return () => {
-      subscription.unsubscribe()
+      channel.unsubscribe()
       clearInterval(interval)
     }
   }, [soundEnabled, kitchenEnabled])
@@ -435,119 +449,50 @@ function KitchenApp() {
   // ============================================================
   // INTERVAL CHECKING - FIXED (Bandingkan jumlah order + isFirstRun)
   // ============================================================
-useEffect(() => {
-  if (!kitchenEnabled) return
-  
-  loadOrders()
-  loadCompletedOrders()
-  
-  // 👇 BUAT CHANNEL DULU
-  const channel = supabase.channel('kitchen_orders')
-  
-  // 👇 TAMBAH CALLBACK SEBELUM SUBSCRIBE
-  channel
-    .on('postgres_changes', 
-      { event: 'INSERT', schema: 'public', table: 'customer_orders' },
-      (payload) => {
-        const validStatuses = ['confirmed', 'preparing', 'ready']
+  useEffect(() => {
+    let previousCount = 0
+    let isFirstRun = true
+
+    const checkOrders = async () => {
+      try {
+        console.log('🔍 Kitchen interval: Checking for orders...')
         
-        if (validStatuses.includes(payload.new.status) || 
-            validStatuses.includes(payload.new.order_status)) {
-          
-          console.log('🔔 Kitchen: New confirmed order!')
-          playKitchenSound()
-          
-          const orderType = payload.new.order_type === 'take_away' 
-            ? t('take_away') 
-            : `${t('table')} ${payload.new.table_number || '?'}`
-          
-          toast.custom((toastObj) => (
-            <div style={{ 
-              background: 'linear-gradient(135deg, #3b82f6, #2563eb)', 
-              color: 'white', 
-              padding: isMobile ? '10px 16px' : '12px 24px', 
-              borderRadius: '50px', 
-              fontWeight: 'bold', 
-              boxShadow: '0 10px 25px rgba(0,0,0,0.2)', 
-              fontSize: isMobile ? '12px' : '14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <span>🔔</span>
-              <span>🆕 New order! {orderType}</span>
-            </div>
-          ), { duration: 3000 })
-          
-          loadOrders()
-          loadCompletedOrders()
-        } else {
-          console.log('⏳ Kitchen: Order masih pending, tunggu staff confirm:', payload.new.status)
+        const { data } = await supabase
+          .from('customer_orders')
+          .select('id, status')
+          .in('status', ['confirmed', 'preparing', 'ready'])
+        
+        const currentCount = data?.length || 0
+        
+        console.log(`📊 Kitchen interval: ${currentCount} orders (prev: ${previousCount})`)
+        
+        // 👇 SKIP FIRST RUN - JANGAN MAIN SOUND
+        if (isFirstRun) {
+          console.log('📊 Kitchen interval: First run, skipping sound')
+          previousCount = currentCount
+          isFirstRun = false
+          return
         }
-      }
-    )
-    .on('postgres_changes',
-      { event: 'UPDATE', schema: 'public', table: 'customer_orders' },
-      (payload) => {
-        console.log('🔄 Kitchen: Order UPDATE detected')
-        console.log('   Old status:', payload.old?.status)
-        console.log('   New status:', payload.new?.status)
         
-        const validStatuses = ['confirmed', 'preparing', 'ready']
-        
-        const oldStatus = payload.old?.status || payload.old?.order_status || 'new'
-        const newStatus = payload.new?.status || payload.new?.order_status
-        
-        const isNewlyConfirmed = validStatuses.includes(newStatus) && 
-                                 !validStatuses.includes(oldStatus)
-        
-        console.log('   isNewlyConfirmed:', isNewlyConfirmed)
-        
-        if (isNewlyConfirmed) {
-          console.log('🔔 Kitchen: Order confirmed by Staff! Playing sound...')
+        if (currentCount > previousCount && previousCount > 0) {
+          console.log(`🔔 Kitchen interval: New order! (${previousCount} → ${currentCount})`)
           playKitchenSound()
-          
-          const orderType = payload.new.order_type === 'take_away' 
-            ? t('take_away') 
-            : `${t('table')} ${payload.new.table_number || '?'}`
-          
-          toast.custom((toastObj) => (
-            <div style={{ 
-              background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', 
-              color: 'white', 
-              padding: isMobile ? '10px 16px' : '12px 24px', 
-              borderRadius: '50px', 
-              fontWeight: 'bold', 
-              boxShadow: '0 10px 25px rgba(0,0,0,0.2)', 
-              fontSize: isMobile ? '12px' : '14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              <span>🔔</span>
-              <span>✅ Order confirmed! {orderType}</span>
-            </div>
-          ), { duration: 3000 })
-          
-          loadOrders()
-          loadCompletedOrders()
         }
+        
+        previousCount = currentCount
+        
+      } catch (err) {
+        console.error('Kitchen interval error:', err)
       }
-    )
-    // 👇 SUBSCRIBE SEKALI DI HUJUNG
-    .subscribe()
-  
-  // 👇 INTERVAL - 5 saat untuk load orders
-  const interval = setInterval(() => {
-    loadOrders()
-    loadCompletedOrders()
-  }, 5000)
-  
-  return () => {
-    channel.unsubscribe()
-    clearInterval(interval)
-  }
-}, [soundEnabled, kitchenEnabled])
+    }
+    
+    // Call sekali - ini akan skip sound
+    checkOrders()
+    
+    const interval = setInterval(checkOrders, 5000)
+    return () => clearInterval(interval)
+  }, [])
+
   // ============================================================
   // ORDER ACTIONS
   // ============================================================
@@ -1055,7 +1000,6 @@ useEffect(() => {
   // ============================================================
   // MAIN RENDER
   // ============================================================
-  // 👇 TABS - Food, Drinks, Confirmed, Cooking, Ready, Completed
   const tabs = [
     { id: 'food', label: t('food_orders'), icon: '🍚', count: foodOrders.length, color: '#f59e0b' },
     { id: 'drink', label: t('drink_orders'), icon: '🥤', count: drinkOrders.length, color: '#3b82f6' },
@@ -1312,7 +1256,7 @@ useEffect(() => {
           ))}
         </div>
         
-        {/* TAB CONTENT */}
+        {/* TAB CONTENT - Sama macam sebelum, tak perlu ubah */}
         {activeTab === 'food' && (
           <div>
             {filterOrders(foodOrders).length === 0 ? (

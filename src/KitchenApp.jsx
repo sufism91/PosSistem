@@ -435,49 +435,122 @@ function KitchenApp() {
   // ============================================================
   // INTERVAL CHECKING - FIXED (Bandingkan jumlah order + isFirstRun)
   // ============================================================
-  useEffect(() => {
-    let previousCount = 0
-    let isFirstRun = true  // 👈 TAMBAH FLAG
-
-    const checkOrders = async () => {
-      try {
-        console.log('🔍 Kitchen interval: Checking for orders...')
+ useEffect(() => {
+  if (!kitchenEnabled) return
+  
+  loadOrders()
+  loadCompletedOrders()
+  
+  // 👇 SUBSCRIPTION - INSERT
+  const subscription = supabase
+    .channel('kitchen_orders')
+    .on('postgres_changes', 
+      { event: 'INSERT', schema: 'public', table: 'customer_orders' },
+      (payload) => {
+        const validStatuses = ['confirmed', 'preparing', 'ready']
         
-        const { data } = await supabase
-          .from('customer_orders')
-          .select('id, status')
-          .in('status', ['confirmed', 'preparing', 'ready'])
-        
-        const currentCount = data?.length || 0
-        
-        console.log(`📊 Kitchen interval: ${currentCount} orders (prev: ${previousCount})`)
-        
-        // 👇 SKIP FIRST RUN - JANGAN MAIN SOUND
-        if (isFirstRun) {
-          console.log('📊 Kitchen interval: First run, skipping sound')
-          previousCount = currentCount
-          isFirstRun = false
-          return
-        }
-        
-        if (currentCount > previousCount && previousCount > 0) {
-          console.log(`🔔 Kitchen interval: New order! (${previousCount} → ${currentCount})`)
+        if (validStatuses.includes(payload.new.status) || 
+            validStatuses.includes(payload.new.order_status)) {
+          
+          console.log('🔔 Kitchen: New confirmed order!')
           playKitchenSound()
+          
+          const orderType = payload.new.order_type === 'take_away' 
+            ? t('take_away') 
+            : `${t('table')} ${payload.new.table_number || '?'}`
+          
+          toast.custom((toastObj) => (
+            <div style={{ 
+              background: 'linear-gradient(135deg, #3b82f6, #2563eb)', 
+              color: 'white', 
+              padding: isMobile ? '10px 16px' : '12px 24px', 
+              borderRadius: '50px', 
+              fontWeight: 'bold', 
+              boxShadow: '0 10px 25px rgba(0,0,0,0.2)', 
+              fontSize: isMobile ? '12px' : '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>🔔</span>
+              <span>🆕 New order! {orderType}</span>
+            </div>
+          ), { duration: 3000 })
+          
+          loadOrders()
+          loadCompletedOrders()
+        } else {
+          console.log('⏳ Kitchen: Order masih pending, tunggu staff confirm:', payload.new.status)
         }
-        
-        previousCount = currentCount
-        
-      } catch (err) {
-        console.error('Kitchen interval error:', err)
       }
+    )
+    // 👇 FIX: UPDATE - MAIN SOUND BILA STATUS JADI 'confirmed'
+    .on('postgres_changes',
+      { event: 'UPDATE', schema: 'public', table: 'customer_orders' },
+      (payload) => {
+        console.log('🔄 Kitchen: Order UPDATE detected')
+        console.log('   Old status:', payload.old?.status)
+        console.log('   New status:', payload.new?.status)
+        
+        const validStatuses = ['confirmed', 'preparing', 'ready']
+        
+        // 👇 FIX: CHECK SAMA ADA OLD STATUS ADA ATAU TAK
+        const oldStatus = payload.old?.status || payload.old?.order_status || 'new'
+        const newStatus = payload.new?.status || payload.new?.order_status
+        
+        // 👇 MAIN SOUND JIKA:
+        // 1. New status dalam validStatuses
+        // 2. Old status TIDAK dalam validStatuses (bermakna baru tukar)
+        // 3. ATAU old status undefined/null (first update)
+        const isNewlyConfirmed = validStatuses.includes(newStatus) && 
+                                 !validStatuses.includes(oldStatus)
+        
+        console.log('   isNewlyConfirmed:', isNewlyConfirmed)
+        
+        if (isNewlyConfirmed) {
+          console.log('🔔 Kitchen: Order confirmed by Staff! Playing sound...')
+          playKitchenSound()
+          
+          const orderType = payload.new.order_type === 'take_away' 
+            ? t('take_away') 
+            : `${t('table')} ${payload.new.table_number || '?'}`
+          
+          toast.custom((toastObj) => (
+            <div style={{ 
+              background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', 
+              color: 'white', 
+              padding: isMobile ? '10px 16px' : '12px 24px', 
+              borderRadius: '50px', 
+              fontWeight: 'bold', 
+              boxShadow: '0 10px 25px rgba(0,0,0,0.2)', 
+              fontSize: isMobile ? '12px' : '14px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}>
+              <span>🔔</span>
+              <span>✅ Order confirmed! {orderType}</span>
+            </div>
+          ), { duration: 3000 })
+          
+          loadOrders()
+          loadCompletedOrders()
+        }
+      }
+    )
+    .subscribe()
+    
+    // 👇 INTERVAL - 5 saat untuk load orders
+    const interval = setInterval(() => {
+      loadOrders()
+      loadCompletedOrders()
+    }, 5000)
+    
+    return () => {
+      subscription.unsubscribe()
+      clearInterval(interval)
     }
-    
-    // Call sekali - ini akan skip sound
-    checkOrders()
-    
-    const interval = setInterval(checkOrders, 5000)
-    return () => clearInterval(interval)
-  }, [])
+  }, [soundEnabled, kitchenEnabled])
 
   // ============================================================
   // ORDER ACTIONS

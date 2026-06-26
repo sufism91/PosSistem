@@ -16,18 +16,18 @@ function StaffApp() {
   // ============================================================
   const t = (key) => {
     const translations = {
-      pos: { en: '🧾 POS', ms: 'Jualan' },
-      new_order: { en: '🆕 New Orders', ms: 'Pesanan Baru' },
-      unpaid: { en: '💰 Unpaid', ms: 'Belum Bayar' },
-      history: { en: '📜 History', ms: 'Sejarah' },
-      dine_in: { en: '🍽️ Dine In', ms: 'Makan di Sini' },
-      take_away: { en: '🥡 Take Away', ms: 'Bungkus' },
+      pos: { en: '🧾 POS', ms: '🧾 Jualan' },
+      new_order: { en: '🆕 New Orders', ms: '🆕 Pesanan Baru' },
+      unpaid: { en: '💰 Unpaid', ms: '💰 Belum Bayar' },
+      history: { en: '📜 History', ms: '📜 Sejarah' },
+      dine_in: { en: '🍽️ Dine In', ms: '🍽️ Makan di Sini' },
+      take_away: { en: '🥡 Take Away', ms: '🥡 Bungkus' },
       table: { en: 'Table', ms: 'Meja' },
       customer_name: { en: 'Customer', ms: 'Pelanggan' },
       customer_phone: { en: 'Phone', ms: 'Telefon' },
       table_number: { en: 'Table No.', ms: 'No. Meja' },
       add: { en: 'Add', ms: 'Tambah' },
-      cart: { en: '🛒 Cart', ms: 'Keranjang' },
+      cart: { en: '🛒 Cart', ms: '🛒 Keranjang' },
       empty_cart: { en: 'Cart is empty', ms: 'Keranjang kosong' },
       subtotal: { en: 'Subtotal', ms: 'Subtotal' },
       service_charge: { en: 'Service Charge', ms: 'Caj Perkhidmatan' },
@@ -44,11 +44,11 @@ function StaffApp() {
       save: { en: 'Save', ms: 'Simpan' },
       payment_received: { en: 'Payment received', ms: 'Bayaran diterima' },
       refresh: { en: 'Refresh', ms: 'Segar' },
-      sound_test: { en: '🔊 Test Sound', ms: 'Uji Bunyi' },
+      sound_test: { en: '🔊 Test Sound', ms: '🔊 Uji Bunyi' },
       no_data: { en: 'No data', ms: 'Tiada data' },
       guest: { en: 'Guest', ms: 'Tetamu' },
-      all_categories: { en: '📋 All', ms: 'Semua' },
-      order_added: { en: '✅ Added!', ms: 'Ditambah!' },
+      all_categories: { en: '📋 All', ms: '📋 Semua' },
+      order_added: { en: '✅ Added!', ms: '✅ Ditambah!' },
       cart_empty_msg: { en: 'Cart is empty', ms: 'Keranjang kosong' },
       confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
       order_cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
@@ -63,10 +63,10 @@ function StaffApp() {
       receipt_qty: { en: 'Qty', ms: 'Kuantiti' },
       receipt_price: { en: 'Price', ms: 'Harga' },
       receipt_total: { en: 'TOTAL', ms: 'JUMLAH' },
-      print_receipt: { en: '🖨️ Print', ms: 'Cetak' },
-      preview_receipt: { en: '🧾 Preview', ms: 'Preview' },
+      print_receipt: { en: '🖨️ Print', ms: '🖨️ Cetak' },
+      preview_receipt: { en: '🧾 Preview', ms: '🧾 Preview' },
       view_order: { en: 'View', ms: 'Lihat' },
-      mark_paid: { en: '💰 Mark Paid', ms: 'Tanda Bayar' },
+      mark_paid: { en: '💰 Mark Paid', ms: '💰 Tanda Bayar' },
       close: { en: 'Close', ms: 'Tutup' },
       back: { en: 'Back', ms: 'Kembali' },
       payment_method_label: { en: 'Payment', ms: 'Bayaran' },
@@ -80,30 +80,31 @@ function StaffApp() {
       last: { en: 'Last', ms: 'Terakhir' },
       items: { en: 'items', ms: 'item' },
       select_drink: { en: 'Select drink temp', ms: 'Pilih suhu minuman' },
-      clear_cart: { en: '🗑️ Clear', ms: 'Kosongkan' },
-      new_orders_title: { en: '🔔 New Orders', ms: 'Pesanan Baru' },
-      unpaid_orders_title: { en: '💰 Unpaid', ms: 'Belum Bayar' },
-      history_title: { en: '📜 History', ms: 'Sejarah' },
+      clear_cart: { en: '🗑️ Clear', ms: '🗑️ Kosongkan' },
+      new_orders_title: { en: '🔔 New Orders', ms: '🔔 Pesanan Baru' },
+      unpaid_orders_title: { en: '💰 Unpaid', ms: '💰 Belum Bayar' },
+      history_title: { en: '📜 History', ms: '📜 Sejarah' },
       pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
       pos_subtitle: { en: 'Take orders & manage payments', ms: 'Ambil pesanan & urus bayaran' },
-      search_menu: { en: '🔍 Search menu...', ms: 'Cari menu...' },
-      order_details: { en: '📋 Order Details', ms: 'Butiran Pesanan' },
+      search_menu: { en: '🔍 Search menu...', ms: '🔍 Cari menu...' },
+      order_details: { en: '📋 Order Details', ms: '📋 Butiran Pesanan' },
       select_drink_option: { en: 'Select Drink Option', ms: 'Pilih Pilihan Minuman' },
       select_size_option: { en: 'Select Size', ms: 'Pilih Saiz' },
       hot: { en: 'Hot', ms: 'Panas' },
       cold: { en: 'Cold', ms: 'Sejuk' },
       packed: { en: 'Packed', ms: 'Bungkus' },
       notes: { en: 'Notes', ms: 'Nota' },
-      promo: { en: '🔥 Promo', ms: 'Promosi' },
-      bogo: { en: '🎁 BOGO', ms: 'Beli 1 Percuma 1' },
-      bundle: { en: '📦 Bundle', ms: 'Bundle' },
-      set_menu: { en: '🍽️ Set Menu', ms: 'Set Menu' },
+      promo: { en: '🔥 Promo', ms: '🔥 Promosi' },
+      bogo: { en: '🎁 BOGO', ms: '🎁 Beli 1 Percuma 1' },
+      bundle: { en: '📦 Bundle', ms: '📦 Bundle' },
+      set_menu: { en: '🍽️ Set Menu', ms: '🍽️ Set Menu' },
       free: { en: 'FREE', ms: 'PERCUMA' },
       select_size: { en: 'Select Size', ms: 'Pilih Saiz' },
       special_request: { en: 'Special request...', ms: 'Permintaan khas...' },
       quantity: { en: 'Qty', ms: 'Kuantiti' },
       add_to_cart: { en: 'Add to Cart', ms: 'Tambah ke Keranjang' },
       new_order_notification: { en: 'New order received!', ms: 'Pesanan baru diterima!' },
+      order_confirmed_kitchen: { en: 'Order confirmed!', ms: 'Pesanan disahkan!' },
     }
     if (!translations[key]) return key
     return language === 'en' ? translations[key].en : translations[key].ms
@@ -698,18 +699,30 @@ function StaffApp() {
   }
 
   // ============================================================
-  // CONFIRM / CANCEL NEW ORDER
+  // CONFIRM / CANCEL NEW ORDER - FIXED: TAMBAH playSound()
   // ============================================================
   const confirmNewOrder = async (order) => {
     try {
       await supabase
         .from('customer_orders')
-        .update({ status: ORDER_STATUS.CONFIRMED, order_status: ORDER_STATUS.CONFIRMED, confirmed_at: new Date().toISOString() })
+        .update({ 
+          status: ORDER_STATUS.CONFIRMED, 
+          order_status: ORDER_STATUS.CONFIRMED, 
+          confirmed_at: new Date().toISOString() 
+        })
         .eq('id', order.id)
+      
+      // 👇 TAMBAH SOUND TERUS DI SINI (BACKUP)
+      console.log('🔔🔔🔔 STAFF CONFIRM - PLAYING SOUND DIRECT! 🔔🔔🔔')
+      playSound()
+      
       toast.success(t('order_confirmed_kitchen'))
       loadNewOrders()
       loadUnpaidOrders()
-    } catch (err) { toast.error(err.message) }
+    } catch (err) { 
+      console.error('Error confirming order:', err)
+      toast.error(err.message) 
+    }
   }
 
   const cancelNewOrder = async (order) => {

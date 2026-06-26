@@ -132,7 +132,6 @@ function StaffApp() {
 
   // ===== NOTIFICATION STATE =====
   const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set())
-  // 👇 BUANG audio state - guna sound.js sahaja
 
   // ===== SETTINGS =====
   const [settings, setSettings] = useState({
@@ -179,7 +178,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PLAY NOTIFICATION SOUND - GUNA playSound() DARI sound.js
+  // PLAY NOTIFICATION SOUND - FIXED
   // ============================================================
   const playNotificationSound = () => {
     console.log('🔔 playNotificationSound called')
@@ -189,7 +188,7 @@ function StaffApp() {
       return
     }
     
-    // 👇 GUNA playSound() DARI sound.js TERUS
+    console.log('🔊 Playing notification sound...')
     playSound()
   }
 
@@ -198,6 +197,8 @@ function StaffApp() {
   // ============================================================
   const testSound = () => {
     console.log('🧪 Test sound button clicked!')
+    initSound()
+    unlockAudio()
     playNotificationSound()
     toast('🔊 ' + t('sound_test') + '...')
   }
@@ -277,36 +278,74 @@ function StaffApp() {
   }, [])
 
   // ============================================================
-  // NOTIFICATION - CHECK NEW ORDERS EVERY 5 SECONDS
+  // NOTIFICATION - CHECK NEW ORDERS (FIXED)
   // ============================================================
   useEffect(() => {
     loadNewOrders()
     
     const interval = setInterval(async () => {
-      console.log('🔄 Checking for new orders...')
-      await loadNewOrders()
-      
-      const pendingOrders = newOrders.filter(order => 
-        (order.status === 'pending' || order.status === 'pending_confirmation' || 
-         order.order_status === 'pending' || order.order_status === 'pending_confirmation')
-      )
-      
-      console.log('📋 Pending orders:', pendingOrders.length)
-      
-      if (pendingOrders.length > 0) {
-        console.log('🔔 Playing notification sound!')
-        playNotificationSound()
-        
-        toast(`🔔 ${pendingOrders.length} ${t('new_order_notification')}`, {
-          duration: 3000,
-          icon: '🔔'
+      try {
+        const { data } = await supabase
+          .from('customer_orders')
+          .select('*')
+          .eq('payment_status', PAYMENT_STATUS.UNPAID)
+          .order('created_at', { ascending: false })
+
+        const pending = (data || []).filter(order => {
+          const status = order.order_status || order.status
+          return ['pending', 'pending_confirmation', 'new'].includes(status) ||
+                 status === ORDER_STATUS.NEW
         })
+
+        console.log('📋 Pending orders from DB:', pending.length)
+
+        if (pending.length > 0) {
+          console.log('🔔 NEW ORDER DETECTED! Playing sound...')
+          playNotificationSound()
+          setNewOrders(pending)
+          
+          toast(`🔔 ${pending.length} ${t('new_order_notification')}`, {
+            duration: 3000,
+            icon: '🔔'
+          })
+        } else {
+          setNewOrders([])
+        }
+        
+      } catch (err) {
+        console.error('Error checking orders:', err)
       }
       
-    }, 5000)
+    }, 5000) // Check every 5 seconds
     
     return () => clearInterval(interval)
-  }, [newOrders])
+  }, [])
+
+  // ============================================================
+  // REALTIME SUBSCRIPTION - UNTUK SOUND SEGERA
+  // ============================================================
+  useEffect(() => {
+    const orderSub = supabase
+      .channel('staff_orders_realtime')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'customer_orders' },
+        (payload) => {
+          console.log('🔔 New order inserted!', payload.new)
+          playNotificationSound()
+          loadNewOrders()
+          loadUnpaidOrders()
+          toast(`🔔 ${t('new_order_notification')}`, {
+            duration: 3000,
+            icon: '🔔'
+          })
+        }
+      )
+      .subscribe()
+
+    return () => {
+      orderSub.unsubscribe()
+    }
+  }, [])
 
   async function loadAllData() {
     setLoading(true)
@@ -562,7 +601,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // HELPERS - FIXED Parent/Sub Categories
+  // HELPERS - Parent/Sub Categories
   // ============================================================
   const getCategories = () => {
     return ['All', ...categories.map(c => c.name)]

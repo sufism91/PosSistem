@@ -25,11 +25,11 @@ function TrackOrder() {
   // TRANSLATIONS
   // ============================================================
   const translations = {
-    track_title: { en: '🔍 Track Your Order', ms: '🔍 Jejak Pesanan Anda' },
+    track_title: { en: '🔍 Track Your Order', ms: 'Jejak Pesanan Anda' },
     track_subtitle: { en: 'Enter your order number to check status', ms: 'Masukkan nombor pesanan untuk semak status' },
     enter_order: { en: 'Enter order ID or number', ms: 'Masukkan ID atau nombor pesanan' },
     searching: { en: 'Searching...', ms: 'Mencari...' },
-    track: { en: '🔍 Track', ms: '🔍 Jejak' },
+    track: { en: '🔍 Track', ms: 'Jejak' },
     order_not_found: { en: 'Order not found', ms: 'Pesanan tidak dijumpai' },
     check_order: { en: 'Please check your order ID or number', ms: 'Sila semak ID atau nombor pesanan anda' },
     order_found: { en: 'Order found!', ms: 'Pesanan dijumpai!' },
@@ -41,7 +41,7 @@ function TrackOrder() {
     total: { en: 'Total', ms: 'Jumlah' },
     estimated_time: { en: 'Estimated Ready Time', ms: 'Anggaran Masa Siap' },
     almost_ready: { en: 'Almost ready!', ms: 'Hampir siap!' },
-    refresh_status: { en: '🔄 Refresh Status', ms: '🔄 Muat Semula Status' },
+    refresh_status: { en: '🔄 Refresh Status', ms: 'Muat Semula Status' },
     auto_refresh: { en: 'Auto-refresh status', ms: 'Muat semula automatik' },
     order: { en: 'Order', ms: 'Pesanan' },
     at: { en: 'at', ms: 'pada' },
@@ -52,8 +52,8 @@ function TrackOrder() {
     note: { en: 'Note', ms: 'Nota' },
     minutes: { en: 'minutes', ms: 'minit' },
     cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
-    order_again: { en: '🍽️ Order Again →', ms: '🍽️ Pesan Lagi →' },
-    back_to_menu: { en: '📋 Back to Menu', ms: '📋 Kembali ke Menu' },
+    order_again: { en: '🍽️ Order Again →', ms: 'Pesan Lagi →' },
+    back_to_menu: { en: '📋 Back to Menu', ms: 'Kembali ke Menu' },
     pending: { en: 'Pending', ms: 'Menunggu' },
     preparing: { en: 'Preparing', ms: 'Sedang Disiapkan' },
     ready: { en: 'Ready', ms: 'Sedia' },
@@ -354,7 +354,7 @@ function TrackOrder() {
 
     if (status === 'confirmed') {
     return '⏳ Menunggu dapur mula masak'
-  }
+    }
     
     if (!kitchenEnabled && autoCompleteEnabled) {
       return `⏱️ ~${autoCompleteMinutes} minit (Auto Complete)`

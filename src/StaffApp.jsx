@@ -103,6 +103,7 @@ function StaffApp() {
       special_request: { en: 'Special request...', ms: 'Permintaan khas...' },
       quantity: { en: 'Qty', ms: 'Kuantiti' },
       add_to_cart: { en: 'Add to Cart', ms: 'Tambah ke Keranjang' },
+      new_order_notification: { en: 'New order received!', ms: 'Pesanan baru diterima!' },
     }
     if (!translations[key]) return key
     return language === 'en' ? translations[key].en : translations[key].ms
@@ -134,8 +135,7 @@ function StaffApp() {
   const [searchTerm, setSearchTerm] = useState('')
   
   // ===== TABS =====
-  const [activeTab, setActiveTab] = useState('pos') // 'pos', 'orders', 'unpaid', 'history'
-  const [bottomTab, setBottomTab] = useState('orders') // 'orders', 'unpaid', 'history'
+  const [activeTab, setActiveTab] = useState('pos')
   
   // ===== MODALS =====
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -148,10 +148,8 @@ function StaffApp() {
   const historyItemsPerPage = 10
   
   // ===== RESPONSIVE =====
-  const [windowWidth, setWindowWidth] = useState(window.innerWidth)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
   const [isTablet, setIsTablet] = useState(window.innerWidth >= 768 && window.innerWidth < 1024)
-  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024)
 
   // ===== NOTIFICATION =====
   const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set())
@@ -193,36 +191,45 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RESPONSIVE - WINDOW RESIZE
+  // RESPONSIVE
   // ============================================================
   useEffect(() => {
     const handleResize = () => {
-      const width = window.innerWidth
-      setWindowWidth(width)
-      setIsMobile(width < 768)
-      setIsTablet(width >= 768 && width < 1024)
-      setIsDesktop(width >= 1024)
+      setIsMobile(window.innerWidth < 768)
+      setIsTablet(window.innerWidth >= 768 && window.innerWidth < 1024)
     }
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   // ============================================================
-  // PLAY NOTIFICATION SOUND
+  // PLAY NOTIFICATION SOUND - DENGAN COOLDOWN
   // ============================================================
   const playNotificationSound = () => {
     console.log('🔔 playNotificationSound called')
+    
     if (!settings.notification_sound) {
-      console.log('🔇 Sound disabled')
+      console.log('🔇 Sound disabled in settings')
       return
     }
+    
     const now = Date.now()
     if (now - lastSoundTime < SOUND_COOLDOWN) {
-      console.log('🔇 Sound cooldown')
+      console.log('🔇 Sound cooldown, skipping...')
       return
     }
     setLastSoundTime(now)
+    
+    console.log('🔊 Playing notification sound!')
     playSound()
+  }
+
+  // ============================================================
+  // RESET NOTIFIED ORDERS
+  // ============================================================
+  const resetNotifiedOrders = () => {
+    console.log('🔄 Resetting notified orders...')
+    setNotifiedOrderIds(new Set())
   }
 
   // ============================================================
@@ -293,11 +300,13 @@ function StaffApp() {
   }, [])
 
   // ============================================================
-  // NOTIFICATION INTERVAL
+  // NOTIFICATION INTERVAL - 5 SAAT (FIXED)
   // ============================================================
   useEffect(() => {
-    const interval = setInterval(async () => {
+    const checkOrders = async () => {
       try {
+        console.log('🔍 Staff interval: Checking for new orders...')
+        
         const { data } = await supabase
           .from('customer_orders')
           .select('*')
@@ -306,22 +315,46 @@ function StaffApp() {
 
         const pending = (data || []).filter(order => {
           const status = order.order_status || order.status
-          return ['pending', 'pending_confirmation', 'new'].includes(status) || status === ORDER_STATUS.NEW
+          return ['pending', 'pending_confirmation', 'new'].includes(status) || 
+                 status === ORDER_STATUS.NEW
         })
 
-        if (pending.length > 0 && pending.length !== newOrders.length) {
+        console.log(`📊 Staff interval: Found ${pending.length} pending orders`)
+        setNewOrders(pending)
+
+        const currentIds = pending.map(o => o.id)
+        const existingIds = notifiedOrderIds
+        const newIds = currentIds.filter(id => !existingIds.has(id))
+
+        if (newIds.length > 0) {
+          console.log(`🔔 Staff interval: ${newIds.length} NEW ORDER(S)! Playing sound...`)
           playNotificationSound()
-          setNewOrders(pending)
-          toast(`🔔 ${pending.length} ${t('new_order_notification')}`, { duration: 3000, icon: '🔔' })
-        } else {
-          setNewOrders(pending)
+          
+          setNotifiedOrderIds(prev => {
+            const newSet = new Set(prev)
+            currentIds.forEach(id => newSet.add(id))
+            return newSet
+          })
+
+          toast(`🔔 ${pending.length} ${t('new_order_notification')}`, {
+            duration: 3000,
+            icon: '🔔'
+          })
         }
+        
       } catch (err) {
-        console.error('Error checking orders:', err)
+        console.error('Staff interval error:', err)
       }
-    }, 8000)
+    }
+
+    // 👇 CALL SEKALI SELEPAS MOUNT
+    checkOrders()
+
+    // 👇 INTERVAL 5 SAAT
+    const interval = setInterval(checkOrders, 5000)
+    
     return () => clearInterval(interval)
-  }, [newOrders])
+  }, []) // 👈 KOSONGKAN DEPENDENCY
 
   // ============================================================
   // REALTIME SUBSCRIPTION
@@ -336,7 +369,10 @@ function StaffApp() {
           playNotificationSound()
           loadNewOrders()
           loadUnpaidOrders()
-          toast(`🔔 ${t('new_order_notification')}`, { duration: 3000, icon: '🔔' })
+          toast(`🔔 ${t('new_order_notification')}`, {
+            duration: 3000,
+            icon: '🔔'
+          })
         }
       )
       .subscribe()
@@ -685,7 +721,8 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PAYMENT  // ============================================================
+  // PAYMENT
+  // ============================================================
   const openPaymentModal = (order) => {
     setSelectedOrder(order)
     setShowPaymentModal(true)
@@ -723,7 +760,6 @@ function StaffApp() {
   // PRINT RECEIPT
   // ============================================================
   const printReceipt = (order) => {
-    // ... (sama macam sebelum)
     const total = Number(order.total || order.grand_total || 0).toFixed(2)
     const items = order.items || []
     const date = new Date(order.created_at).toLocaleString()
@@ -1689,7 +1725,17 @@ function StaffApp() {
             <button onClick={testSound} style={{ padding: isMobile ? '6px 14px' : '8px 18px', background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', color: 'white', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: isMobile ? '11px' : '13px' }}>
               🔊 {t('sound_test')}
             </button>
-            <button onClick={() => { loadAllData(); loadNewOrders(); loadUnpaidOrders(); loadOrderHistory(); toast.success('🔄 Refreshed!') }} style={{ padding: isMobile ? '6px 14px' : '8px 18px', background: 'linear-gradient(135deg, #06b6d4, #0891b2)', color: 'white', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: isMobile ? '11px' : '13px' }}>
+            <button 
+              onClick={() => { 
+                loadAllData(); 
+                loadNewOrders(); 
+                loadUnpaidOrders(); 
+                loadOrderHistory(); 
+                resetNotifiedOrders();
+                toast.success('🔄 Refreshed!') 
+              }} 
+              style={{ padding: isMobile ? '6px 14px' : '8px 18px', background: 'linear-gradient(135deg, #06b6d4, #0891b2)', color: 'white', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: isMobile ? '11px' : '13px' }}
+            >
               🔄 {t('refresh')}
             </button>
           </div>
@@ -1708,7 +1754,7 @@ function StaffApp() {
           <input type="tel" placeholder={t('customer_phone')} value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} style={{ padding: '8px 14px', borderRadius: '12px', border: `1px solid ${borderColor}`, background: inputBg, color: textColor, flex: 1, minWidth: '120px', outline: 'none', fontSize: '13px' }} />
         </div>
         
-        {/* ===== TOP TABS (POS, New Orders, Unpaid, History) ===== */}
+        {/* ===== TOP TABS ===== */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', background: darkMode ? 'rgba(30,30,46,0.5)' : 'rgba(0,0,0,0.03)', borderRadius: '50px', padding: '4px', overflowX: 'auto', flexWrap: 'nowrap' }}>
           <button onClick={() => setActiveTab('pos')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'pos' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'pos' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'pos' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap' }}>🧾 {t('pos')}</button>
           <button onClick={() => setActiveTab('orders')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'orders' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'orders' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'orders' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap', position: 'relative' }}>

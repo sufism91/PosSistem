@@ -132,9 +132,7 @@ function StaffApp() {
 
   // ===== NOTIFICATION STATE =====
   const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set())
-  
-  // 👇 PATH BETUL: /sound/notification.mp3 (tanpa 's')
-  const [audio] = useState(typeof Audio !== 'undefined' ? new Audio('/sound/notification.mp3') : null)
+  // 👇 BUANG audio state - guna sound.js sahaja
 
   // ===== SETTINGS =====
   const [settings, setSettings] = useState({
@@ -181,7 +179,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PLAY NOTIFICATION SOUND
+  // PLAY NOTIFICATION SOUND - GUNA playSound() DARI sound.js
   // ============================================================
   const playNotificationSound = () => {
     console.log('🔔 playNotificationSound called')
@@ -191,19 +189,8 @@ function StaffApp() {
       return
     }
     
-    if (audio) {
-      audio.currentTime = 0
-      audio.play().then(() => {
-        console.log('✅ Notification sound played!')
-      }).catch((err) => {
-        console.log('❌ Audio play failed:', err)
-        // Fallback ke sound.js
-        playSound()
-      })
-    } else {
-      console.log('❌ Audio object not available, using fallback')
-      playSound()
-    }
+    // 👇 GUNA playSound() DARI sound.js TERUS
+    playSound()
   }
 
   // ============================================================

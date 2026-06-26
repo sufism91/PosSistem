@@ -16,56 +16,52 @@ function KitchenApp() {
   // TRANSLATIONS
   // ============================================================
   const translations = {
-    kitchen_title: { en: '🍳 Digital Kitchen', ms: ' Dapur Digital' },
+    kitchen_title: { en: '🍳 Digital Kitchen', ms: '🍳 Dapur Digital' },
     kitchen_subtitle: { en: 'Manage food & drink orders', ms: 'Urus pesanan makanan & minuman' },
-    sound_on: { en: '🔊 Sound ON', ms: ' Bunyi ON' },
-    sound_off: { en: '🔇 Sound OFF', ms: ' Bunyi OFF' },
-    sound_test: { en: '🔊 Test Sound', ms: ' Uji Bunyi' },
-    refresh: { en: '🔄 Refresh', ms: ' Muat Semula' },
-    complete_all: { en: '✅ Complete All', ms: ' Selesaikan Semua' },
-    go_to_settings: { en: '⚙️ Settings', ms: ' Tetapan' },
-    search_orders: { en: '🔍 Search orders...', ms: ' Cari pesanan...' },
-    all_orders: { en: '📋 All', ms: ' Semua' },
-    dine_in: { en: '🍽️ Dine-in', ms: ' Makan di sini' },
-    take_away: { en: '🥡 Take Away', ms: ' Bungkus' },
-    new_orders: { en: '🆕 New Orders', ms: ' Pesanan Baru' },
-    food_orders: { en: '🍳 Food', ms: ' Makanan' },
-    drink_orders: { en: '🥤 Drinks', ms: ' Minuman' },
-    confirmed_orders: { en: '✅ Confirmed', ms: ' Disahkan' },
-    preparing_orders: { en: '🔪 Cooking', ms: ' Memasak' },
-    ready_orders: { en: '✅ Ready', ms: ' Sedia' },
-    completed_orders: { en: '📦 Done', ms: ' Selesai' },
-    no_new_orders: { en: '📭 No new orders', ms: ' Tiada pesanan baru' },
-    no_food_orders: { en: '📭 No food orders', ms: ' Tiada pesanan makanan' },
-    no_drink_orders: { en: '📭 No drink orders', ms: ' Tiada pesanan minuman' },
-    no_confirmed_orders: { en: '📭 No confirmed orders', ms: ' Tiada pesanan disahkan' },
-    no_preparing_orders: { en: '📭 No orders cooking', ms: ' Tiada pesanan dimasak' },
-    no_ready_orders: { en: '📭 No ready orders', ms: ' Tiada pesanan sedia' },
-    no_completed_orders: { en: '📭 No completed orders', ms: ' Tiada pesanan selesai' },
-    start_cooking: { en: '🔪 Start Cooking', ms: ' Mula Masak' },
-    finish_cooking: { en: '✅ Finish Cooking', ms: ' Selesai Masak' },
-    complete: { en: '✅ Complete', ms: ' Selesai' },
-    cancelled: { en: '❌ Cancelled', ms: ' Dibatalkan' },
-    error_updating: { en: '❌ Error updating order!', ms: ' Ralat kemaskini pesanan!' },
-    no_orders_to_complete: { en: '📭 No orders to complete', ms: ' Tiada pesanan untuk diselesaikan' },
-    orders_completed: { en: '✅ orders completed!', ms: ' pesanan selesai!' },
+    sound_on: { en: '🔊 Sound ON', ms: '🔊 Bunyi ON' },
+    sound_off: { en: '🔇 Sound OFF', ms: '🔇 Bunyi OFF' },
+    sound_test: { en: '🔊 Test Sound', ms: '🔊 Uji Bunyi' },
+    refresh: { en: '🔄 Refresh', ms: '🔄 Muat Semula' },
+    complete_all: { en: '✅ Complete All', ms: '✅ Selesaikan Semua' },
+    go_to_settings: { en: '⚙️ Settings', ms: '⚙️ Tetapan' },
+    search_orders: { en: '🔍 Search orders...', ms: '🔍 Cari pesanan...' },
+    all_orders: { en: '📋 All', ms: '📋 Semua' },
+    dine_in: { en: '🍽️ Dine-in', ms: '🍽️ Makan di sini' },
+    take_away: { en: '🥡 Take Away', ms: '🥡 Bungkus' },
+    new_orders: { en: '🆕 New Orders', ms: '🆕 Pesanan Baru' },
+    confirmed_orders: { en: '✅ Confirmed', ms: '✅ Disahkan' },
+    preparing_orders: { en: '🔪 Cooking', ms: '🔪 Memasak' },
+    ready_orders: { en: '✅ Ready', ms: '✅ Sedia' },
+    completed_orders: { en: '📦 Done', ms: '📦 Selesai' },
+    no_new_orders: { en: '📭 No new orders', ms: '📭 Tiada pesanan baru' },
+    no_confirmed_orders: { en: '📭 No confirmed orders', ms: '📭 Tiada pesanan disahkan' },
+    no_preparing_orders: { en: '📭 No orders cooking', ms: '📭 Tiada pesanan dimasak' },
+    no_ready_orders: { en: '📭 No ready orders', ms: '📭 Tiada pesanan sedia' },
+    no_completed_orders: { en: '📭 No completed orders', ms: '📭 Tiada pesanan selesai' },
+    start_cooking: { en: '🔪 Start Cooking', ms: '🔪 Mula Masak' },
+    finish_cooking: { en: '✅ Finish Cooking', ms: '✅ Selesai Masak' },
+    complete: { en: '✅ Complete', ms: '✅ Selesai' },
+    cancelled: { en: '❌ Cancelled', ms: '❌ Dibatalkan' },
+    error_updating: { en: '❌ Error updating order!', ms: '❌ Ralat kemaskini pesanan!' },
+    no_orders_to_complete: { en: '📭 No orders to complete', ms: '📭 Tiada pesanan untuk diselesaikan' },
+    orders_completed: { en: '✅ orders completed!', ms: '✅ pesanan selesai!' },
     confirm_complete_all: { en: 'Complete all orders?', ms: 'Selesaikan semua pesanan?' },
-    cooking_started: { en: '🔪 Cooking started!', ms: ' Mula memasak!' },
-    cooking_finished: { en: '✅ Cooking finished!', ms: ' Selesai memasak!' },
-    order_completed: { en: '✅ Order completed!', ms: ' Pesanan selesai!' },
-    order_cancelled: { en: '❌ Order cancelled!', ms: ' Pesanan dibatalkan!' },
-    waiting: { en: '⏱️ Waiting', ms: '⏱ Menunggu' },
+    cooking_started: { en: '🔪 Cooking started!', ms: '🔪 Mula memasak!' },
+    cooking_finished: { en: '✅ Cooking finished!', ms: '✅ Selesai memasak!' },
+    order_completed: { en: '✅ Order completed!', ms: '✅ Pesanan selesai!' },
+    order_cancelled: { en: '❌ Order cancelled!', ms: '❌ Pesanan dibatalkan!' },
+    waiting: { en: '⏱️ Waiting', ms: '⏱️ Menunggu' },
     total: { en: 'Total', ms: 'Jumlah' },
-    note: { en: '📝 Note', ms: ' Nota' },
-    cancel: { en: '❌ Cancel', ms: ' Batal' },
+    note: { en: '📝 Note', ms: '📝 Nota' },
+    cancel: { en: '❌ Cancel', ms: '❌ Batal' },
     table: { en: 'Table', ms: 'Meja' },
     just_now: { en: 'Just now', ms: 'Baru sahaja' },
     guest: { en: 'Guest', ms: 'Tetamu' },
-    kitchen_disabled: { en: '🍳 Digital Kitchen Disabled', ms: ' Dapur Digital Dimatikan' },
+    kitchen_disabled: { en: '🍳 Digital Kitchen Disabled', ms: '🍳 Dapur Digital Dimatikan' },
     kitchen_disabled_desc: { en: 'Please enable digital kitchen in Settings', ms: 'Sila aktifkan dapur digital di Tetapan' },
     minutes_short: { en: 'm', ms: 'm' },
     hours_short: { en: 'h', ms: 'j' },
-    order_confirmed: { en: '✅ Order confirmed!', ms: ' Pesanan disahkan!' },
+    order_confirmed: { en: '✅ Order confirmed!', ms: '✅ Pesanan disahkan!' },
     confirmed: { en: 'Confirmed', ms: 'Disahkan' },
     customer_phone: { en: 'Phone', ms: 'Telefon' },
   }
@@ -87,7 +83,7 @@ function KitchenApp() {
   const [loading, setLoading] = useState(true)
   const [soundEnabled, setSoundEnabled] = useState(true)
   const [restaurantName, setRestaurantName] = useState('Restoran Kita')
-  const [activeTab, setActiveTab] = useState('new_food')
+  const [activeTab, setActiveTab] = useState('new')
   const [kitchenEnabled, setKitchenEnabled] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
   const [orderTypeFilter, setOrderTypeFilter] = useState('all')
@@ -96,63 +92,9 @@ function KitchenApp() {
   // ===== SOUND TRACKING =====
   const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set())
 
-  // ============================================================
-  // INIT SOUND
-  // ============================================================
-  useEffect(() => {
-    initSound()
-    
-    const unlockOnInteraction = () => {
-      unlockAudio()
-      document.removeEventListener('click', unlockOnInteraction)
-      document.removeEventListener('touchstart', unlockOnInteraction)
-    }
-    
-    document.addEventListener('click', unlockOnInteraction)
-    document.addEventListener('touchstart', unlockOnInteraction)
-    
-    return () => {
-      document.removeEventListener('click', unlockOnInteraction)
-      document.removeEventListener('touchstart', unlockOnInteraction)
-    }
-  }, [])
-
-  // ============================================================
-  // PLAY KITCHEN SOUND
-  // ============================================================
-  const playKitchenSound = () => {
-    console.log('🔔 Kitchen: playKitchenSound called, soundEnabled:', soundEnabled)
-    
-    if (!soundEnabled) {
-      console.log('🔇 Kitchen sound disabled')
-      return
-    }
-    
-    playSound()
-  }
-
-  // ============================================================
-  // TEST SOUND
-  // ============================================================
-  const testSound = () => {
-    console.log('🧪 Kitchen test sound button clicked!')
-    initSound()
-    unlockAudio()
-    playSound()
-    toast.success(`🔊 ${t('sound_test')}...`)
-  }
-
-  // ============================================================
-  // CHECK MOBILE
-  // ============================================================
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
-    }
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+  // ===== SOUND COOLDOWN =====
+  let lastSoundTime = 0
+  const SOUND_COOLDOWN = 3000 // 3 saat
 
   // ============================================================
   // THEME COLORS
@@ -176,6 +118,73 @@ function KitchenApp() {
   }
 
   // ============================================================
+  // CHECK MOBILE
+  // ============================================================
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 768)
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // ============================================================
+  // INIT SOUND
+  // ============================================================
+  useEffect(() => {
+    console.log('🔊 Kitchen: Initializing sound...')
+    initSound()
+    
+    const unlockOnInteraction = () => {
+      console.log('🔓 Kitchen: Unlocking audio...')
+      unlockAudio()
+      document.removeEventListener('click', unlockOnInteraction)
+      document.removeEventListener('touchstart', unlockOnInteraction)
+    }
+    
+    document.addEventListener('click', unlockOnInteraction)
+    document.addEventListener('touchstart', unlockOnInteraction)
+    
+    return () => {
+      document.removeEventListener('click', unlockOnInteraction)
+      document.removeEventListener('touchstart', unlockOnInteraction)
+    }
+  }, [])
+
+  // ============================================================
+  // PLAY KITCHEN SOUND - DENGAN COOLDOWN
+  // ============================================================
+  const playKitchenSound = () => {
+    console.log('🔔 Kitchen: playKitchenSound called, soundEnabled:', soundEnabled)
+    
+    if (!soundEnabled) {
+      console.log('🔇 Kitchen sound disabled')
+      return
+    }
+    
+    // 👇 COOLDOWN CHECK
+    const now = Date.now()
+    if (now - lastSoundTime < SOUND_COOLDOWN) {
+      console.log('🔇 Kitchen sound cooldown, skipping...')
+      return
+    }
+    lastSoundTime = now
+    
+    console.log('🔔 Kitchen: Playing sound!')
+    playSound()
+  }
+
+  // ============================================================
+  // TEST SOUND
+  // ============================================================
+  const testSound = () => {
+    console.log('🧪 Kitchen test sound button clicked!')
+    initSound()
+    unlockAudio()
+    playSound()
+    toast.success(`🔊 ${t('sound_test')}...`)
+  }
+
+  // ============================================================
   // EFFECTS
   // ============================================================
   useEffect(() => {
@@ -192,24 +201,28 @@ function KitchenApp() {
     }
   }
 
+  // ============================================================
+  // MAIN EFFECT - DENGAN FILTER
+  // ============================================================
   useEffect(() => {
     if (!kitchenEnabled) return
     
     loadRestaurantName()
     loadOrders()
     
+    // 👇 SUBSCRIPTION DENGAN FILTER - HANYA confirmed+
     const subscription = supabase
       .channel('kitchen_orders')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'customer_orders' },
         (payload) => {
-          // Accept 'new', 'pending', and 'confirmed'
-          if (payload.new.status === 'new' || payload.new.status === 'pending' || 
-              payload.new.status === 'confirmed' || payload.new.status === ORDER_STATUS.CONFIRMED ||
-              payload.new.order_status === 'new' || payload.new.order_status === 'pending' || 
-              payload.new.order_status === 'confirmed' || payload.new.order_status === ORDER_STATUS.CONFIRMED) {
+          // 👇 FILTER: HANYA terima status 'confirmed' atau ke atas
+          const validStatuses = ['confirmed', 'preparing', 'ready']
+          
+          if (validStatuses.includes(payload.new.status) || 
+              validStatuses.includes(payload.new.order_status)) {
             
-            console.log('🔔 New order! Playing kitchen sound...')
+            console.log('🔔 Kitchen: New confirmed order! Playing kitchen sound...')
             playKitchenSound()
             
             const orderType = payload.new.order_type === 'take_away' 
@@ -235,30 +248,28 @@ function KitchenApp() {
             ), { duration: 3000 })
             
             loadOrders()
+          } else {
+            console.log('⏳ Kitchen: Order masih baru/new, menunggu staff accept:', payload.new.status)
           }
         }
       )
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'customer_orders' },
         (payload) => {
-          if (payload.new.status === 'ready' && payload.old.status !== 'ready') {
+          // 👇 FILTER: Hanya proses jika status berubah ke valid
+          const validStatuses = ['confirmed', 'preparing', 'ready']
+          
+          if (validStatuses.includes(payload.new.status)) {
             loadOrders()
-            console.log('🔔 Order ready! Playing kitchen sound...')
+            console.log('🔔 Kitchen: Order status updated to:', payload.new.status)
             playKitchenSound()
-            
-            sendNotification(
-              t('order_ready_alert'),
-              `${t('order_ready_desc')}: ${payload.new.order_number}`,
-              '/staff'
-            )
-          } else {
-            loadOrders()
           }
         }
       )
       .subscribe()
     
-    const interval = setInterval(() => loadOrders(), 5000)
+    // 👇 INTERVAL - 10 saat (kurang frequency)
+    const interval = setInterval(() => loadOrders(), 10000)
     
     return () => {
       subscription.unsubscribe()
@@ -267,7 +278,56 @@ function KitchenApp() {
   }, [soundEnabled, kitchenEnabled])
 
   // ============================================================
-  // ===== FIXED: LOAD ORDERS WITH FOOD/DRINK SPLIT =====
+  // INTERVAL CHECKING - DENGAN COOLDOWN
+  // ============================================================
+  useEffect(() => {
+    const checkOrders = async () => {
+      try {
+        const { data } = await supabase
+          .from('customer_orders')
+          .select('id, status')
+          .in('status', ['confirmed', 'preparing', 'ready'])
+        
+        const currentIds = data?.map(o => o.id) || []
+        const existingIds = notifiedOrderIds
+        const newIds = currentIds.filter(id => !existingIds.has(id))
+        
+        if (newIds.length > 0) {
+          console.log(`🔔 Kitchen interval: ${newIds.length} new order(s)!`)
+          playKitchenSound() // cooldown dah handle
+          
+          setNotifiedOrderIds(prev => {
+            const newSet = new Set(prev)
+            currentIds.forEach(id => newSet.add(id))
+            return newSet
+          })
+        }
+        
+      } catch (err) {
+        console.error('Kitchen interval error:', err)
+      }
+    }
+    
+    checkOrders()
+    const interval = setInterval(checkOrders, 10000) // 10 saat
+    
+    return () => clearInterval(interval)
+  }, [notifiedOrderIds])
+
+  // ============================================================
+  // LOAD FUNCTIONS
+  // ============================================================
+  async function loadRestaurantName() {
+    try {
+      const { data } = await supabase.from('settings').select('value').eq('key', 'restaurant_name').single()
+      if (data) setRestaurantName(data.value)
+    } catch (err) {
+      console.error('Error loading restaurant name:', err)
+    }
+  }
+
+  // ============================================================
+  // LOAD ORDERS - HANYA status 'confirmed', 'preparing', 'ready'
   // ============================================================
   async function loadOrders() {
     try {
@@ -275,8 +335,7 @@ function KitchenApp() {
         .from('customer_orders')
         .select('*')
         .eq('payment_status', 'unpaid')
-        .in('order_status', ['new', 'pending', 'confirmed', ORDER_STATUS.CONFIRMED])
-        .in('status', ['new', 'pending', 'confirmed', ORDER_STATUS.CONFIRMED, ORDER_STATUS.PREPARING, ORDER_STATUS.READY, 'preparing', 'ready'])
+        .in('status', ['confirmed', 'preparing', 'ready'])
         .order('created_at', { ascending: false })
       
       const { data: completed } = await supabase
@@ -286,69 +345,28 @@ function KitchenApp() {
         .order('created_at', { ascending: false })
         .limit(20)
       
-      // ===== PISAHKAN MAKANAN & MINUMAN =====
-      const newFood = []
-      const newDrinks = []
-      const confirmedFood = []
-      const confirmedDrinks = []
-      const preparingFood = []
-      const preparingDrinks = []
-      const readyFood = []
-      const readyDrinks = []
+      const confirmed = []
+      const preparing = []
+      const ready = []
       
       pending?.forEach(order => {
-        // Check if order has food items (category !== 'Minuman')
-        const hasFood = order.items?.some(item => item.category !== 'Minuman')
-        // Check if order has drink items (category === 'Minuman')
-        const hasDrink = order.items?.some(item => item.category === 'Minuman')
-        
-        // If no category in items, treat as food (fallback for old orders)
-        const hasAnyCategory = order.items?.some(item => item.category)
-        const fallbackFood = !hasAnyCategory || hasFood
-        
-        if (order.status === 'new' || order.status === 'pending') {
-          if (hasFood || fallbackFood) newFood.push(order)
-          if (hasDrink) newDrinks.push(order)
-          // If both, appear in both lists
-          if (!hasFood && !hasDrink && !fallbackFood) newFood.push(order) // fallback
-        } else if (order.status === 'confirmed') {
-          if (hasFood || fallbackFood) confirmedFood.push(order)
-          if (hasDrink) confirmedDrinks.push(order)
+        if (order.status === 'confirmed') {
+          confirmed.push(order)
         } else if (order.status === 'preparing') {
-          if (hasFood || fallbackFood) preparingFood.push(order)
-          if (hasDrink) preparingDrinks.push(order)
+          preparing.push(order)
         } else if (order.status === 'ready') {
-          if (hasFood || fallbackFood) readyFood.push(order)
-          if (hasDrink) readyDrinks.push(order)
+          ready.push(order)
         }
       })
       
-      setFoodOrders(newFood)
-      setDrinkOrders(newDrinks)
-      setConfirmedOrders(confirmedFood)
-      setPreparingOrders(preparingFood)
-      setReadyOrders(readyFood)
+      setConfirmedOrders(confirmed)
+      setPreparingOrders(preparing)
+      setReadyOrders(ready)
       setCompletedOrders(completed || [])
-      
-      console.log('🍳 Food orders:', newFood.length)
-      console.log('🥤 Drink orders:', newDrinks.length)
-      
     } catch (err) {
       console.error('Error loading orders:', err)
     } finally {
       setLoading(false)
-    }
-  }
-
-  // ============================================================
-  // LOAD RESTAURANT NAME
-  // ============================================================
-  async function loadRestaurantName() {
-    try {
-      const { data } = await supabase.from('settings').select('value').eq('key', 'restaurant_name').single()
-      if (data) setRestaurantName(data.value)
-    } catch (err) {
-      console.error('Error loading restaurant name:', err)
     }
   }
 
@@ -478,14 +496,12 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // RENDER ORDER CARD
+  // RENDER ORDER CARD - TUNJUK PHONE & NOTES
   // ============================================================
   const renderOrderCard = (order, showActionButtons = true) => {
     const waitingColor = getWaitingColor(order.created_at)
     const waitingBg = getWaitingBg(order.created_at)
-    const statusColor = order.status === 'new' ? '#3b82f6' : 
-                        order.status === 'pending' ? '#3b82f6' :
-                        order.status === 'confirmed' ? '#8b5cf6' :
+    const statusColor = order.status === 'confirmed' ? '#8b5cf6' :
                         order.status === 'preparing' ? '#f59e0b' :
                         order.status === 'ready' ? '#22c55e' : '#6c757d'
     
@@ -553,9 +569,7 @@ function KitchenApp() {
               fontSize: isMobile ? '8px' : '10px',
               fontWeight: 'bold'
             }}>
-              {order.status === 'new' ? '🆕 New' : 
-               order.status === 'pending' ? '🆕 New' :
-               order.status === 'confirmed' ? '✅ Confirmed' :
+              {order.status === 'confirmed' ? '✅ Confirmed' :
                order.status === 'preparing' ? '🔪 Cooking' :
                order.status === 'ready' ? '✅ Ready' : '📦 Done'}
             </span>
@@ -575,6 +589,7 @@ function KitchenApp() {
             👤 {order.customer_name || t('guest')}
           </h4>
           
+          {/* 👇 TUNJUK NO TELEFON */}
           {order.customer_phone && (
             <div style={{ 
               fontSize: isMobile ? '11px' : '12px', 
@@ -596,6 +611,7 @@ function KitchenApp() {
           )}
         </div>
         
+        {/* 👇 TUNJUK CATATAN KHAS */}
         {order.notes && (
           <div style={{ 
             background: 'rgba(245, 158, 11, 0.15)', 
@@ -615,51 +631,43 @@ function KitchenApp() {
           borderTop: `1px solid ${borderColor}`, 
           paddingTop: '10px' 
         }}>
-          {order.items?.map((item, idx) => {
-            const isDrink = item.category === 'Minuman'
-            return (
-              <div key={idx} style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                padding: '6px 0', 
-                color: textColor,
-                borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none',
-                alignItems: 'center'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                  {isDrink ? (
-                    <span style={{ fontSize: '10px', color: '#06b6d4' }}>🥤</span>
-                  ) : (
-                    <span style={{ fontSize: '10px', color: '#ef4444' }}>🍳</span>
-                  )}
-                  <span style={{ fontSize: isMobile ? '12px' : '13px' }}>
-                    {item.quantity}x {item.name}
-                  </span>
-                  {item.option_type && (
-                    <span style={{ 
-                      fontSize: isMobile ? '8px' : '9px', 
-                      color: textMuted,
-                      background: secondaryBg,
-                      padding: '1px 6px',
-                      borderRadius: '12px'
-                    }}>
-                      {item.option_type === 'Panas' ? '🔥' : 
-                       item.option_type === 'Sejuk' ? '🧊' : 
-                       item.option_type === 'Bungkus' ? '📦' : ''}
-                      {item.option_type}
-                    </span>
-                  )}
-                </div>
-                <span style={{ 
-                  color: priceColor, 
-                  fontWeight: 'bold', 
-                  fontSize: isMobile ? '12px' : '13px' 
-                }}>
-                  RM {(item.price * item.quantity).toFixed(2)}
+          {order.items?.map((item, idx) => (
+            <div key={idx} style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              padding: '6px 0', 
+              color: textColor,
+              borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none',
+              alignItems: 'center'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: isMobile ? '12px' : '13px' }}>
+                  {item.quantity}x {item.name}
                 </span>
+                {item.option_type && (
+                  <span style={{ 
+                    fontSize: isMobile ? '8px' : '9px', 
+                    color: textMuted,
+                    background: secondaryBg,
+                    padding: '1px 6px',
+                    borderRadius: '12px'
+                  }}>
+                    {item.option_type === 'Panas' ? '🔥' : 
+                     item.option_type === 'Sejuk' ? '🧊' : 
+                     item.option_type === 'Bungkus' ? '📦' : ''}
+                    {item.option_type}
+                  </span>
+                )}
               </div>
-            )
-          })}
+              <span style={{ 
+                color: priceColor, 
+                fontWeight: 'bold', 
+                fontSize: isMobile ? '12px' : '13px' 
+              }}>
+                RM {(item.price * item.quantity).toFixed(2)}
+              </span>
+            </div>
+          ))}
         </div>
         
         <div style={{ 
@@ -679,6 +687,7 @@ function KitchenApp() {
         
         {showActionButtons && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
+            {/* 👇 BUTTON UNTUK 'confirmed' - START COOKING */}
             {order.status === 'confirmed' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'preparing')} 
@@ -701,6 +710,7 @@ function KitchenApp() {
               </button>
             )}
             
+            {/* 👇 BUTTON UNTUK 'preparing' - FINISH COOKING */}
             {order.status === 'preparing' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'ready')} 
@@ -723,6 +733,7 @@ function KitchenApp() {
               </button>
             )}
             
+            {/* 👇 BUTTON UNTUK 'ready' - COMPLETE */}
             {order.status === 'ready' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'completed')} 
@@ -745,6 +756,7 @@ function KitchenApp() {
               </button>
             )}
             
+            {/* 👇 CANCEL BUTTON (except completed) */}
             {order.status !== 'completed' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'cancelled')} 
@@ -859,10 +871,8 @@ function KitchenApp() {
   // ============================================================
   // MAIN RENDER
   // ============================================================
-  // ===== TABS WITH FOOD & DRINK SEPARATED =====
+  // 👇 TABS - TAKDE TAB 'NEW' LAGI, GUNA 'CONFIRMED' TERUS
   const tabs = [
-    { id: 'new_food', label: t('food_orders'), icon: '🍳', color: '#ef4444', count: foodOrders.length },
-    { id: 'new_drink', label: t('drink_orders'), icon: '🥤', color: '#06b6d4', count: drinkOrders.length },
     { id: 'confirmed', label: t('confirmed_orders'), icon: '✅', color: '#8b5cf6', count: confirmedOrders.length },
     { id: 'preparing', label: t('preparing_orders'), icon: '🔪', color: '#f59e0b', count: preparingOrders.length },
     { id: 'ready', label: t('ready_orders'), icon: '✅', color: '#22c55e', count: readyOrders.length },
@@ -879,7 +889,7 @@ function KitchenApp() {
         minHeight: '100vh' 
       }}>
         
-        {/* ===== HEADER ===== */}
+        {/* HEADER */}
         <div style={{ 
           ...glassEffect, 
           borderRadius: '28px', 
@@ -984,7 +994,7 @@ function KitchenApp() {
           </div>
         </div>
         
-        {/* ===== SEARCH & FILTER ===== */}
+        {/* SEARCH & FILTER */}
         <div style={{ 
           display: 'flex', 
           gap: '10px', 
@@ -1054,7 +1064,7 @@ function KitchenApp() {
           </select>
         </div>
         
-        {/* ===== TABS ===== */}
+        {/* TABS */}
         <div style={{ 
           display: 'flex', 
           gap: '6px', 
@@ -1112,47 +1122,7 @@ function KitchenApp() {
           ))}
         </div>
         
-        {/* ===== TAB CONTENT ===== */}
-        {activeTab === 'new_food' && (
-          <div>
-            {filterOrders(foodOrders).length === 0 ? (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: isMobile ? '40px 20px' : '80px 20px', 
-                ...glassEffect, 
-                borderRadius: '24px' 
-              }}>
-                <span style={{ fontSize: isMobile ? '48px' : '72px', opacity: 0.5 }}>🍳</span>
-                <h3 style={{ color: textColor, marginTop: '12px', fontSize: isMobile ? '16px' : '18px' }}>
-                  {t('no_food_orders')}
-                </h3>
-              </div>
-            ) : (
-              filterOrders(foodOrders).map(order => renderOrderCard(order, true))
-            )}
-          </div>
-        )}
-        
-        {activeTab === 'new_drink' && (
-          <div>
-            {filterOrders(drinkOrders).length === 0 ? (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: isMobile ? '40px 20px' : '80px 20px', 
-                ...glassEffect, 
-                borderRadius: '24px' 
-              }}>
-                <span style={{ fontSize: isMobile ? '48px' : '72px', opacity: 0.5 }}>🥤</span>
-                <h3 style={{ color: textColor, marginTop: '12px', fontSize: isMobile ? '16px' : '18px' }}>
-                  {t('no_drink_orders')}
-                </h3>
-              </div>
-            ) : (
-              filterOrders(drinkOrders).map(order => renderOrderCard(order, true))
-            )}
-          </div>
-        )}
-        
+        {/* TAB CONTENT */}
         {activeTab === 'confirmed' && (
           <div>
             {filterOrders(confirmedOrders).length === 0 ? (
@@ -1326,7 +1296,6 @@ function KitchenApp() {
           </div>
         )}
         
-        {/* ===== STYLES ===== */}
         <style>
           {`
             .spinner { 

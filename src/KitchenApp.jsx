@@ -15,51 +15,51 @@ function KitchenApp() {
   // TRANSLATIONS
   // ============================================================
   const translations = {
-    kitchen_title: { en: '🍳 Digital Kitchen', ms: 'Dapur Digital' },
+    kitchen_title: { en: '🍳 Digital Kitchen', ms: '🍳 Dapur Digital' },
     kitchen_subtitle: { en: 'Manage food & drink orders', ms: 'Urus pesanan makanan & minuman' },
-    sound_on: { en: '🔊 Sound ON', ms: 'Bunyi ON' },
-    sound_off: { en: '🔇 Sound OFF', ms: 'Bunyi OFF' },
-    sound_test: { en: '🔊 Test Sound', ms: 'Uji Bunyi' },
-    refresh: { en: '🔄 Refresh', ms: 'Muat Semula' },
-    complete_all: { en: '✅ Complete All', ms: 'Selesaikan Semua' },
-    go_to_settings: { en: '⚙️ Settings', ms: 'Tetapan' },
-    search_orders: { en: '🔍 Search orders...', ms: 'Cari pesanan...' },
-    all_orders: { en: '📋 All', ms: 'Semua' },
-    dine_in: { en: '🍽️ Dine-in', ms: 'Makan di sini' },
-    take_away: { en: '🥡 Take Away', ms: 'Bungkus' },
-    confirmed_orders: { en: '✅ Confirmed', ms: 'Disahkan' },
-    preparing_orders: { en: '🔪 Cooking', ms: 'Memasak' },
-    ready_orders: { en: '✅ Ready', ms: 'Sedia' },
-    completed_orders: { en: '📦 Done', ms: 'Selesai' },
-    food_orders: { en: '🍚 Food', ms: 'Makanan' },
-    drink_orders: { en: '🥤 Drinks', ms: 'Minuman' },
-    no_food_orders: { en: '📭 No food orders', ms: 'Tiada pesanan makanan' },
-    no_drink_orders: { en: '📭 No drink orders', ms: 'Tiada pesanan minuman' },
-    no_confirmed_orders: { en: '📭 No confirmed orders', ms: 'Tiada pesanan disahkan' },
-    no_preparing_orders: { en: '📭 No orders cooking', ms: 'Tiada pesanan dimasak' },
-    no_ready_orders: { en: '📭 No ready orders', ms: 'Tiada pesanan sedia' },
-    no_completed_orders: { en: '📭 No completed orders', ms: 'Tiada pesanan selesai' },
-    start_cooking: { en: '🔪 Start Cooking', ms: 'Mula Masak' },
-    finish_cooking: { en: '✅ Finish Cooking', ms: 'Selesai Masak' },
-    complete: { en: '✅ Complete', ms: 'Selesai' },
-    cancelled: { en: '❌ Cancelled', ms: 'Dibatalkan' },
-    error_updating: { en: '❌ Error updating order!', ms: 'Ralat kemaskini pesanan!' },
-    no_orders_to_complete: { en: '📭 No orders to complete', ms: 'Tiada pesanan untuk diselesaikan' },
-    orders_completed: { en: '✅ orders completed!', ms: 'pesanan selesai!' },
-    confirm_complete_all: { en: 'Complete all orders?', ms: 'Selesaikan semua pesanan?' },
-    cooking_started: { en: '🔪 Cooking started!', ms: 'Mula memasak!' },
-    cooking_finished: { en: '✅ Cooking finished!', ms: 'Selesai memasak!' },
-    order_completed: { en: '✅ Order completed!', ms: 'Pesanan selesai!' },
-    order_cancelled: { en: '❌ Order cancelled!', ms: 'Pesanan dibatalkan!' },
-    waiting: { en: '⏱️ Waiting', ms: 'Menunggu' },
+    sound_on: { en: '🔊 Sound ON', ms: '🔊 Bunyi ON' },
+    sound_off: { en: '🔇 Sound OFF', ms: '🔇 Bunyi OFF' },
+    sound_test: { en: '🔊 Test Sound', ms: '🔊 Uji Bunyi' },
+    refresh: { en: '🔄 Refresh', ms: '🔄 Muat Semula' },
+    complete_all: { en: '✅ Complete All', ms: '✅ Selesaikan Semua' },
+    go_to_settings: { en: '⚙️ Settings', ms: '⚙️ Tetapan' },
+    search_orders: { en: '🔍 Search orders...', ms: '🔍 Cari pesanan...' },
+    all_orders: { en: '📋 All', ms: '📋 Semua' },
+    dine_in: { en: '🍽️ Dine-in', ms: '🍽️ Makan di sini' },
+    take_away: { en: '🥡 Take Away', ms: '🥡 Bungkus' },
+    confirmed_orders: { en: '✅ Confirmed', ms: '✅ Disahkan' },
+    preparing_orders: { en: '🔪 Cooking', ms: '🔪 Memasak' },
+    ready_orders: { en: '✅ Ready', ms: '✅ Sedia' },
+    completed_orders: { en: '📦 Done', ms: '📦 Selesai' },
+    food_orders: { en: '🍚 Food', ms: '🍚 Makanan' },
+    drink_orders: { en: '🥤 Drinks', ms: '🥤 Minuman' },
+    no_food_orders: { en: '📭 No food orders', ms: '📭 Tiada pesanan makanan' },
+    no_drink_orders: { en: '📭 No drink orders', ms: '📭 Tiada pesanan minuman' },
+    no_confirmed_orders: { en: '📭 No confirmed orders', ms: '📭 Tiada pesanan disahkan' },
+    no_preparing_orders: { en: '📭 No orders cooking', ms: '📭 Tiada pesanan dimasak' },
+    no_ready_orders: { en: '📭 No ready orders', ms: '📭 Tiada pesanan sedia' },
+    no_completed_orders: { en: '📭 No completed orders', ms: '📭 Tiada pesanan selesai' },
+    start_cooking: { en: '🔪 Start Cooking', ms: '🔪 Mula Masak' },
+    finish_cooking: { en: '✅ Finish Cooking', ms: '✅ Selesai Masak' },
+    complete: { en: '✅ Complete', ms: '✅ Selesai' },
+    cancelled: { en: '❌ Cancelled', ms: '❌ Dibatalkan' },
+    error_updating: { en: '❌ Error updating order!', ms: '❌ Ralat kemaskini pesanan!' },
+    no_orders_to_complete: { en: '📭 No orders to complete', ms: '📭 Tiada pesanan untuk diselesaikan' },
+    orders_completed: { en: '✅ orders completed!', ms: '✅ pesanan selesai!' },
+    confirm_complete_all: { en: 'Complete all orders?', ms: '✅ Selesaikan semua pesanan?' },
+    cooking_started: { en: '🔪 Cooking started!', ms: '🔪 Mula memasak!' },
+    cooking_finished: { en: '✅ Cooking finished!', ms: '✅ Selesai memasak!' },
+    order_completed: { en: '✅ Order completed!', ms: '✅ Pesanan selesai!' },
+    order_cancelled: { en: '❌ Order cancelled!', ms: '❌ Pesanan dibatalkan!' },
+    waiting: { en: '⏱️ Waiting', ms: '⏱️ Menunggu' },
     total: { en: 'Total', ms: 'Jumlah' },
-    note: { en: '📝 Note', ms: 'Nota' },
-    cancel: { en: '❌ Cancel', ms: 'Batal' },
+    note: { en: '📝 Note', ms: '📝 Nota' },
+    cancel: { en: '❌ Cancel', ms: '❌ Batal' },
     table: { en: 'Table', ms: 'Meja' },
     just_now: { en: 'Just now', ms: 'Baru sahaja' },
     guest: { en: 'Guest', ms: 'Tetamu' },
-    kitchen_disabled: { en: '🍳 Digital Kitchen Disabled', ms: 'Dapur Digital Dimatikan' },
-    kitchen_disabled_desc: { en: 'Please enable digital kitchen in Settings', ms: 'Sila aktifkan dapur digital di Tetapan' },
+    kitchen_disabled: { en: '🍳 Digital Kitchen Disabled', ms: '🍳 Dapur Digital Dimatikan' },
+    kitchen_disabled_desc: { en: 'Please enable digital kitchen in Settings', ms: '✅ Sila aktifkan dapur digital di Tetapan' },
     minutes_short: { en: 'm', ms: 'm' },
     hours_short: { en: 'h', ms: 'j' },
     customer_phone: { en: 'Phone', ms: 'Telefon' },
@@ -132,22 +132,24 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // FORMAT WAKTU MALAYSIA (GMT+8)
+  // FORMAT WAKTU MALAYSIA (GMT+8) - FIXED (Manual +8 jam)
   // ============================================================
   const formatMalaysiaTime = (dateString) => {
     if (!dateString) return '-'
     try {
       const date = new Date(dateString)
-      return date.toLocaleString('ms-MY', {
-        timeZone: 'Asia/Kuala_Lumpur',
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true
-      })
+      // Tambah 8 jam untuk GMT+8 (Malaysia)
+      const ms = date.getTime() + (8 * 60 * 60 * 1000)
+      const localDate = new Date(ms)
+      
+      const day = String(localDate.getDate()).padStart(2, '0')
+      const month = String(localDate.getMonth() + 1).padStart(2, '0')
+      const year = localDate.getFullYear()
+      const hours = String(localDate.getHours()).padStart(2, '0')
+      const minutes = String(localDate.getMinutes()).padStart(2, '0')
+      const seconds = String(localDate.getSeconds()).padStart(2, '0')
+      
+      return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`
     } catch (e) {
       return new Date(dateString).toLocaleString()
     }
@@ -177,7 +179,7 @@ function KitchenApp() {
   }, [])
 
   // ============================================================
-  // PLAY KITCHEN SOUND - DENGAN COOLDOWN
+  // PLAY KITCHEN SOUND - DENGAN DEBUG
   // ============================================================
   const playKitchenSound = () => {
     console.log('🔔 Kitchen: playKitchenSound called, soundEnabled:', soundEnabled)
@@ -195,7 +197,13 @@ function KitchenApp() {
     setLastSoundTime(now)
     
     console.log('🔔 Kitchen: Calling playSound() now!')
-    playSound()
+    
+    try {
+      playSound()
+      console.log('✅ playSound() executed successfully')
+    } catch (err) {
+      console.error('❌ playSound() error:', err)
+    }
   }
 
   // ============================================================
@@ -436,7 +444,7 @@ function KitchenApp() {
   // ============================================================
   useEffect(() => {
     let previousCount = 0
-    let isFirstRun = true  // 👈 TAMBAH FLAG
+    let isFirstRun = true
 
     const checkOrders = async () => {
       try {

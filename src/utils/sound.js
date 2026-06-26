@@ -1,10 +1,10 @@
-// ===== FILE: src/utils/sound.js (FIXED - Tiada Error) =====
+// ===== FILE: src/utils/sound.js =====
 
 let audioContext = null
 let isAudioUnlocked = false
 let audioBuffer = null
 let soundEnabled = true
-let isPlaying = false  // 👈 TRACK status
+let isPlaying = false  // Track status untuk elak overlap
 
 // ===== INIT =====
 export function initSound() {
@@ -24,14 +24,15 @@ export function initSound() {
 // ===== LOAD SOUND =====
 async function loadSoundEffect() {
   try {
-    const response = await fetch('/sounds/notification.mp3')
+    // 👇 PATH BETUL: /sound/notification.mp3 (tanpa 's')
+    const response = await fetch('/sound/notification.mp3')
     if (response.ok) {
       const arrayBuffer = await response.arrayBuffer()
       audioBuffer = await audioContext.decodeAudioData(arrayBuffer)
-      console.log('🔊 Sound effect loaded!')
+      console.log('🔊 Sound effect loaded from /sound/notification.mp3!')
     } else {
+      console.warn('🔊 Notification file not found, using beep fallback')
       audioBuffer = generateBeep()
-      console.log('🔊 Using generated beep sound')
     }
   } catch (err) {
     console.warn('🔊 Could not load sound, using generated beep:', err)
@@ -39,7 +40,7 @@ async function loadSoundEffect() {
   }
 }
 
-// ===== GENERATE BEEP =====
+// ===== GENERATE BEEP (FALLBACK) =====
 function generateBeep() {
   const duration = 0.15
   const sampleRate = audioContext.sampleRate
@@ -71,32 +72,27 @@ export function unlockAudio() {
   }
 }
 
-// ===== PLAY SOUND (FIXED) =====
+// ===== PLAY SOUND =====
 export function playSound() {
-  // Jika sound disabled, skip
   if (!soundEnabled) {
     console.log('🔇 Sound disabled')
     return
   }
   
-  // 👇 PENTING: Jika masih playing, skip (JANGAN interrupt)
   if (isPlaying) {
     console.log('🔊 Sound already playing, skipping...')
     return
   }
   
   try {
-    // Pastikan audio context wujud
     if (!audioContext) {
       initSound()
     }
     
-    // Resume context jika suspended
     if (audioContext && audioContext.state === 'suspended') {
       audioContext.resume()
     }
     
-    // Gunakan buffer
     if (audioBuffer && audioContext) {
       isPlaying = true
       
@@ -109,7 +105,6 @@ export function playSound() {
       source.connect(gainNode)
       gainNode.connect(audioContext.destination)
       
-      // 👇 FIX: Gunakan onended, BUKAN setTimeout stop()
       source.onended = () => {
         isPlaying = false
         console.log('🔊 Sound finished')
@@ -118,7 +113,6 @@ export function playSound() {
       source.start()
       console.log('🔊 Sound played!')
       
-      // 👇 Safety timeout: jika onended tak trigger
       setTimeout(() => {
         if (isPlaying) {
           isPlaying = false
@@ -164,20 +158,16 @@ function playFallbackSound() {
       oscillator.connect(gainNode)
       gainNode.connect(audioContext.destination)
       
-      // 👇 FIX: onended untuk reset
       oscillator.onended = () => {
         isPlaying = false
       }
       
       oscillator.start()
       
-      // Stop selepas 150ms
       setTimeout(() => {
         try {
           oscillator.stop()
-        } catch (e) {
-          // Ignore
-        }
+        } catch (e) {}
         setTimeout(() => {
           isPlaying = false
         }, 50)

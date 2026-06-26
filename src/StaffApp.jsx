@@ -132,6 +132,8 @@ function StaffApp() {
 
   // ===== NOTIFICATION STATE =====
   const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set())
+  
+  // 👇 PATH BETUL: /sound/notification.mp3 (tanpa 's')
   const [audio] = useState(typeof Audio !== 'undefined' ? new Audio('/sound/notification.mp3') : null)
 
   // ===== SETTINGS =====
@@ -195,9 +197,12 @@ function StaffApp() {
         console.log('✅ Notification sound played!')
       }).catch((err) => {
         console.log('❌ Audio play failed:', err)
+        // Fallback ke sound.js
+        playSound()
       })
     } else {
-      console.log('❌ Audio object not available')
+      console.log('❌ Audio object not available, using fallback')
+      playSound()
     }
   }
 
@@ -727,7 +732,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // SEND ORDER - FIXED: PASTIKAN CATEGORY ADA
+  // SEND ORDER
   // ============================================================
   const handleSendOrder = async () => {
     if (cart.length === 0) {
@@ -742,11 +747,10 @@ function StaffApp() {
 
     const total = cart.reduce((sum, item) => sum + item.subtotal, 0)
 
-    // ===== PASTIKAN SETIAP ITEM ADA CATEGORY =====
     const orderData = {
       items: cart.map(item => ({
         name: item.name,
-        category: item.category || 'Makanan',  // ← DEFAULT 'Makanan'
+        category: item.category || 'Makanan',
         option: item.option || null,
         size: item.size || null,
         price: item.price,
@@ -794,6 +798,45 @@ function StaffApp() {
   }
 
   // ============================================================
+  // CONFIRM NEW ORDER
+  // ============================================================
+  const confirmNewOrder = async (order) => {
+    try {
+      const { error } = await supabase
+        .from('customer_orders')
+        .update({ 
+          status: ORDER_STATUS.CONFIRMED, 
+          order_status: ORDER_STATUS.CONFIRMED,
+          confirmed_at: new Date().toISOString()
+        })
+        .eq('id', order.id)
+      if (error) throw error
+      
+      toast.success(t('order_confirmed_kitchen'))
+      await loadNewOrders()
+      await loadUnpaidOrders()
+    } catch (err) {
+      console.error('Error confirming order:', err)
+      toast.error(err.message)
+    }
+  }
+
+  const cancelNewOrder = async (order) => {
+    try {
+      const { error } = await supabase
+        .from('customer_orders')
+        .update({ status: ORDER_STATUS.CANCELLED, order_status: ORDER_STATUS.CANCELLED })
+        .eq('id', order.id)
+      if (error) throw error
+      
+      toast.success(t('order_cancelled'))
+      await loadNewOrders()
+    } catch (err) {
+      toast.error(err.message)
+    }
+  }
+
+  // ============================================================
   // MARK ORDER AS PAID
   // ============================================================
   const markOrderAsPaid = async (order, method) => {
@@ -834,45 +877,6 @@ function StaffApp() {
 
     } catch (err) {
       console.error('Error marking order as paid:', err)
-      toast.error(err.message)
-    }
-  }
-
-  // ============================================================
-  // CONFIRM / CANCEL NEW ORDER
-  // ============================================================
-  const confirmNewOrder = async (order) => {
-    try {
-      const { error } = await supabase
-        .from('customer_orders')
-        .update({ 
-          status: ORDER_STATUS.CONFIRMED, 
-          order_status: ORDER_STATUS.CONFIRMED,
-          confirmed_at: new Date().toISOString()
-        })
-        .eq('id', order.id)
-      if (error) throw error
-      
-      toast.success(t('order_confirmed_kitchen'))
-      await loadNewOrders()
-      await loadUnpaidOrders()
-    } catch (err) {
-      console.error('Error confirming order:', err)
-      toast.error(err.message)
-    }
-  }
-
-  const cancelNewOrder = async (order) => {
-    try {
-      const { error } = await supabase
-        .from('customer_orders')
-        .update({ status: ORDER_STATUS.CANCELLED, order_status: ORDER_STATUS.CANCELLED })
-        .eq('id', order.id)
-      if (error) throw error
-      
-      toast.success(t('order_cancelled'))
-      await loadNewOrders()
-    } catch (err) {
       toast.error(err.message)
     }
   }
@@ -925,6 +929,110 @@ function StaffApp() {
     a.click()
     a.remove()
     URL.revokeObjectURL(url)
+  }
+
+  // ============================================================
+  // GENERATE RECEIPT HTML
+  // ============================================================
+  const generateReceiptHTML = (order, options) => {
+    const total = Number(order.total || order.grand_total || 0).toFixed(2)
+    const items = order.items || []
+    const date = new Date(order.created_at).toLocaleString()
+    const orderType = order.order_type === 'take_away' ? '🥡 Take Away' : `🍽️ Table ${order.table_number || '-'}`
+    const paymentMethod = options.payment_method || 'cash'
+    const methodLabel = paymentMethod === 'cash' ? '💵 Tunai' : 
+                        paymentMethod === 'tng' ? '📱 Touch n Go' : 
+                        '🏦 Bank'
+
+    return `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>${t('receipt_title')}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body {
+            font-family: 'Courier New', monospace;
+            padding: 20px;
+            background: ${options.darkMode ? '#0f0f1a' : '#ffffff'};
+            color: ${options.darkMode ? '#e8edf5' : '#1e293b'};
+            display: flex;
+            justify-content: center;
+          }
+          .receipt {
+            max-width: 340px;
+            width: 100%;
+            background: ${options.darkMode ? '#1a1a2e' : '#ffffff'};
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid ${options.darkMode ? '#2a2a3e' : '#e2e8f0'};
+          }
+          .header { text-align: center; border-bottom: 1px dashed #ccc; padding-bottom: 12px; margin-bottom: 12px; }
+          .header h1 { font-size: 20px; font-weight: bold; }
+          .header .sub { font-size: 12px; color: #94a3b8; margin-top: 4px; }
+          .divider { border-top: 1px dashed #ccc; margin: 10px 0; }
+          table { width: 100%; margin: 8px 0; border-collapse: collapse; }
+          th { text-align: left; font-size: 11px; color: #94a3b8; border-bottom: 1px solid #ccc; padding: 4px 0; }
+          td { padding: 4px 0; font-size: 12px; text-align: left; }
+          td:last-child { text-align: right; }
+          .total-row { font-size: 18px; font-weight: bold; color: #22c55e; }
+          .footer { text-align: center; margin-top: 12px; border-top: 1px dashed #ccc; padding-top: 10px; font-size: 11px; color: #94a3b8; }
+          .info-row { display: flex; justify-content: space-between; font-size: 12px; padding: 2px 0; }
+          .payment { margin-top: 8px; padding-top: 8px; border-top: 1px dashed #ccc; }
+          .payment .method { font-weight: bold; color: #22c55e; }
+          .notes { background: #fef3c7; padding: 8px 12px; border-radius: 8px; margin-top: 8px; font-size: 11px; color: #92400e; }
+        </style>
+      </head>
+      <body>
+        <div class="receipt">
+          <div class="header">
+            <h1>${options.restaurant_name || 'Restoran Kita'}</h1>
+            <div class="sub">${t('receipt_title')}</div>
+            <div class="sub">${orderType}</div>
+            <div class="sub">👤 ${order.customer_name || t('guest')}</div>
+            ${order.customer_phone ? `<div class="sub">📞 ${order.customer_phone}</div>` : ''}
+            <div class="sub">${date}</div>
+          </div>
+
+          <table>
+            <thead><tr><th>${t('receipt_item')}</th><th>${t('receipt_qty')}</th><th>${t('receipt_price')}</th></tr></thead>
+            <tbody>
+              ${items.map(item => `
+                <tr>
+                  <td>${item.name}${item.option ? ` (${item.option})` : ''}</td>
+                  <td style="text-align:center">${item.quantity || 1}</td>
+                  <td>RM ${Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="divider"></div>
+          <div class="info-row"><span>${t('subtotal')}</span><span>RM ${Number(order.subtotal || order.total || 0).toFixed(2)}</span></div>
+          <div class="info-row"><span>${t('service_charge')} (${options.service_charge_percent || 6}%)</span><span>RM ${Number(order.service_charge || 0).toFixed(2)}</span></div>
+          <div class="info-row"><span>${t('tax')} (${options.tax_percent || 6}%)</span><span>RM ${Number(order.tax || 0).toFixed(2)}</span></div>
+          <div class="divider"></div>
+          <div class="info-row total-row"><span>${t('receipt_total')}</span><span>RM ${total}</span></div>
+
+          <div class="payment">
+            <div class="info-row"><span>${t('payment_method_label')}</span><span class="method">${methodLabel}</span></div>
+          </div>
+
+          ${order.notes ? `<div class="notes">📝 ${t('notes')}: ${order.notes}</div>` : ''}
+
+          <div class="footer">⭐ ⭐ ⭐ ⭐ ⭐<br>${t('receipt_thankyou')}</div>
+        </div>
+        <script>
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            }, 300);
+          }
+        <\/script>
+      </body>
+      </html>
+    `
   }
 
   // ============================================================
@@ -1251,7 +1359,7 @@ function StaffApp() {
             </label>
             <input
               type="text"
-              placeholder={t('special_request')}
+              placeholder={t('notes')}
               value={selectedItem.notes || ''}
               onChange={(e) => setSelectedItem({...selectedItem, notes: e.target.value})}
               style={{
@@ -1343,6 +1451,9 @@ function StaffApp() {
   // ============================================================
   const renderCartPopup = () => {
     if (!showCartPopup || cart.length === 0) return null
+
+    const totalCart = cart.reduce((sum, item) => sum + item.subtotal, 0)
+    const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0)
 
     return (
       <div style={{

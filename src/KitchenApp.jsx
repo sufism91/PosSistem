@@ -15,51 +15,51 @@ function KitchenApp() {
   // TRANSLATIONS
   // ============================================================
   const translations = {
-    kitchen_title: { en: '🍳 Digital Kitchen', ms: ' Dapur Digital' },
+    kitchen_title: { en: '🍳 Digital Kitchen', ms: '🍳 Dapur Digital' },
     kitchen_subtitle: { en: 'Manage food & drink orders', ms: 'Urus pesanan makanan & minuman' },
-    sound_on: { en: '🔊 Sound ON', ms: 'Bunyi ON' },
-    sound_off: { en: '🔇 Sound OFF', ms: 'Bunyi OFF' },
-    sound_test: { en: '🔊 Test Sound', ms: 'Uji Bunyi' },
-    refresh: { en: '🔄 Refresh', ms: 'Muat Semula' },
-    complete_all: { en: '✅ Complete All', ms: 'Selesaikan Semua' },
-    go_to_settings: { en: '⚙️ Settings', ms: 'Tetapan' },
-    search_orders: { en: '🔍 Search orders...', ms: 'Cari pesanan...' },
-    all_orders: { en: '📋 All', ms: 'Semua' },
-    dine_in: { en: '🍽️ Dine-in', ms: 'Makan di sini' },
-    take_away: { en: '🥡 Take Away', ms: 'Bungkus' },
-    confirmed_orders: { en: '✅ Confirmed', ms: 'Disahkan' },
-    preparing_orders: { en: '🔪 Cooking', ms: 'Memasak' },
-    ready_orders: { en: '✅ Ready', ms: 'Sedia' },
-    completed_orders: { en: '📦 Done', ms: 'Selesai' },
-    food_orders: { en: '🍚 Food', ms: 'Makanan' },
-    drink_orders: { en: '🥤 Drinks', ms: 'Minuman' },
-    no_food_orders: { en: '📭 No food orders', ms: 'Tiada pesanan makanan' },
-    no_drink_orders: { en: '📭 No drink orders', ms: 'Tiada pesanan minuman' },
-    no_confirmed_orders: { en: '📭 No confirmed orders', ms: 'Tiada pesanan disahkan' },
-    no_preparing_orders: { en: '📭 No orders cooking', ms: 'Tiada pesanan dimasak' },
-    no_ready_orders: { en: '📭 No ready orders', ms: 'Tiada pesanan sedia' },
-    no_completed_orders: { en: '📭 No completed orders', ms: 'Tiada pesanan selesai' },
-    start_cooking: { en: '🔪 Start Cooking', ms: 'Mula Masak' },
-    finish_cooking: { en: '✅ Finish Cooking', ms: 'Selesai Masak' },
-    complete: { en: '✅ Complete', ms: 'Selesai' },
-    cancelled: { en: '❌ Cancelled', ms: 'Dibatalkan' },
-    error_updating: { en: '❌ Error updating order!', ms: 'Ralat kemaskini pesanan!' },
-    no_orders_to_complete: { en: '📭 No orders to complete', ms: 'Tiada pesanan untuk diselesaikan' },
-    orders_completed: { en: '✅ orders completed!', ms: 'pesanan selesai!' },
-    confirm_complete_all: { en: 'Complete all orders?', ms: 'Selesaikan semua pesanan?' },
-    cooking_started: { en: '🔪 Cooking started!', ms: 'Mula memasak!' },
-    cooking_finished: { en: '✅ Cooking finished!', ms: 'Selesai memasak!' },
-    order_completed: { en: '✅ Order completed!', ms: 'Pesanan selesai!' },
-    order_cancelled: { en: '❌ Order cancelled!', ms: 'Pesanan dibatalkan!' },
-    waiting: { en: '⏱️ Waiting', ms: '⏱Menunggu' },
+    sound_on: { en: '🔊 Sound ON', ms: '🔊 Bunyi ON' },
+    sound_off: { en: '🔇 Sound OFF', ms: '🔇 Bunyi OFF' },
+    sound_test: { en: '🔊 Test Sound', ms: '🔊 Uji Bunyi' },
+    refresh: { en: '🔄 Refresh', ms: '🔄 Muat Semula' },
+    complete_all: { en: '✅ Complete All', ms: '✅ Selesaikan Semua' },
+    go_to_settings: { en: '⚙️ Settings', ms: '⚙️ Tetapan' },
+    search_orders: { en: '🔍 Search orders...', ms: '🔍 Cari pesanan...' },
+    all_orders: { en: '📋 All', ms: '📋 Semua' },
+    dine_in: { en: '🍽️ Dine-in', ms: '🍽️ Makan di sini' },
+    take_away: { en: '🥡 Take Away', ms: '🥡 Bungkus' },
+    confirmed_orders: { en: '✅ Confirmed', ms: '✅ Disahkan' },
+    preparing_orders: { en: '🔪 Cooking', ms: '🔪 Memasak' },
+    ready_orders: { en: '✅ Ready', ms: '✅ Sedia' },
+    completed_orders: { en: '📦 Done', ms: '📦 Selesai' },
+    food_orders: { en: '🍚 Food', ms: '🍚 Makanan' },
+    drink_orders: { en: '🥤 Drinks', ms: '🥤 Minuman' },
+    no_food_orders: { en: '📭 No food orders', ms: '📭 Tiada pesanan makanan' },
+    no_drink_orders: { en: '📭 No drink orders', ms: '📭 Tiada pesanan minuman' },
+    no_confirmed_orders: { en: '📭 No confirmed orders', ms: '📭 Tiada pesanan disahkan' },
+    no_preparing_orders: { en: '📭 No orders cooking', ms: '📭 Tiada pesanan dimasak' },
+    no_ready_orders: { en: '📭 No ready orders', ms: '📭 Tiada pesanan sedia' },
+    no_completed_orders: { en: '📭 No completed orders', ms: '📭 Tiada pesanan selesai' },
+    start_cooking: { en: '🔪 Start Cooking', ms: '🔪 Mula Masak' },
+    finish_cooking: { en: '✅ Finish Cooking', ms: '✅ Selesai Masak' },
+    complete: { en: '✅ Complete', ms: '✅ Selesai' },
+    cancelled: { en: '❌ Cancelled', ms: '❌ Dibatalkan' },
+    error_updating: { en: '❌ Error updating order!', ms: '❌ Ralat kemaskini pesanan!' },
+    no_orders_to_complete: { en: '📭 No orders to complete', ms: '📭 Tiada pesanan untuk diselesaikan' },
+    orders_completed: { en: '✅ orders completed!', ms: '✅ pesanan selesai!' },
+    confirm_complete_all: { en: 'Complete all orders?', ms: '✅ Selesaikan semua pesanan?' },
+    cooking_started: { en: '🔪 Cooking started!', ms: '🔪 Mula memasak!' },
+    cooking_finished: { en: '✅ Cooking finished!', ms: '✅ Selesai memasak!' },
+    order_completed: { en: '✅ Order completed!', ms: '✅ Pesanan selesai!' },
+    order_cancelled: { en: '❌ Order cancelled!', ms: '❌ Pesanan dibatalkan!' },
+    waiting: { en: '⏱️ Waiting', ms: '⏱️ Menunggu' },
     total: { en: 'Total', ms: 'Jumlah' },
-    note: { en: '📝 Note', ms: 'Nota' },
-    cancel: { en: '❌ Cancel', ms: 'Batal' },
+    note: { en: '📝 Note', ms: '📝 Nota' },
+    cancel: { en: '❌ Cancel', ms: '❌ Batal' },
     table: { en: 'Table', ms: 'Meja' },
     just_now: { en: 'Just now', ms: 'Baru sahaja' },
     guest: { en: 'Guest', ms: 'Tetamu' },
-    kitchen_disabled: { en: '🍳 Digital Kitchen Disabled', ms: 'Dapur Digital Dimatikan' },
-    kitchen_disabled_desc: { en: 'Please enable digital kitchen in Settings', ms: 'Sila aktifkan dapur digital di Tetapan' },
+    kitchen_disabled: { en: '🍳 Digital Kitchen Disabled', ms: '🍳 Dapur Digital Dimatikan' },
+    kitchen_disabled_desc: { en: 'Please enable digital kitchen in Settings', ms: '✅ Sila aktifkan dapur digital di Tetapan' },
     minutes_short: { en: 'm', ms: 'm' },
     hours_short: { en: 'h', ms: 'j' },
     customer_phone: { en: 'Phone', ms: 'Telefon' },
@@ -89,8 +89,7 @@ function KitchenApp() {
   const [isMobile, setIsMobile] = useState(false)
 
   // ===== SOUND TRACKING =====
-  const [notifiedOrderIds, setNotifiedOrderIds] = useState(new Set())
-  const [lastSoundTime, setLastSoundTime] = useState(0) // 👈 TUKAR KE STATE
+  const [lastSoundTime, setLastSoundTime] = useState(0)
   const SOUND_COOLDOWN = 3000
 
   // ============================================================
@@ -156,7 +155,7 @@ function KitchenApp() {
   }, [])
 
   // ============================================================
-  // PLAY KITCHEN SOUND - DENGAN COOLDOWN (FIXED)
+  // PLAY KITCHEN SOUND - DENGAN COOLDOWN
   // ============================================================
   const playKitchenSound = () => {
     console.log('🔔 Kitchen: playKitchenSound called, soundEnabled:', soundEnabled)
@@ -175,14 +174,6 @@ function KitchenApp() {
     
     console.log('🔔 Kitchen: Calling playSound() now!')
     playSound()
-  }
-
-  // ============================================================
-  // RESET NOTIFIED ORDERS
-  // ============================================================
-  const resetNotifiedOrders = () => {
-    console.log('🔄 Resetting notified orders...')
-    setNotifiedOrderIds(new Set())
   }
 
   // ============================================================
@@ -375,7 +366,7 @@ function KitchenApp() {
       )
       .subscribe()
     
-    // 👇 INTERVAL - 10 saat untuk load orders
+    // 👇 INTERVAL - 5 saat untuk load orders
     const interval = setInterval(() => {
       loadOrders()
       loadCompletedOrders()
@@ -388,69 +379,50 @@ function KitchenApp() {
   }, [soundEnabled, kitchenEnabled])
 
   // ============================================================
-  // INTERVAL CHECKING - DENGAN COOLDOWN (FIXED)
+  // INTERVAL CHECKING - FIXED (Bandingkan jumlah order)
   // ============================================================
   useEffect(() => {
+    let previousCount = 0  // 👈 TRACK JUMLAH SEBELUMNYA
+
     const checkOrders = async () => {
       try {
-        console.log('🔍 Kitchen interval: Checking for new orders...')
+        console.log('🔍 Kitchen interval: Checking for orders...')
         
         const { data } = await supabase
           .from('customer_orders')
-          .select('id, status, order_number')
+          .select('id, status')
           .in('status', ['confirmed', 'preparing', 'ready'])
-          .order('created_at', { ascending: false })
         
-        console.log(`📊 Kitchen interval: Found ${data?.length || 0} orders`)
+        const currentCount = data?.length || 0
         
-        const currentIds = data?.map(o => o.id) || []
-        const existingIds = notifiedOrderIds
+        console.log(`📊 Kitchen interval: ${currentCount} orders (prev: ${previousCount})`)
         
-        // 👇 LOG UNTUK DEBUG
-        console.log('🆔 Current IDs:', currentIds)
-        console.log('🆔 Existing IDs:', Array.from(existingIds))
-        
-        const newIds = currentIds.filter(id => !existingIds.has(id))
-        
-        console.log(`🆕 New IDs found: ${newIds.length}`, newIds)
-        
-        if (newIds.length > 0) {
-          console.log(`🔔 Kitchen interval: ${newIds.length} new order(s)! Playing sound...`)
+        // 👇 HANYA MAIN SOUND JIKA JUMLAH BERTAMBAH
+        if (currentCount > previousCount && previousCount > 0) {
+          console.log(`🔔 Kitchen interval: New order! (${previousCount} → ${currentCount})`)
           playKitchenSound()
-          
-          setNotifiedOrderIds(prev => {
-            const newSet = new Set(prev)
-            currentIds.forEach(id => newSet.add(id))
-            return newSet
-          })
-        } else {
-          console.log('🔇 No new orders detected')
         }
+        
+        // 👇 SIMPAN JUMLAH TERKINI
+        previousCount = currentCount
         
       } catch (err) {
         console.error('Kitchen interval error:', err)
       }
     }
     
-    // 👇 CALL SEKALI SELEPAS MOUNT
+    // Call sekali
     checkOrders()
     
     const interval = setInterval(checkOrders, 10000)
-    
     return () => clearInterval(interval)
-  }, []) // 👇 KOSONGKAN DEPENDENCY
+  }, []) // 👈 KOSONGKAN DEPENDENCY
 
   // ============================================================
   // ORDER ACTIONS
   // ============================================================
   async function updateOrderStatus(orderId, status) {
     try {
-      setNotifiedOrderIds(prev => {
-        const newSet = new Set(prev)
-        newSet.delete(orderId)
-        return newSet
-      })
-      
       const updateData = status === ORDER_STATUS.COMPLETED || status === 'completed' 
         ? { status, order_status: ORDER_STATUS.COMPLETED }
         : { status, order_status: status }
@@ -499,12 +471,6 @@ function KitchenApp() {
     
     if (window.confirm(t('confirm_complete_all'))) {
       for (const order of ordersToComplete) {
-        setNotifiedOrderIds(prev => {
-          const newSet = new Set(prev)
-          newSet.delete(order.id)
-          return newSet
-        })
-        
         const newStatus = 'completed'
         await supabase
           .from('customer_orders')
@@ -1066,7 +1032,6 @@ function KitchenApp() {
                 onClick={() => {
                   loadOrders()
                   loadCompletedOrders()
-                  resetNotifiedOrders() // 👈 RESET BILA REFRESH
                   toast.success('🔄 Refreshed!')
                 }} 
                 style={{ 

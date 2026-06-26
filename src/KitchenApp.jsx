@@ -435,15 +435,17 @@ function KitchenApp() {
   // ============================================================
   // INTERVAL CHECKING - FIXED (Bandingkan jumlah order + isFirstRun)
   // ============================================================
- useEffect(() => {
+useEffect(() => {
   if (!kitchenEnabled) return
   
   loadOrders()
   loadCompletedOrders()
   
-  // 👇 SUBSCRIPTION - INSERT
-  const subscription = supabase
-    .channel('kitchen_orders')
+  // 👇 BUAT CHANNEL DULU
+  const channel = supabase.channel('kitchen_orders')
+  
+  // 👇 TAMBAH CALLBACK SEBELUM SUBSCRIBE
+  channel
     .on('postgres_changes', 
       { event: 'INSERT', schema: 'public', table: 'customer_orders' },
       (payload) => {
@@ -484,7 +486,6 @@ function KitchenApp() {
         }
       }
     )
-    // 👇 FIX: UPDATE - MAIN SOUND BILA STATUS JADI 'confirmed'
     .on('postgres_changes',
       { event: 'UPDATE', schema: 'public', table: 'customer_orders' },
       (payload) => {
@@ -494,14 +495,9 @@ function KitchenApp() {
         
         const validStatuses = ['confirmed', 'preparing', 'ready']
         
-        // 👇 FIX: CHECK SAMA ADA OLD STATUS ADA ATAU TAK
         const oldStatus = payload.old?.status || payload.old?.order_status || 'new'
         const newStatus = payload.new?.status || payload.new?.order_status
         
-        // 👇 MAIN SOUND JIKA:
-        // 1. New status dalam validStatuses
-        // 2. Old status TIDAK dalam validStatuses (bermakna baru tukar)
-        // 3. ATAU old status undefined/null (first update)
         const isNewlyConfirmed = validStatuses.includes(newStatus) && 
                                  !validStatuses.includes(oldStatus)
         
@@ -538,20 +534,20 @@ function KitchenApp() {
         }
       }
     )
+    // 👇 SUBSCRIBE SEKALI DI HUJUNG
     .subscribe()
-    
-    // 👇 INTERVAL - 5 saat untuk load orders
-    const interval = setInterval(() => {
-      loadOrders()
-      loadCompletedOrders()
-    }, 5000)
-    
-    return () => {
-      subscription.unsubscribe()
-      clearInterval(interval)
-    }
-  }, [soundEnabled, kitchenEnabled])
-
+  
+  // 👇 INTERVAL - 5 saat untuk load orders
+  const interval = setInterval(() => {
+    loadOrders()
+    loadCompletedOrders()
+  }, 5000)
+  
+  return () => {
+    channel.unsubscribe()
+    clearInterval(interval)
+  }
+}, [soundEnabled, kitchenEnabled])
   // ============================================================
   // ORDER ACTIONS
   // ============================================================

@@ -5,7 +5,6 @@ import { useLanguage } from './context/LanguageContext'
 import Sidebar from './components/Sidebar'
 import { supabase } from './lib/supabase'
 import { ORDER_STATUS, PAYMENT_STATUS } from './lib/orderWorkflow'
-import { playSound, initSound, unlockAudio } from './utils/sound'
 
 function KitchenApp() {
   const { darkMode } = useTheme()
@@ -88,10 +87,6 @@ function KitchenApp() {
   const [orderTypeFilter, setOrderTypeFilter] = useState('all')
   const [isMobile, setIsMobile] = useState(false)
 
-  // ===== SOUND TRACKING =====
-  const [lastSoundTime, setLastSoundTime] = useState(0)
-  const SOUND_COOLDOWN = 3000
-
   // ============================================================
   // THEME COLORS
   // ============================================================
@@ -155,53 +150,24 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // INIT SOUND
-  // ============================================================
-  useEffect(() => {
-    console.log('🔊 Kitchen: Initializing sound...')
-    initSound()
-    
-    const unlockOnInteraction = () => {
-      console.log('🔓 Kitchen: Unlocking audio...')
-      unlockAudio()
-      document.removeEventListener('click', unlockOnInteraction)
-      document.removeEventListener('touchstart', unlockOnInteraction)
-    }
-    
-    document.addEventListener('click', unlockOnInteraction)
-    document.addEventListener('touchstart', unlockOnInteraction)
-    
-    return () => {
-      document.removeEventListener('click', unlockOnInteraction)
-      document.removeEventListener('touchstart', unlockOnInteraction)
-    }
-  }, [])
-
-  // ============================================================
-  // PLAY KITCHEN SOUND - DENGAN COOLDOWN
+  // PLAY KITCHEN SOUND - CARA BASIC (new Audio)
   // ============================================================
   const playKitchenSound = () => {
-    console.log('🔔 Kitchen: playKitchenSound called, soundEnabled:', soundEnabled)
+    console.log('🔔 Kitchen: playKitchenSound called')
     
     if (!soundEnabled) {
-      console.log('🔇 Kitchen sound disabled')
+      console.log('🔇 Sound disabled')
       return
     }
-    
-    const now = Date.now()
-    if (now - lastSoundTime < SOUND_COOLDOWN) {
-      console.log(`🔇 Kitchen sound cooldown (${SOUND_COOLDOWN}ms), skipping...`)
-      return
-    }
-    setLastSoundTime(now)
-    
-    console.log('🔔 Kitchen: Calling playSound() now!')
     
     try {
-      playSound()
-      console.log('✅ playSound() executed successfully')
+      const audio = new Audio('/sound/notification.mp3')
+      audio.volume = 0.8
+      audio.play()
+        .then(() => console.log('✅ Sound played!'))
+        .catch(err => console.error('❌ Sound play error:', err))
     } catch (err) {
-      console.error('❌ playSound() error:', err)
+      console.error('❌ Audio error:', err)
     }
   }
 
@@ -210,10 +176,15 @@ function KitchenApp() {
   // ============================================================
   const testSound = () => {
     console.log('🧪 Kitchen test sound button clicked!')
-    initSound()
-    unlockAudio()
-    playSound()
-    toast.success(`🔊 ${t('sound_test')}...`)
+    try {
+      const audio = new Audio('/sound/notification.mp3')
+      audio.volume = 0.8
+      audio.play()
+        .then(() => toast.success('🔊 Sound test OK!'))
+        .catch(err => toast.error('❌ Sound error: ' + err.message))
+    } catch (err) {
+      toast.error('❌ Audio error: ' + err.message)
+    }
   }
 
   // ============================================================
@@ -325,7 +296,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // MAIN EFFECT - DENGAN SUBSCRIPTION (FIXED)
+  // MAIN EFFECT - DENGAN SUBSCRIPTION (CARA BASIC)
   // ============================================================
   useEffect(() => {
     if (!kitchenEnabled) return
@@ -333,42 +304,23 @@ function KitchenApp() {
     loadOrders()
     loadCompletedOrders()
     
-    // 👇 GUNA CHANNEL DENGAN NAMA BERBEZA
     const channel = supabase.channel('kitchen-orders-channel')
     
     channel
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'customer_orders' },
         (payload) => {
-          console.log('🔔🔔🔔 KITCHEN INSERT TRIGGERED! 🔔🔔🔔')
-          console.log('Payload new status:', payload.new?.status)
+          console.log('🔔 INSERT TRIGGERED! Status:', payload.new?.status)
           
           const validStatuses = ['confirmed', 'preparing', 'ready']
           
           if (validStatuses.includes(payload.new.status) || 
               validStatuses.includes(payload.new.order_status)) {
             
-            console.log('🔔 Kitchen: New confirmed order! Playing sound...')
+            console.log('🔔 NEW ORDER! Playing sound...')
             playKitchenSound()
             
-            toast.custom((toastObj) => (
-              <div style={{ 
-                background: 'linear-gradient(135deg, #3b82f6, #2563eb)', 
-                color: 'white', 
-                padding: isMobile ? '10px 16px' : '12px 24px', 
-                borderRadius: '50px', 
-                fontWeight: 'bold', 
-                boxShadow: '0 10px 25px rgba(0,0,0,0.2)', 
-                fontSize: isMobile ? '12px' : '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <span>🔔</span>
-                <span>🆕 New order!</span>
-              </div>
-            ), { duration: 3000 })
-            
+            toast.success('🆕 New order!', { duration: 2000 })
             loadOrders()
             loadCompletedOrders()
           }
@@ -377,48 +329,28 @@ function KitchenApp() {
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'customer_orders' },
         (payload) => {
-          console.log('🔔🔔🔔 KITCHEN UPDATE TRIGGERED! 🔔🔔🔔')
-          console.log('   Old status:', payload.old?.status)
-          console.log('   New status:', payload.new?.status)
+          console.log('🔔 UPDATE TRIGGERED! New status:', payload.new?.status)
           
-          // 👇 MAIN SOUND UNTUK SEMUA STATUS 'confirmed'
+          // 👇 MAIN SOUND UNTUK 'confirmed'
           if (payload.new?.status === 'confirmed' || 
               payload.new?.order_status === 'confirmed') {
             
-            console.log('🔔🔔🔔 ORDER CONFIRMED! PLAYING SOUND! 🔔🔔🔔')
+            console.log('🔔 ORDER CONFIRMED! Playing sound...')
             playKitchenSound()
             
-            toast.custom((toastObj) => (
-              <div style={{ 
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
-                color: 'white', 
-                padding: isMobile ? '10px 16px' : '12px 24px', 
-                borderRadius: '50px', 
-                fontWeight: 'bold', 
-                boxShadow: '0 10px 25px rgba(0,0,0,0.2)', 
-                fontSize: isMobile ? '12px' : '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}>
-                <span>🔔</span>
-                <span>✅ Order Confirmed!</span>
-              </div>
-            ), { duration: 3000 })
-            
+            toast.success('✅ Order Confirmed!', { duration: 2000 })
             loadOrders()
             loadCompletedOrders()
           }
         }
       )
-      .subscribe((status) => {
-        console.log('📡 Kitchen subscription status:', status)
-      })
+      .subscribe()
     
+    // 👇 INTERVAL - 10 saat
     const interval = setInterval(() => {
       loadOrders()
       loadCompletedOrders()
-    }, 5000)
+    }, 10000)
     
     return () => {
       channel.unsubscribe()
@@ -427,7 +359,7 @@ function KitchenApp() {
   }, [soundEnabled, kitchenEnabled])
 
   // ============================================================
-  // INTERVAL CHECKING - FIXED (Bandingkan jumlah order + isFirstRun)
+  // INTERVAL CHECKING - CARA BASIC
   // ============================================================
   useEffect(() => {
     let previousCount = 0
@@ -466,7 +398,7 @@ function KitchenApp() {
     }
     
     checkOrders()
-    const interval = setInterval(checkOrders, 5000)
+    const interval = setInterval(checkOrders, 10000)
     return () => clearInterval(interval)
   }, [])
 

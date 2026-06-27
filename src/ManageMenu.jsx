@@ -207,7 +207,8 @@ function ManageMenu() {
     option_name: '', 
     price_adjustment: '', 
     is_absolute_price: true,
-    sort_order: 0
+    sort_order: 0,
+    stock: 0  // <--- TAMBAH STOCK
   })
   const [editingOption, setEditingOption] = useState(null)
 
@@ -1196,7 +1197,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // MENU OPTIONS (SIZE)
+  // MENU OPTIONS (SIZE) - WITH STOCK
   // ============================================================
   async function loadMenuOptions(menuId) {
     const { data } = await supabase
@@ -1222,6 +1223,7 @@ function ManageMenu() {
         price_adjustment: parseFloat(optionForm.price_adjustment),
         is_absolute_price: optionForm.is_absolute_price,
         sort_order: parseInt(optionForm.sort_order) || 0,
+        stock: parseInt(optionForm.stock) || 0,  // <--- TAMBAH STOCK
         available: true
       }])
 
@@ -1230,7 +1232,13 @@ function ManageMenu() {
     } else {
       setMessage(translate('option_added'))
       await loadMenuOptions(selectedMenuForOptions.id)
-      setOptionForm({ option_name: '', price_adjustment: '', is_absolute_price: true, sort_order: 0 })
+      setOptionForm({ 
+        option_name: '', 
+        price_adjustment: '', 
+        is_absolute_price: true, 
+        sort_order: 0,
+        stock: 0  // <--- RESET STOCK
+      })
       await supabase.from('menu').update({ has_options: true }).eq('id', selectedMenuForOptions.id)
       await loadAvailableMenu()
     }
@@ -1250,7 +1258,8 @@ function ManageMenu() {
         option_name: optionForm.option_name,
         price_adjustment: parseFloat(optionForm.price_adjustment),
         is_absolute_price: optionForm.is_absolute_price,
-        sort_order: parseInt(optionForm.sort_order) || 0
+        sort_order: parseInt(optionForm.sort_order) || 0,
+        stock: parseInt(optionForm.stock) || 0  // <--- TAMBAH STOCK
       })
       .eq('id', editingOption.id)
 
@@ -1260,7 +1269,13 @@ function ManageMenu() {
       setMessage(translate('option_updated'))
       await loadMenuOptions(selectedMenuForOptions.id)
       setEditingOption(null)
-      setOptionForm({ option_name: '', price_adjustment: '', is_absolute_price: true, sort_order: 0 })
+      setOptionForm({ 
+        option_name: '', 
+        price_adjustment: '', 
+        is_absolute_price: true, 
+        sort_order: 0,
+        stock: 0
+      })
     }
     setTimeout(() => setMessage(''), 2000)
   }
@@ -1298,7 +1313,8 @@ function ManageMenu() {
       option_name: opt.option_name,
       price_adjustment: opt.price_adjustment,
       is_absolute_price: opt.is_absolute_price,
-      sort_order: opt.sort_order || 0
+      sort_order: opt.sort_order || 0,
+      stock: opt.stock || 0  // <--- TAMBAH STOCK
     })
   }
 
@@ -3453,47 +3469,158 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* SIZE OPTIONS MODAL */}
+        {/* ============================================================
+            SIZE OPTIONS MODAL - WITH STOCK EDIT
+            ============================================================ */}
         {showOptionsModal && selectedMenuForOptions && (
           <div style={modalOverlayStyle}>
             <div style={{ ...modalContentStyle, maxWidth: isMobile ? '95%' : '500px' }}>
               <h3 style={modalTitleStyle}>{translate('size_options')} - {selectedMenuForOptions.name}</h3>
+              
               <div style={{ marginBottom: '16px' }}>
-                <h4 style={{ color: textColor, marginBottom: '8px' }}>{translate('add_size')}</h4>
+                <h4 style={{ color: textColor, marginBottom: '8px' }}>
+                  {editingOption ? translate('edit_size') : translate('add_size')}
+                </h4>
+                
                 <label style={labelStyle}>{translate('size_name')} *</label>
-                <input type="text" placeholder={translate('size_name')} value={optionForm.option_name} onChange={(e) => setOptionForm({...optionForm, option_name: e.target.value})} style={inputStyle} />
+                <input 
+                  type="text" 
+                  placeholder={translate('size_name')} 
+                  value={optionForm.option_name} 
+                  onChange={(e) => setOptionForm({...optionForm, option_name: e.target.value})} 
+                  style={inputStyle} 
+                />
+                
                 <label style={labelStyle}>{translate('size_price')} *</label>
-                <input type="number" step="0.01" placeholder={translate('size_price')} value={optionForm.price_adjustment} onChange={(e) => setOptionForm({...optionForm, price_adjustment: e.target.value})} style={inputStyle} />
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  placeholder={translate('size_price')} 
+                  value={optionForm.price_adjustment} 
+                  onChange={(e) => setOptionForm({...optionForm, price_adjustment: e.target.value})} 
+                  style={inputStyle} 
+                />
+
+                {/* ===== STOCK INPUT ===== */}
+                <label style={labelStyle}>{translate('stock_qty')}</label>
+                <input 
+                  type="number" 
+                  placeholder={translate('stock_qty')} 
+                  value={optionForm.stock} 
+                  onChange={(e) => setOptionForm({...optionForm, stock: parseInt(e.target.value) || 0})} 
+                  style={inputStyle} 
+                />
+                
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px' }}>
                   <label style={{ color: textColor }}>
-                    <input type="checkbox" checked={optionForm.is_absolute_price} onChange={(e) => setOptionForm({...optionForm, is_absolute_price: e.target.checked})} />
+                    <input 
+                      type="checkbox" 
+                      checked={optionForm.is_absolute_price} 
+                      onChange={(e) => setOptionForm({...optionForm, is_absolute_price: e.target.checked})} 
+                    />
                     {translate('absolute_price')}
                   </label>
                 </div>
-                <button onClick={editingOption ? updateMenuOption : addMenuOption} style={buttonPrimaryStyle}>
+                
+                <button 
+                  onClick={editingOption ? updateMenuOption : addMenuOption} 
+                  style={buttonPrimaryStyle}
+                >
                   {editingOption ? translate('save') : translate('add')}
                 </button>
               </div>
+              
               <div>
                 <h4 style={{ color: textColor, marginBottom: '8px' }}>{translate('size_list')}</h4>
                 {menuOptions.length === 0 ? (
                   <p style={{ color: textMuted }}>{translate('no_sizes')}</p>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {menuOptions.map(opt => (
-                      <div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: secondaryBg, borderRadius: '8px', border: `1px solid ${borderColor}` }}>
-                        <span style={{ color: textColor }}>{opt.option_name} - RM {opt.price_adjustment} {opt.is_absolute_price ? '(Absolute)' : '(Adjustment)'}</span>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button onClick={() => openEditOption(opt)} style={{ background: '#f59e0b', color: 'white', padding: '2px 10px', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '11px' }}>✏️</button>
-                          <button onClick={() => deleteMenuOption(opt.id)} style={{ background: '#ef4444', color: 'white', padding: '2px 10px', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '11px' }}>🗑️</button>
+                    {menuOptions.map(opt => {
+                      const stockColor = (opt.stock || 0) <= 0 ? '#ef4444' : (opt.stock || 0) <= 10 ? '#f59e0b' : '#22c55e'
+                      return (
+                        <div 
+                          key={opt.id} 
+                          style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            padding: '8px 12px', 
+                            background: secondaryBg, 
+                            borderRadius: '8px', 
+                            border: `1px solid ${borderColor}` 
+                          }}
+                        >
+                          <span style={{ color: textColor }}>
+                            {opt.option_name} - RM {opt.price_adjustment} 
+                            {opt.is_absolute_price ? ' (Absolute)' : ' (Adjustment)'}
+                            <span style={{ 
+                              marginLeft: '10px', 
+                              background: stockColor,
+                              color: 'white',
+                              padding: '2px 10px',
+                              borderRadius: '12px',
+                              fontSize: '10px',
+                              fontWeight: 'bold',
+                              display: 'inline-block'
+                            }}>
+                              📦 {translate('stock')}: {opt.stock || 0}
+                            </span>
+                          </span>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button 
+                              onClick={() => openEditOption(opt)} 
+                              style={{ 
+                                background: '#f59e0b', 
+                                color: 'white', 
+                                padding: '2px 10px', 
+                                border: 'none', 
+                                borderRadius: '12px', 
+                                cursor: 'pointer', 
+                                fontSize: '11px' 
+                              }}
+                            >
+                              ✏️
+                            </button>
+                            <button 
+                              onClick={() => deleteMenuOption(opt.id)} 
+                              style={{ 
+                                background: '#ef4444', 
+                                color: 'white', 
+                                padding: '2px 10px', 
+                                border: 'none', 
+                                borderRadius: '12px', 
+                                cursor: 'pointer', 
+                                fontSize: '11px' 
+                              }}
+                            >
+                              🗑️
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
+              
               <div style={{ marginTop: '16px' }}>
-                <button onClick={() => setShowOptionsModal(false)} style={buttonSecondaryStyle}>{translate('close')}</button>
+                <button 
+                  onClick={() => {
+                    setShowOptionsModal(false)
+                    setEditingOption(null)
+                    setOptionForm({ 
+                      option_name: '', 
+                      price_adjustment: '', 
+                      is_absolute_price: true, 
+                      sort_order: 0,
+                      stock: 0 
+                    })
+                  }} 
+                  style={buttonSecondaryStyle}
+                >
+                  {translate('close')}
+                </button>
               </div>
             </div>
           </div>

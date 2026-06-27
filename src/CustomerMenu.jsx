@@ -43,9 +43,6 @@ function CustomerMenu() {
   const [activePromos, setActivePromos] = useState([])
   const [promoItems, setPromoItems] = useState([])
 
-  // ===== PRINT SETTINGS =====
-  const [autoPrintCustomerOrder, setAutoPrintCustomerOrder] = useState(true)
-
   // ============================================================
   // TRANSLATIONS
   // ============================================================
@@ -114,18 +111,10 @@ function CustomerMenu() {
     error_submit: { en: 'Error submitting order', ms: 'Ralat menghantar pesanan' },
     please_enter_table: { en: 'Please enter table number', ms: 'Sila masukkan nombor meja' },
     select_size_btn: { en: 'Select Size', ms: 'Pilih Saiz' },
-    receipt_title: { en: 'RECEIPT', ms: 'RESIT' },
-    receipt_thankyou: { en: 'Thank you for dining with us!', ms: 'Terima kasih kerana makan di sini!' },
-    receipt_order: { en: 'Order', ms: 'Pesanan' },
-    receipt_table: { en: 'Table', ms: 'Meja' },
-    receipt_customer: { en: 'Customer', ms: 'Pelanggan' },
-    receipt_item: { en: 'Item', ms: 'Item' },
-    receipt_qty: { en: 'Qty', ms: 'Kuantiti' },
-    receipt_price: { en: 'Price', ms: 'Harga' },
-    receipt_total: { en: 'TOTAL', ms: 'JUMLAH' },
-    receipt_paid: { en: 'Paid', ms: 'Dibayar' },
-    receipt_unpaid: { en: 'Unpaid', ms: 'Belum Bayar' },
     note: { en: 'Note', ms: 'Nota' },
+    out_of_stock: { en: 'Out of Stock', ms: 'Habis Stok' },
+    low_stock: { en: 'Low Stock', ms: 'Stok Rendah' },
+    stock_label: { en: 'Stock', ms: 'Stok' },
   }
 
   const translate = (key) => {
@@ -293,10 +282,8 @@ function CustomerMenu() {
       if (data) {
         const sc = data.find(s => s.key === 'service_charge')
         const tx = data.find(s => s.key === 'tax')
-        const autoPrint = data.find(s => s.key === 'auto_print_customer_order')
         if (sc) setServiceChargePercent(parseFloat(sc.value) || 0)
         if (tx) setTaxPercent(parseFloat(tx.value) || 0)
-        if (autoPrint) setAutoPrintCustomerOrder(autoPrint.value === 'true')
       }
     } catch (err) {
       console.error('Error loading settings:', err)
@@ -447,7 +434,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // MENU OPTIONS FUNCTIONS
+  // ===== MENU OPTIONS FUNCTIONS - WITH STOCK =====
   // ============================================================
   async function loadMenuOptions(menuId) {
     const { data } = await supabase
@@ -459,7 +446,50 @@ function CustomerMenu() {
     return data || []
   }
 
+  // ===== CHECK STOCK SEBELUM ADD TO CART =====
+  async function checkOptionStock(optionId, quantity = 1) {
+    try {
+      const { data, error } = await supabase
+        .from('menu_options')
+        .select('stock, option_name')
+        .eq('id', optionId)
+        .single()
+      
+      if (error) {
+        console.error('Error checking stock:', error)
+        return { available: false, stock: 0, error: error.message }
+      }
+      
+      const currentStock = data?.stock || 0
+      const available = currentStock >= quantity
+      
+      return { 
+        available, 
+        stock: currentStock, 
+        option_name: data?.option_name || 'Unknown',
+        error: null 
+      }
+    } catch (err) {
+      console.error('Stock check exception:', err)
+      return { available: false, stock: 0, error: err.message }
+    }
+  }
+
   async function addToCartWithOption(item, option) {
+    // ===== CHECK STOCK TERLEBIH DAHULU =====
+    const stockCheck = await checkOptionStock(option.id, 1)
+    
+    if (!stockCheck.available) {
+      toast.error(`❌ "${option.option_name}" ${translate('out_of_stock')}! Stok sedia ada: ${stockCheck.stock}`)
+      setShowSizeModal(false)
+      setSelectedSizeItem(null)
+      return
+    }
+    
+    if (stockCheck.stock < 5) {
+      toast.warning(`⚠️ "${option.option_name}" ${translate('low_stock')}! Stok: ${stockCheck.stock} sahaja`)
+    }
+    
     setAddingItem(item.id)
     setTimeout(() => setAddingItem(null), 300)
     
@@ -474,6 +504,7 @@ function CustomerMenu() {
       quantity: 1,
       option_name: option.option_name,
       option_id: option.id,
+      option_stock: stockCheck.stock,
       category: item.category || 'Makanan'
     }
     
@@ -659,14 +690,35 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ===== QUANTITY CONTROL IN CART =====
+  // ===== QUANTITY CONTROL IN CART - WITH STOCK CHECK =====
   // ============================================================
-  const updateCartQuantity = (id, newQuantity) => {
+  const updateCartQuantity = async (id, newQuantity) => {
     if (newQuantity <= 0) {
       setCart(cart.filter(x => x.id !== id))
-    } else {
-      setCart(cart.map(x => x.id === id ? { ...x, quantity: newQuantity } : x))
+      return
     }
+    
+    // Cari item dalam cart
+    const cartItem = cart.find(x => x.id === id)
+    if (!cartItem) return
+    
+    // Jika item ada option_id, check stock
+    if (cartItem.option_id) {
+      const stockCheck = await checkOptionStock(cartItem.option_id, newQuantity)
+      
+      if (!stockCheck.available) {
+        toast.error(`❌ "${cartItem.option_name}" ${translate('out_of_stock')}! Stok sedia ada: ${stockCheck.stock}`)
+        return
+      }
+      
+      if (stockCheck.stock < newQuantity) {
+        toast.error(`❌ Stok tidak mencukupi untuk "${cartItem.option_name}". Stok sedia ada: ${stockCheck.stock}`)
+        return
+      }
+    }
+    
+    // Update quantity
+    setCart(cart.map(x => x.id === id ? { ...x, quantity: newQuantity } : x))
   }
 
   const removeFromCart = (id) => {
@@ -683,75 +735,27 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // PRINT CUSTOMER RECEIPT
-  // ============================================================
-  const printCustomerReceipt = (order) => {
-    const content = `
-      <!DOCTYPE html>
-      <html>
-      <head><title>🧾 ${translate('receipt_title')}</title>
-      <style>
-        *{margin:0;padding:0;box-sizing:border-box}
-        body{font-family:'Courier New',monospace;padding:20px;background:white;color:black}
-        .receipt{max-width:320px;margin:0 auto;font-size:12px}
-        .header{text-align:center;border-bottom:1px dashed #ccc;padding-bottom:10px;margin-bottom:10px}
-        .header h1{font-size:18px}
-        .header .sub{font-size:11px;color:#666}
-        .divider{border-top:1px dashed #ccc;margin:8px 0}
-        .items{width:100%;margin:8px 0;border-collapse:collapse}
-        .items th,.items td{text-align:left;padding:4px 0;font-size:12px}
-        .items th:last-child,.items td:last-child{text-align:right}
-        .items th{border-bottom:1px solid #ccc;font-size:11px;color:#666}
-        .total-row{font-size:16px;font-weight:bold;color:#22c55e}
-        .footer{text-align:center;margin-top:12px;border-top:1px dashed #ccc;padding-top:10px;font-size:11px;color:#666}
-        .notes{margin:10px 0;padding:8px;background:#fef3c7;border-radius:6px;font-size:11px;color:#92400e}
-        @media print{body{margin:0;padding:10px}}
-      </style>
-      </head>
-      <body>
-        <div class="receipt">
-          <div class="header">
-            <h1>${restaurantName}</h1>
-            <div class="sub">${translate('receipt_order')}: ${order.order_number}</div>
-            <div class="sub">${order.order_type === 'take_away' ? '🥡 ' + translate('take_away') : '🍽️ ' + translate('table') + ' ' + (order.table_number || '')}</div>
-            <div class="sub">👤 ${order.customer_name || translate('guest')}</div>
-            ${order.customer_phone ? `<div class="sub">📞 ${order.customer_phone}</div>` : ''}
-            <div class="sub">${new Date(order.created_at).toLocaleString()}</div>
-          </div>
-          <table class="items">
-            <thead><tr><th>${translate('receipt_item')}</th><th>${translate('receipt_qty')}</th><th>${translate('receipt_price')}</th></tr></thead>
-            <tbody>
-              ${order.items?.map(item => `
-                <tr>
-                  <td>${item.name}${item.option_type ? ` (${item.option_type})` : ''}</td>
-                  <td style="text-align:center">${item.quantity}</td>
-                  <td style="text-align:right">RM ${(item.price * item.quantity).toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          <div class="divider"></div>
-          <div style="display:flex;justify-content:space-between;font-size:16px;font-weight:bold;padding:4px 0;">
-            <span>${translate('receipt_total')}</span>
-            <span style="color:#22c55e">RM ${order.total.toFixed(2)}</span>
-          </div>
-          ${order.notes ? `<div class="notes">📝 ${translate('note')}: ${order.notes}</div>` : ''}
-          <div class="footer">⭐ ⭐ ⭐ ⭐ ⭐<br>${translate('receipt_thankyou')}</div>
-        </div>
-        <script>window.onload=()=>{setTimeout(()=>{window.print();setTimeout(()=>window.close(),500)},300)}<\/script>
-      </body>
-      </html>
-    `
-    const printWindow = window.open('', '_blank', 'width=400,height=600')
-    printWindow.document.write(content)
-    printWindow.document.close()
-  }
-
-  // ============================================================
-  // SUBMIT ORDER
+  // ===== SUBMIT ORDER - DENGAN KURANGKAN STOCK =====
   // ============================================================
   const submitOrderConfirmed = async () => {
     setShowConfirmModal(false)
+    
+    // ===== CHECK ALL STOCK SEBELUM PROSES =====
+    for (const item of cart) {
+      if (item.option_id) {
+        const stockCheck = await checkOptionStock(item.option_id, item.quantity)
+        if (!stockCheck.available) {
+          toast.error(`❌ "${item.option_name}" ${translate('out_of_stock')}! Stok sedia ada: ${stockCheck.stock}`)
+          setShowConfirmModal(true)
+          return
+        }
+        if (stockCheck.stock < item.quantity) {
+          toast.error(`❌ Stok tidak mencukupi untuk "${item.option_name}". Stok sedia ada: ${stockCheck.stock}`)
+          setShowConfirmModal(true)
+          return
+        }
+      }
+    }
     
     const items = cart.map(item => ({ 
       id: item.id,
@@ -763,6 +767,7 @@ function CustomerMenu() {
       promo_name: item.promo_name || null,
       original_price: item.original_price || null,
       option_name: item.option_name || null,
+      option_id: item.option_id || null,
       option_type: item.option_type || null,
       category: item.category || 'Makanan'
     }))
@@ -775,6 +780,7 @@ function CustomerMenu() {
     const tax = getTax()
 
     try {
+      // ===== INSERT ORDER =====
       const { data, error } = await supabase.from('customer_orders').insert([normalizeOrderForInsert({
         order_number: orderNumber,
         order_type: 'dine_in',
@@ -795,24 +801,54 @@ function CustomerMenu() {
       if (error) {
         console.error('Submit error:', error)
         toast.error(translate('error_submit') + ': ' + error.message)
-      } else {
-        setSubmitted(true)
-        setCart([])
-        setShowCart(false)
-        
-        const orderId = data?.[0]?.order_number || orderNumber
-        toast.success(`✓ ${translate('order_number')} ${orderNumber} ${translate('order_sent')}`)
-        
-        if (autoPrintCustomerOrder && data?.[0]) {
-          setTimeout(() => {
-            printCustomerReceipt(data[0])
-          }, 500)
-        }
-        
-        setTimeout(() => {
-          window.location.href = `/track?order=${orderId}`
-        }, 2000)
+        return
       }
+
+      // ===== KURANGKAN STOCK UNTUK SETIAP ITEM DENGAN OPTION =====
+      let stockUpdateErrors = []
+      
+      for (const item of cart) {
+        if (item.option_id) {
+          // Get current stock
+          const { data: currentData } = await supabase
+            .from('menu_options')
+            .select('stock')
+            .eq('id', item.option_id)
+            .single()
+          
+          if (currentData) {
+            const currentStock = currentData.stock || 0
+            const newStock = Math.max(0, currentStock - item.quantity)
+            
+            const { error: updateError } = await supabase
+              .from('menu_options')
+              .update({ stock: newStock })
+              .eq('id', item.option_id)
+            
+            if (updateError) {
+              stockUpdateErrors.push(`Failed to update stock for ${item.option_name}: ${updateError.message}`)
+            }
+          }
+        }
+      }
+      
+      if (stockUpdateErrors.length > 0) {
+        console.warn('Stock update errors:', stockUpdateErrors)
+        // Notify admin but don't block order
+        toast.warning(`⚠️ ${stockUpdateErrors.length} item(s) had stock update issues. Please check inventory.`)
+      }
+
+      setSubmitted(true)
+      setCart([])
+      setShowCart(false)
+      
+      const orderId = data?.[0]?.order_number || orderNumber
+      toast.success(`✓ ${translate('order_number')} ${orderNumber} ${translate('order_sent')}`)
+      
+      setTimeout(() => {
+        window.location.href = `/track?order=${orderId}`
+      }, 2000)
+      
     } catch (err) {
       console.error('Exception:', err)
       toast.error(translate('error_submit'))
@@ -865,7 +901,7 @@ function CustomerMenu() {
   }
 
   const filteredMenu = getFilteredMenu()
-  const menuGridCols = isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(180px, 1fr))'
+  const menuGridCols = isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(200px, 1fr))'
 
   // ============================================================
   // LOADING STATE
@@ -1062,9 +1098,21 @@ function CustomerMenu() {
             borderRadius: '16px',
             padding: isMobile ? '12px 16px' : '16px 20px',
             border: `2px solid ${accentColor}`,
-            boxShadow: '0 4px 16px rgba(245,158,11,0.2)'
+            boxShadow: '0 4px 20px rgba(245,158,11,0.3)',
+            position: 'relative',
+            overflow: 'hidden'
           }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+            <div style={{
+              position: 'absolute',
+              top: '-50%',
+              right: '-20%',
+              width: '200px',
+              height: '200px',
+              background: 'radial-gradient(circle, rgba(245,158,11,0.15), transparent)',
+              borderRadius: '50%'
+            }} />
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px', position: 'relative' }}>
               <span style={{ fontSize: isMobile ? '20px' : '28px' }}>⭐</span>
               <h2 style={{ 
                 margin: 0,
@@ -1080,12 +1128,13 @@ function CustomerMenu() {
                 padding: '2px 10px',
                 borderRadius: '20px',
                 fontSize: isMobile ? '8px' : '10px',
-                fontWeight: 'bold'
+                fontWeight: 'bold',
+                animation: 'pulse 1.5s ease-in-out infinite'
               }}>
                 🔥 HOT
               </span>
             </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', position: 'relative' }}>
               {specialMenuItems.slice(0, isMobile ? 6 : 10).map((item, idx) => {
                 const hasSizeOptions = item.has_options === true
                 const isAdding = addingItem === `special_${item.id}`
@@ -1096,22 +1145,25 @@ function CustomerMenu() {
                     style={{ 
                       background: 'white',
                       borderRadius: '50px',
-                      padding: isMobile ? '4px 10px' : '6px 16px',
+                      padding: isMobile ? '6px 12px' : '8px 18px',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px',
+                      gap: '8px',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
                       border: hasSizeOptions ? `2px solid ${accentColor}` : 'none',
-                      cursor: hasSizeOptions ? 'pointer' : 'default'
+                      cursor: hasSizeOptions ? 'pointer' : 'default',
+                      transition: 'transform 0.2s'
                     }}
+                    onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                    onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
                   >
                     {item.image_url ? (
                       <img 
                         src={item.image_url}
                         alt={item.name}
                         style={{ 
-                          width: isMobile ? '20px' : '28px',
-                          height: isMobile ? '20px' : '28px',
+                          width: isMobile ? '24px' : '32px',
+                          height: isMobile ? '24px' : '32px',
                           borderRadius: '6px',
                           objectFit: 'cover'
                         }}
@@ -1171,10 +1223,11 @@ function CustomerMenu() {
                         color: 'white',
                         border: 'none',
                         borderRadius: '30px',
-                        padding: isMobile ? '2px 8px' : '4px 12px',
+                        padding: isMobile ? '4px 10px' : '6px 14px',
                         cursor: 'pointer',
                         fontWeight: 'bold',
-                        fontSize: isMobile ? '9px' : '10px'
+                        fontSize: isMobile ? '9px' : '10px',
+                        transition: 'all 0.2s'
                       }}
                     >
                       {isAdding ? '✓' : (hasSizeOptions ? '📏' : '+')}
@@ -1262,7 +1315,10 @@ function CustomerMenu() {
           flexWrap: 'nowrap',
           overflowX: 'auto',
           paddingBottom: '8px',
-          scrollbarWidth: 'thin'
+          scrollbarWidth: 'thin',
+          scrollBehavior: 'smooth',
+          maskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)',
+          WebkitMaskImage: 'linear-gradient(to right, transparent, black 5%, black 95%, transparent)'
         }}>
           {categoryNames.map(cat => {
             const icon = getCategoryIcon(cat)
@@ -1273,7 +1329,7 @@ function CustomerMenu() {
                 key={cat}
                 onClick={() => setSelectedCategory(cat)}
                 style={{ 
-                  padding: isMobile ? '6px 12px' : '8px 18px',
+                  padding: isMobile ? '6px 14px' : '8px 20px',
                   background: isActive ? `linear-gradient(135deg, ${accentColor}, #d97706)` : (darkMode ? 'rgba(255,255,255,0.05)' : 'white'),
                   color: isActive ? 'white' : textColor,
                   border: isActive ? 'none' : `1px solid ${borderColor}`,
@@ -1311,7 +1367,7 @@ function CustomerMenu() {
           <div style={{ 
             display: 'grid',
             gridTemplateColumns: menuGridCols,
-            gap: isMobile ? '12px' : '16px'
+            gap: isMobile ? '14px' : '20px'
           }}>
             {filteredMenu.map(item => {
               const isPromoItem = item.type === 'set_menu' || item.type === 'bundle' || item.type === 'bogo'
@@ -1330,12 +1386,13 @@ function CustomerMenu() {
                   key={item.id}
                   style={{ 
                     ...glassEffect,
-                    borderRadius: isMobile ? '16px' : '20px',
+                    borderRadius: isMobile ? '18px' : '22px',
                     overflow: 'hidden',
-                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     cursor: 'pointer',
-                    transform: isClicked ? 'scale(0.97)' : 'scale(1)',
-                    border: isClicked ? `2px solid ${successColor}` : 'none'
+                    transform: isClicked ? 'scale(0.95)' : 'scale(1)',
+                    border: isClicked ? `2px solid ${successColor}` : 'none',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)'
                   }}
                   onClick={() => {
                     setClickedItemId(item.id)
@@ -1345,51 +1402,60 @@ function CustomerMenu() {
                   }}
                   onMouseEnter={e => {
                     if (!isClicked) {
-                      e.currentTarget.style.transform = 'translateY(-4px)'
+                      e.currentTarget.style.transform = 'translateY(-6px)'
                       e.currentTarget.style.boxShadow = darkMode 
-                        ? '0 12px 40px rgba(0,0,0,0.4)' 
-                        : '0 12px 40px rgba(0,0,0,0.12)'
+                        ? '0 16px 48px rgba(0,0,0,0.5)' 
+                        : '0 16px 48px rgba(0,0,0,0.12)'
                     }
                   }}
                   onMouseLeave={e => {
                     if (!isClicked) {
                       e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = 'none'
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.06)'
                     }
                   }}
                 >
+                  {/* ===== IMAGE ===== */}
                   <div style={{ 
                     background: isPromoItem ? '#f3e8ff' : (darkMode ? '#1a1a2e' : '#fef3c7'),
-                    padding: isMobile ? '16px' : '20px',
+                    padding: isMobile ? '20px' : '24px',
                     textAlign: 'center',
-                    position: 'relative'
+                    position: 'relative',
+                    minHeight: isMobile ? '120px' : '160px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
                   }}>
                     {isPromoItem && (
                       <div style={{ 
                         position: 'absolute',
-                        top: '6px',
-                        right: '6px',
-                        background: '#8b5cf6',
+                        top: '8px',
+                        right: '8px',
+                        background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
                         color: 'white',
-                        fontSize: isMobile ? '7px' : '9px',
-                        padding: '2px 8px',
+                        fontSize: isMobile ? '8px' : '10px',
+                        padding: '3px 12px',
                         borderRadius: '20px',
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        boxShadow: '0 4px 12px rgba(139,92,246,0.3)',
+                        zIndex: 5
                       }}>
-                        {translate('promo')}
+                        🔥 {translate('promo')}
                       </div>
                     )}
                     {hasSizeOptions && (
                       <div style={{ 
                         position: 'absolute',
-                        top: '6px',
-                        left: '6px',
+                        top: '8px',
+                        left: '8px',
                         background: accentColor,
                         color: 'white',
-                        fontSize: isMobile ? '7px' : '9px',
-                        padding: '2px 8px',
+                        fontSize: isMobile ? '8px' : '10px',
+                        padding: '3px 10px',
                         borderRadius: '20px',
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        boxShadow: '0 4px 12px rgba(245,158,11,0.3)',
+                        zIndex: 5
                       }}>
                         📏
                       </div>
@@ -1399,28 +1465,30 @@ function CustomerMenu() {
                         src={item.image_url}
                         alt={item.name}
                         style={{ 
-                          width: isMobile ? '60px' : '80px',
-                          height: isMobile ? '60px' : '80px',
+                          width: isMobile ? '90px' : '120px',
+                          height: isMobile ? '90px' : '120px',
                           objectFit: 'cover',
-                          borderRadius: '12px',
-                          margin: '0 auto'
+                          borderRadius: '16px',
+                          margin: '0 auto',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
                         }}
                         onError={(e) => {
                           e.target.style.display = 'none'
-                          e.target.parentElement.innerHTML = `<span style="font-size:${isMobile ? '32px' : '44px'}">${isPromoItem ? '🏷️' : getDefaultIcon(item.category)}</span>`
+                          e.target.parentElement.innerHTML = `<span style="font-size:${isMobile ? '48px' : '64px'}">${isPromoItem ? '🏷️' : getDefaultIcon(item.category)}</span>`
                         }}
                       />
                     ) : (
-                      <span style={{ fontSize: isMobile ? '32px' : '44px' }}>
+                      <span style={{ fontSize: isMobile ? '48px' : '64px' }}>
                         {isPromoItem ? '🏷️' : getDefaultIcon(item.category)}
                       </span>
                     )}
                   </div>
                   
-                  <div style={{ padding: isMobile ? '10px 12px' : '14px 16px', textAlign: 'center' }}>
+                  {/* ===== CONTENT ===== */}
+                  <div style={{ padding: isMobile ? '14px 14px' : '18px 20px', textAlign: 'center' }}>
                     <h3 style={{ 
                       margin: '0 0 4px 0',
-                      fontSize: isMobile ? '12px' : '14px',
+                      fontSize: isMobile ? '14px' : '16px',
                       fontWeight: 'bold',
                       color: textColor
                     }}>
@@ -1453,7 +1521,7 @@ function CustomerMenu() {
                           RM {item.original_price.toFixed(2)}
                         </span>
                         <span style={{ 
-                          fontSize: isMobile ? '12px' : '14px',
+                          fontSize: isMobile ? '14px' : '16px',
                           fontWeight: 'bold',
                           color: '#8b5cf6'
                         }}>
@@ -1500,7 +1568,7 @@ function CustomerMenu() {
                       </div>
                     ) : !isPromoItem && !hasSizeOptions && (
                       <div style={{ 
-                        fontSize: isMobile ? '14px' : '18px',
+                        fontSize: isMobile ? '16px' : '20px',
                         fontWeight: 'bold',
                         color: successColor,
                         marginBottom: '4px'
@@ -1522,12 +1590,12 @@ function CustomerMenu() {
                     
                     <div style={{ 
                       width: '100%',
-                      padding: isMobile ? '6px' : '8px',
+                      padding: isMobile ? '8px' : '10px',
                       background: isAdding ? successColor : (isPromoItem ? '#8b5cf6' : accentColor),
                       color: 'white',
                       borderRadius: '40px',
                       fontWeight: 'bold',
-                      fontSize: isMobile ? '10px' : '12px',
+                      fontSize: isMobile ? '11px' : '13px',
                       transition: 'all 0.2s'
                     }}>
                       {isAdding ? translate('added') : (isPromoItem ? translate('buy_promo') : (hasSizeOptions ? translate('select_size_btn') : translate('add')))}
@@ -1548,26 +1616,27 @@ function CustomerMenu() {
           onClick={() => setShowCart(true)}
           style={{ 
             position: 'fixed',
-            bottom: isMobile ? '16px' : '24px',
+            bottom: isMobile ? '20px' : '28px',
             right: isMobile ? '16px' : '24px',
-            width: isMobile ? '56px' : '64px',
-            height: isMobile ? '56px' : '64px',
-            borderRadius: '50%',
             background: `linear-gradient(135deg, ${accentColor}, #d97706)`,
             color: 'white',
             border: 'none',
-            fontSize: isMobile ? '22px' : '26px',
+            borderRadius: '60px',
+            padding: isMobile ? '14px 20px' : '18px 28px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: isMobile ? '10px' : '14px',
             cursor: 'pointer',
             boxShadow: '0 8px 32px rgba(245,158,11,0.5)',
             zIndex: 100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
             transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            animation: 'float 2s ease-in-out infinite'
+            fontSize: isMobile ? '14px' : '18px',
+            fontWeight: 'bold',
+            animation: 'float 2s ease-in-out infinite, pulseGlow 2s ease-in-out infinite',
+            position: 'relative'
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.transform = 'scale(1.1)'
+            e.currentTarget.style.transform = 'scale(1.05)'
             e.currentTarget.style.boxShadow = '0 12px 40px rgba(245,158,11,0.6)'
           }}
           onMouseLeave={e => {
@@ -1576,22 +1645,14 @@ function CustomerMenu() {
           }}
         >
           🛒
+          <span>RM {getGrandTotal().toFixed(2)}</span>
           <span style={{ 
-            position: 'absolute',
-            top: '-4px',
-            right: '-4px',
             background: dangerColor,
             color: 'white',
             borderRadius: '50%',
-            width: isMobile ? '22px' : '26px',
-            height: isMobile ? '22px' : '26px',
-            fontSize: isMobile ? '10px' : '12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontWeight: 'bold',
-            boxShadow: '0 4px 12px rgba(239,68,68,0.4)',
-            border: `2px solid ${darkMode ? '#0a0a16' : '#fef3c7'}`
+            padding: isMobile ? '2px 8px' : '4px 10px',
+            fontSize: isMobile ? '11px' : '13px',
+            fontWeight: 'bold'
           }}>
             {cartItemCount}
           </span>
@@ -1599,7 +1660,7 @@ function CustomerMenu() {
       )}
 
       {/* ========================================================== */}
-      {/* SIZE OPTIONS MODAL */}
+      {/* ===== SIZE OPTIONS MODAL - WITH STOCK DISPLAY ===== */}
       {/* ========================================================== */}
       {showSizeModal && selectedSizeItem && (
         <div style={{ 
@@ -1629,7 +1690,7 @@ function CustomerMenu() {
             </h2>
             <p style={{ 
               color: textMuted,
-              marginBottom: '20px',
+              marginBottom: '16px',
               fontSize: isMobile ? '12px' : '14px'
             }}>
               {translate('choose_size')}
@@ -1640,26 +1701,67 @@ function CustomerMenu() {
                 const finalPrice = opt.is_absolute_price 
                   ? opt.price_adjustment
                   : (selectedSizeItem.price + opt.price_adjustment)
+                const isOutOfStock = (opt.stock || 0) <= 0
+                const isLowStock = (opt.stock || 0) > 0 && (opt.stock || 0) <= 5
+                const stockDisplay = isOutOfStock ? translate('out_of_stock') : `${translate('stock_label')}: ${opt.stock || 0}`
+                
                 return (
                   <button 
                     key={opt.id}
-                    onClick={() => addToCartWithOption(selectedSizeItem, opt)}
+                    onClick={() => {
+                      if (!isOutOfStock) {
+                        addToCartWithOption(selectedSizeItem, opt)
+                      } else {
+                        toast.error(`❌ "${opt.option_name}" ${translate('out_of_stock')}`)
+                      }
+                    }}
                     style={{ 
                       padding: isMobile ? '12px 16px' : '14px 20px',
-                      background: `linear-gradient(135deg, ${accentColor}, #d97706)`,
-                      color: 'white',
-                      border: 'none',
+                      background: isOutOfStock 
+                        ? '#e2e8f0' 
+                        : `linear-gradient(135deg, ${accentColor}, #d97706)`,
+                      color: isOutOfStock ? '#94a3b8' : 'white',
+                      border: isOutOfStock ? `2px solid ${dangerColor}` : 'none',
                       borderRadius: '50px',
-                      cursor: 'pointer',
+                      cursor: isOutOfStock ? 'not-allowed' : 'pointer',
                       fontWeight: 'bold',
                       fontSize: isMobile ? '14px' : '16px',
                       display: 'flex',
                       justifyContent: 'space-between',
                       alignItems: 'center',
-                      transition: 'all 0.2s'
+                      transition: 'all 0.2s',
+                      opacity: isOutOfStock ? 0.6 : 1,
+                      position: 'relative'
                     }}
+                    disabled={isOutOfStock}
                   >
-                    <span>{opt.option_name}</span>
+                    <span>
+                      {opt.option_name}
+                      {isLowStock && !isOutOfStock && (
+                        <span style={{ 
+                          marginLeft: '8px',
+                          fontSize: '10px',
+                          background: '#f59e0b',
+                          color: 'white',
+                          padding: '2px 8px',
+                          borderRadius: '12px'
+                        }}>
+                          ⚠️ Stok: {opt.stock}
+                        </span>
+                      )}
+                      {isOutOfStock && (
+                        <span style={{ 
+                          marginLeft: '8px',
+                          fontSize: '10px',
+                          background: dangerColor,
+                          color: 'white',
+                          padding: '2px 8px',
+                          borderRadius: '12px'
+                        }}>
+                          ❌ {translate('out_of_stock')}
+                        </span>
+                      )}
+                    </span>
                     <span>RM {finalPrice.toFixed(2)}</span>
                   </button>
                 )
@@ -1848,7 +1950,7 @@ function CustomerMenu() {
       )}
 
       {/* ========================================================== */}
-      {/* CART DRAWER - WITH QUANTITY CONTROLS */}
+      {/* CART DRAWER - WITH STOCK WARNING */}
       {/* ========================================================== */}
       {showCart && (
         <div style={{ 
@@ -1946,6 +2048,15 @@ function CustomerMenu() {
                             marginLeft: '4px'
                           }}>
                             (PROMO)
+                          </span>
+                        )}
+                        {item.option_name && (
+                          <span style={{ 
+                            color: accentColor,
+                            fontSize: '9px',
+                            marginLeft: '4px'
+                          }}>
+                            ({item.option_name})
                           </span>
                         )}
                       </div>
@@ -2384,6 +2495,16 @@ function CustomerMenu() {
           @keyframes float {
             0%, 100% { transform: translateY(0); }
             50% { transform: translateY(-6px); }
+          }
+          
+          @keyframes pulseGlow {
+            0%, 100% { box-shadow: 0 8px 32px rgba(245,158,11,0.4); }
+            50% { box-shadow: 0 8px 48px rgba(245,158,11,0.6); }
+          }
+          
+          @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
           }
           
           ::-webkit-scrollbar { 

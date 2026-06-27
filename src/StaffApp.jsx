@@ -105,6 +105,13 @@ function StaffApp() {
       add_to_cart: { en: 'Add to Cart', ms: 'Tambah ke Keranjang' },
       new_order_notification: { en: 'New order received!', ms: 'Pesanan baru diterima!' },
       order_confirmed_kitchen: { en: 'Order confirmed!', ms: 'Pesanan disahkan!' },
+      out_of_stock: { en: 'Out of Stock', ms: 'Habis Stok' },
+      low_stock: { en: 'Low Stock', ms: 'Stok Rendah' },
+      please_select_option: { en: 'Please select an option', ms: 'Sila pilih pilihan' },
+      please_select_item: { en: 'Please select an item', ms: 'Sila pilih item' },
+      ready: { en: 'Ready', ms: 'Siap' },
+      preparing: { en: 'Preparing', ms: 'Sedang Siap' },
+      stock_label: { en: 'Stock', ms: 'Stok' },
     }
     if (!translations[key]) return key
     return language === 'en' ? translations[key].en : translations[key].ms
@@ -178,6 +185,7 @@ function StaffApp() {
   const borderColor = darkMode ? 'rgba(71,85,105,0.3)' : 'rgba(203,213,225,0.5)'
   const priceColor = darkMode ? '#4ade80' : '#22c55e'
   const promoColor = '#ef4444'
+  const dangerColor = '#ef4444'
   const secondaryBg = darkMode ? 'rgba(30,30,50,0.6)' : 'rgba(248,250,252,0.8)'
   const inputBg = darkMode ? '#1a1a2e' : '#ffffff'
   const inputBorder = darkMode ? '#3d3d5c' : '#cbd5e1'
@@ -204,7 +212,7 @@ function StaffApp() {
   }, [])
 
   // ============================================================
-  // PLAY NOTIFICATION SOUND - DENGAN COOLDOWN
+  // PLAY NOTIFICATION SOUND
   // ============================================================
   const playNotificationSound = () => {
     console.log('🔔 playNotificationSound called')
@@ -301,7 +309,7 @@ function StaffApp() {
   }, [])
 
   // ============================================================
-  // NOTIFICATION INTERVAL - 5 SAAT (FIXED)
+  // NOTIFICATION INTERVAL
   // ============================================================
   useEffect(() => {
     const checkOrders = async () => {
@@ -348,14 +356,10 @@ function StaffApp() {
       }
     }
 
-    // 👇 CALL SEKALI SELEPAS MOUNT
     checkOrders()
-
-    // 👇 INTERVAL 5 SAAT
     const interval = setInterval(checkOrders, 5000)
-    
     return () => clearInterval(interval)
-  }, []) // 👈 KOSONGKAN DEPENDENCY
+  }, [])
 
   // ============================================================
   // REALTIME SUBSCRIPTION
@@ -477,6 +481,37 @@ function StaffApp() {
   }
 
   // ============================================================
+  // ===== CHECK STOCK FUNCTION =====
+  // ============================================================
+  async function checkOptionStock(optionId, quantity = 1) {
+    try {
+      const { data, error } = await supabase
+        .from('menu_options')
+        .select('stock, option_name')
+        .eq('id', optionId)
+        .single()
+      
+      if (error) {
+        console.error('Error checking stock:', error)
+        return { available: false, stock: 0, error: error.message }
+      }
+      
+      const currentStock = data?.stock || 0
+      const available = currentStock >= quantity
+      
+      return { 
+        available, 
+        stock: currentStock, 
+        option_name: data?.option_name || 'Unknown',
+        error: null 
+      }
+    } catch (err) {
+      console.error('Stock check exception:', err)
+      return { available: false, stock: 0, error: err.message }
+    }
+  }
+
+  // ============================================================
   // HELPERS
   // ============================================================
   function isDrinkCategory(category) {
@@ -575,9 +610,9 @@ function StaffApp() {
   const getCartItemCount = () => cart.reduce((sum, item) => sum + item.quantity, 0)
 
   // ============================================================
-  // ADD TO CART
+  // ===== ADD TO CART - WITH STOCK CHECK =====
   // ============================================================
-  const addToCart = () => {
+  const addToCart = async () => {
     if (!selectedItem) { toast.error(t('please_select_item')); return }
     if (isDrinkCategory(selectedItem.category)) {
       const availableOptions = getDrinkOptionsForItem(selectedItem)
@@ -587,6 +622,25 @@ function StaffApp() {
     }
     if (isSizeCategory(selectedItem) && !selectedSize) {
       toast.error(t('select_size')); return
+    }
+    
+    // ===== CHECK STOCK UNTUK SIZE OPTIONS =====
+    if (selectedSize) {
+      const stockCheck = await checkOptionStock(selectedSize.id, quantity)
+      
+      if (!stockCheck.available) {
+        toast.error(`❌ "${selectedSize.option_name}" ${t('out_of_stock')}! Stok sedia ada: ${stockCheck.stock}`)
+        return
+      }
+      
+      if (stockCheck.stock < quantity) {
+        toast.error(`❌ Stok tidak mencukupi untuk "${selectedSize.option_name}". Stok sedia ada: ${stockCheck.stock}`)
+        return
+      }
+      
+      if (stockCheck.stock < 5) {
+        toast.warning(`⚠️ "${selectedSize.option_name}" ${t('low_stock')}! Stok: ${stockCheck.stock} sahaja`)
+      }
     }
     
     const price = getItemPrice(selectedItem, selectedOption, selectedSize)
@@ -599,6 +653,7 @@ function StaffApp() {
       category: selectedItem.category,
       option: selectedOption || null,
       size: selectedSize?.option_name || null,
+      size_id: selectedSize?.id || null,
       price: price,
       originalPrice: selectedItem.price,
       quantity: quantity,
@@ -643,12 +698,27 @@ function StaffApp() {
   }
 
   // ============================================================
-  // SEND ORDER
+  // ===== SEND ORDER - DENGAN KURANGKAN STOCK =====
   // ============================================================
   const sendOrder = async () => {
     if (cart.length === 0) { toast.error(t('cart_empty_msg')); return }
     if (orderType === 'dine_in' && !tableNumber) {
       toast.error('⚠️ Sila masukkan nombor meja!'); return
+    }
+    
+    // ===== CHECK ALL STOCK SEBELUM PROSES =====
+    for (const item of cart) {
+      if (item.size_id) {
+        const stockCheck = await checkOptionStock(item.size_id, item.quantity)
+        if (!stockCheck.available) {
+          toast.error(`❌ "${item.size}" ${t('out_of_stock')}! Stok sedia ada: ${stockCheck.stock}`)
+          return
+        }
+        if (stockCheck.stock < item.quantity) {
+          toast.error(`❌ Stok tidak mencukupi untuk "${item.size}". Stok sedia ada: ${stockCheck.stock}`)
+          return
+        }
+      }
     }
     
     const total = cart.reduce((sum, item) => sum + item.subtotal, 0)
@@ -661,6 +731,7 @@ function StaffApp() {
         category: item.category || 'Makanan',
         option: item.option || null,
         size: item.size || null,
+        size_id: item.size_id || null,
         price: item.price,
         originalPrice: item.originalPrice || item.price,
         quantity: item.quantity,
@@ -682,8 +753,41 @@ function StaffApp() {
     }
     
     try {
-      const { error } = await supabase.from('customer_orders').insert([normalizeOrderForInsert(orderData)])
+      const { data, error } = await supabase.from('customer_orders').insert([normalizeOrderForInsert(orderData)]).select()
       if (error) throw error
+      
+      // ===== KURANGKAN STOCK UNTUK SETIAP ITEM DENGAN SIZE =====
+      let stockUpdateErrors = []
+      
+      for (const item of cart) {
+        if (item.size_id) {
+          // Get current stock
+          const { data: currentData } = await supabase
+            .from('menu_options')
+            .select('stock')
+            .eq('id', item.size_id)
+            .single()
+          
+          if (currentData) {
+            const currentStock = currentData.stock || 0
+            const newStock = Math.max(0, currentStock - item.quantity)
+            
+            const { error: updateError } = await supabase
+              .from('menu_options')
+              .update({ stock: newStock })
+              .eq('id', item.size_id)
+            
+            if (updateError) {
+              stockUpdateErrors.push(`Failed to update stock for ${item.size}: ${updateError.message}`)
+            }
+          }
+        }
+      }
+      
+      if (stockUpdateErrors.length > 0) {
+        console.warn('Stock update errors:', stockUpdateErrors)
+        toast.warning(`⚠️ ${stockUpdateErrors.length} item(s) had stock update issues. Please check inventory.`)
+      }
       
       toast.success(`✅ ${t('order_sent')} #${orderNumber}`)
       setCart([])
@@ -699,7 +803,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // CONFIRM / CANCEL NEW ORDER - FIXED: TAMBAH playSound()
+  // CONFIRM / CANCEL NEW ORDER
   // ============================================================
   const confirmNewOrder = async (order) => {
     try {
@@ -712,10 +816,7 @@ function StaffApp() {
         })
         .eq('id', order.id)
       
-      // 👇 TAMBAH SOUND TERUS DI SINI (BACKUP)
-      console.log('🔔🔔🔔 STAFF CONFIRM - PLAYING SOUND DIRECT! 🔔🔔🔔')
       playSound()
-      
       toast.success(t('order_confirmed_kitchen'))
       loadNewOrders()
       loadUnpaidOrders()
@@ -813,7 +914,7 @@ function StaffApp() {
             <tbody>
               ${items.map(item => `
                 <tr>
-                  <td>${item.name}${item.option ? ` (${item.option})` : ''}</td>
+                  <td>${item.name}${item.option ? ` (${item.option})` : ''}${item.size ? ` [${item.size}]` : ''}</td>
                   <td style="text-align:center">${item.quantity || 1}</td>
                   <td>RM ${Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
                 </tr>
@@ -1062,6 +1163,7 @@ function StaffApp() {
                     <div style={{ fontSize: isMobile ? '12px' : '13px', color: textColor }}>
                       {item.name}
                       {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
+                      {item.size && <span style={{ fontSize: '10px', color: '#8b5cf6', marginLeft: '4px' }}>[{item.size}]</span>}
                     </div>
                     <div style={{ fontSize: '10px', color: textMuted }}>
                       x{item.quantity} × RM {item.price.toFixed(2)}
@@ -1184,7 +1286,7 @@ function StaffApp() {
             <div style={{ margin: '8px 0', padding: '8px', background: secondaryBg, borderRadius: '12px' }}>
               {order.items?.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '2px 0' }}>
-                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}</span>
+                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''}</span>
                   <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
@@ -1262,7 +1364,7 @@ function StaffApp() {
             <div style={{ margin: '8px 0', padding: '8px', background: secondaryBg, borderRadius: '12px' }}>
               {order.items?.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '2px 0' }}>
-                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}</span>
+                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''}</span>
                   <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
@@ -1349,7 +1451,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ITEM MODAL
+  // ===== ITEM MODAL - WITH STOCK DISPLAY =====
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
@@ -1420,27 +1522,86 @@ function StaffApp() {
           {hasSize && sizes.length > 0 && (
             <div style={{ marginBottom: '14px' }}>
               <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('select_size')}</label>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                {sizes.map(size => (
-                  <button
-                    key={size.id}
-                    onClick={() => setSelectedSize(size)}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      background: selectedSize?.id === size.id ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : secondaryBg,
-                      color: selectedSize?.id === size.id ? 'white' : textColor,
-                      border: selectedSize?.id === size.id ? 'none' : `1px solid ${borderColor}`,
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      fontSize: '13px'
-                    }}
-                  >
-                    {size.option_name}
-                    <br /><small>RM {getItemPrice(selectedItem, selectedOption, size).toFixed(2)}</small>
-                  </button>
-                ))}
+              <div style={{ display: 'flex', gap: '8px', marginTop: '6px', flexWrap: 'wrap' }}>
+                {sizes.map(size => {
+                  const isOutOfStock = (size.stock || 0) <= 0
+                  const isLowStock = (size.stock || 0) > 0 && (size.stock || 0) <= 5
+                  const finalPrice = getItemPrice(selectedItem, selectedOption, size)
+                  
+                  return (
+                    <button
+                      key={size.id}
+                      onClick={() => {
+                        if (!isOutOfStock) {
+                          setSelectedSize(size)
+                        } else {
+                          toast.error(`❌ "${size.option_name}" ${t('out_of_stock')}`)
+                        }
+                      }}
+                      style={{
+                        flex: 1,
+                        minWidth: isMobile ? '60px' : '80px',
+                        padding: '10px',
+                        background: isOutOfStock 
+                          ? '#e2e8f0' 
+                          : (selectedSize?.id === size.id ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : secondaryBg),
+                        color: isOutOfStock ? '#94a3b8' : (selectedSize?.id === size.id ? 'white' : textColor),
+                        border: isOutOfStock 
+                          ? `2px solid ${dangerColor}` 
+                          : (selectedSize?.id === size.id ? 'none' : `1px solid ${borderColor}`),
+                        borderRadius: '12px',
+                        cursor: isOutOfStock ? 'not-allowed' : 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '13px',
+                        opacity: isOutOfStock ? 0.6 : 1,
+                        position: 'relative'
+                      }}
+                      disabled={isOutOfStock}
+                    >
+                      <div>{size.option_name}</div>
+                      <div style={{ fontSize: '12px', color: isOutOfStock ? '#94a3b8' : priceColor }}>
+                        RM {finalPrice.toFixed(2)}
+                      </div>
+                      
+                      {/* ===== STOCK STATUS ===== */}
+                      {isOutOfStock && (
+                        <div style={{
+                          fontSize: '9px',
+                          background: dangerColor,
+                          color: 'white',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          marginTop: '4px',
+                          fontWeight: 'bold'
+                        }}>
+                          ❌ {t('out_of_stock')}
+                        </div>
+                      )}
+                      {isLowStock && !isOutOfStock && (
+                        <div style={{
+                          fontSize: '9px',
+                          background: '#f59e0b',
+                          color: 'white',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          marginTop: '4px',
+                          fontWeight: 'bold'
+                        }}>
+                          ⚠️ {t('stock_label')}: {size.stock}
+                        </div>
+                      )}
+                      {!isOutOfStock && !isLowStock && (
+                        <div style={{
+                          fontSize: '8px',
+                          color: '#94a3b8',
+                          marginTop: '2px'
+                        }}>
+                          📦 {size.stock || 0}
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </div>
           )}
@@ -1476,14 +1637,15 @@ function StaffApp() {
           <div style={{ display: 'flex', gap: '10px' }}>
             <button
               onClick={addToCart}
+              disabled={hasSize && !selectedSize}
               style={{
                 flex: 2,
                 padding: isMobile ? '12px' : '14px',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                background: (hasSize && !selectedSize) ? '#94a3b8' : 'linear-gradient(135deg, #22c55e, #16a34a)',
                 color: 'white',
                 border: 'none',
                 borderRadius: '40px',
-                cursor: 'pointer',
+                cursor: (hasSize && !selectedSize) ? 'not-allowed' : 'pointer',
                 fontWeight: 'bold',
                 fontSize: isMobile ? '13px' : '14px'
               }}
@@ -1656,7 +1818,7 @@ function StaffApp() {
           
           {currentReceiptOrder.items?.map((item, idx) => (
             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '4px 0', borderBottom: idx !== currentReceiptOrder.items.length-1 ? `1px solid ${borderColor}` : 'none' }}>
-              <span>{item.name}{item.option ? ` (${item.option})` : ''} x{item.quantity}</span>
+              <span>{item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''} x{item.quantity}</span>
               <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
             </div>
           ))}

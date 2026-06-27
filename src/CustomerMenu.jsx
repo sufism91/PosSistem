@@ -901,7 +901,7 @@ function CustomerMenu() {
   }
 
   const filteredMenu = getFilteredMenu()
-  const menuGridCols = isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(200px, 1fr))'
+  const menuGridCols = isMobile ? '1fr' : 'repeat(auto-fill, minmax(200px, 1fr))'
 
   // ============================================================
   // LOADING STATE

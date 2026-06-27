@@ -301,7 +301,7 @@ function StaffApp() {
   }, [])
 
   // ============================================================
-  // NOTIFICATION INTERVAL - 5 SAAT (FIXED)
+  // NOTIFICATION INTERVAL - 5 SAAT
   // ============================================================
   useEffect(() => {
     const checkOrders = async () => {
@@ -348,14 +348,10 @@ function StaffApp() {
       }
     }
 
-    // 👇 CALL SEKALI SELEPAS MOUNT
     checkOrders()
-
-    // 👇 INTERVAL 5 SAAT
     const interval = setInterval(checkOrders, 5000)
-    
     return () => clearInterval(interval)
-  }, []) // 👈 KOSONGKAN DEPENDENCY
+  }, [])
 
   // ============================================================
   // REALTIME SUBSCRIPTION
@@ -675,8 +671,8 @@ function StaffApp() {
       customer_phone: customerPhone || null,
       table_number: orderType === 'dine_in' ? parseInt(tableNumber) || null : null,
       order_type: orderType,
-      status: ORDER_STATUS.NEW,
-      order_status: ORDER_STATUS.NEW,
+      status: 'pending',
+      order_status: 'pending',
       payment_status: PAYMENT_STATUS.UNPAID,
       notes: cart.map(item => item.notes).filter(n => n).join(', ')
     }
@@ -699,28 +695,40 @@ function StaffApp() {
   }
 
   // ============================================================
-  // CONFIRM / CANCEL NEW ORDER - FIXED: TAMBAH playSound()
+  // CONFIRM NEW ORDER - FIXED: TAMBAH playSound() TERUS
   // ============================================================
   const confirmNewOrder = async (order) => {
     try {
-      await supabase
+      console.log('🔔🔔🔔 STAFF CONFIRMING ORDER:', order.id)
+      
+      const { error } = await supabase
         .from('customer_orders')
         .update({ 
           status: ORDER_STATUS.CONFIRMED, 
-          order_status: ORDER_STATUS.CONFIRMED, 
-          confirmed_at: new Date().toISOString() 
+          order_status: ORDER_STATUS.CONFIRMED,
+          confirmed_at: new Date().toISOString()
         })
         .eq('id', order.id)
       
-      // 👇 TAMBAH SOUND TERUS DI SINI (BACKUP)
-      console.log('🔔🔔🔔 STAFF CONFIRM - PLAYING SOUND DIRECT! 🔔🔔🔔')
-      playSound()
+      if (error) throw error
+      
+      // 👇 MAIN SOUND BASIC TERUS
+      console.log('🔔🔔🔔 STAFF CONFIRM - PLAYING SOUND! 🔔🔔🔔')
+      try {
+        const audio = new Audio('/sound/notification.mp3')
+        audio.volume = 1
+        audio.play()
+          .then(() => console.log('✅ Staff sound played!'))
+          .catch(err => console.error('❌ Staff sound error:', err))
+      } catch (err) {
+        console.error('❌ Audio error:', err)
+      }
       
       toast.success(t('order_confirmed_kitchen'))
       loadNewOrders()
       loadUnpaidOrders()
     } catch (err) { 
-      console.error('Error confirming order:', err)
+      console.error('Confirm error:', err)
       toast.error(err.message) 
     }
   }
@@ -837,876 +845,9 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RENDER FUNCTIONS
+  // RENDER FUNCTIONS (dipendekkan - sama macam sebelum)
   // ============================================================
-  const renderCategoryTabs = () => (
-    <div style={{ display: 'flex', gap: '6px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '4px' }}>
-      {getCategories().map(cat => (
-        <button
-          key={cat}
-          onClick={() => setSelectedCategory(cat)}
-          style={{
-            padding: isMobile ? '6px 14px' : '8px 20px',
-            background: selectedCategory === cat ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
-            color: selectedCategory === cat ? 'white' : textColor,
-            border: selectedCategory === cat ? 'none' : `1px solid ${borderColor}`,
-            borderRadius: '30px',
-            cursor: 'pointer',
-            fontWeight: selectedCategory === cat ? 'bold' : '500',
-            fontSize: isMobile ? '11px' : '13px',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.2s'
-          }}
-        >
-          {cat === 'All' ? '📋 ' + t('all_categories') : getCategoryIcon(cat) + ' ' + cat}
-        </button>
-      ))}
-    </div>
-  )
-
-  const renderMenuItems = () => {
-    const filteredMenu = getFilteredMenu()
-    const cols = isMobile ? 2 : (isTablet ? 3 : 4)
-    
-    return (
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${cols}, 1fr)`,
-        gap: isMobile ? '10px' : '14px'
-      }}>
-        {filteredMenu.map(item => {
-          const hasDrinkOpts = getDrinkOptionsForItem(item).length > 0
-          const hasImage = item.image_url && item.image_url.trim() !== ''
-          const promo = getItemPromotion(item)
-          const promoPrice = getPromoPrice(item)
-          const isBOGO = promo?.type === 'bogo'
-          
-          return (
-            <div
-              key={item.id}
-              onClick={() => {
-                setSelectedItem(item)
-                setSelectedOption('')
-                setSelectedSize(null)
-                setQuantity(1)
-                if (item.has_options) loadMenuOptions(item.id)
-                setShowItemModal(true)
-              }}
-              style={{
-                ...glassEffect,
-                borderRadius: '16px',
-                padding: isMobile ? '12px' : '16px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                position: 'relative'
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              {promo && (
-                <div style={{
-                  position: 'absolute', top: '-8px', right: '-8px',
-                  background: promoColor, color: 'white',
-                  padding: '2px 10px', borderRadius: '20px',
-                  fontSize: '8px', fontWeight: 'bold',
-                  boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
-                  zIndex: 5
-                }}>
-                  {promo.type === 'bogo' ? '🎁 BOGO' : '🔥 ' + t('promo')}
-                </div>
-              )}
-              
-              {hasDrinkOpts && (
-                <div style={{
-                  position: 'absolute', top: '-8px', left: '-8px',
-                  background: '#3b82f6', color: 'white',
-                  padding: '2px 8px', borderRadius: '20px',
-                  fontSize: '7px', fontWeight: 'bold',
-                  zIndex: 5
-                }}>
-                  ☕
-                </div>
-              )}
-              
-              {hasImage ? (
-                <img
-                  src={item.image_url}
-                  alt={item.name}
-                  style={{
-                    width: '100%',
-                    height: isMobile ? '70px' : '90px',
-                    maxWidth: '120px',
-                    objectFit: 'contain',
-                    borderRadius: '12px',
-                    margin: '0 auto 8px auto',
-                    display: 'block',
-                    backgroundColor: '#fff',
-                    padding: '4px'
-                  }}
-                  onError={(e) => { e.currentTarget.style.display = 'none' }}
-                />
-              ) : (
-                <div style={{ fontSize: isMobile ? '32px' : '40px', marginBottom: '4px' }}>
-                  {isDrinkCategory(item.category) ? '🥤' : '🍽️'}
-                </div>
-              )}
-              
-              <div style={{
-                fontWeight: 'bold',
-                color: textColor,
-                fontSize: isMobile ? '11px' : '13px',
-                marginBottom: '2px',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}>
-                {item.name}
-              </div>
-              
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                flexWrap: 'wrap'
-              }}>
-                {promoPrice !== null && promoPrice !== item.price ? (
-                  <>
-                    <span style={{ color: promoColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
-                      RM {promoPrice.toFixed(2)}
-                    </span>
-                    <span style={{ color: textMuted, fontSize: isMobile ? '9px' : '10px', textDecoration: 'line-through' }}>
-                      RM {item.price.toFixed(2)}
-                    </span>
-                    {isBOGO && (
-                      <span style={{ background: promoColor, color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '7px', fontWeight: 'bold' }}>
-                        BOGO
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span style={{ color: priceColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
-                    RM {item.price.toFixed(2)}
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    )
-  }
-
-  const renderCart = () => {
-    const totalItems = getCartItemCount()
-    const grandTotal = getGrandTotal()
-    
-    return (
-      <div style={{
-        ...glassEffect,
-        borderRadius: isMobile ? '16px' : '20px',
-        padding: isMobile ? '14px' : '18px',
-        height: isMobile ? 'auto' : '100%',
-        maxHeight: isMobile ? '300px' : 'calc(100vh - 280px)',
-        overflowY: 'auto',
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '12px',
-          borderBottom: `1px solid ${borderColor}`,
-          paddingBottom: '10px'
-        }}>
-          <span style={{ fontWeight: 'bold', color: textColor, fontSize: isMobile ? '14px' : '16px' }}>
-            🛒 {t('cart')} ({totalItems})
-          </span>
-          {cart.length > 0 && (
-            <button
-              onClick={clearCart}
-              style={{
-                background: '#ef4444',
-                color: 'white',
-                border: 'none',
-                borderRadius: '30px',
-                padding: '4px 12px',
-                cursor: 'pointer',
-                fontSize: '11px',
-                fontWeight: 'bold'
-              }}
-            >
-              🗑️ {t('clear_cart')}
-            </button>
-          )}
-        </div>
-        
-        {cart.length === 0 ? (
-          <div style={{ textAlign: 'center', color: textMuted, padding: '20px 0' }}>
-            🛒 {t('empty_cart')}
-          </div>
-        ) : (
-          <>
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-              {cart.map((item, index) => (
-                <div key={index} style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  padding: '6px 0',
-                  borderBottom: `1px solid ${borderColor}`
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: isMobile ? '12px' : '13px', color: textColor }}>
-                      {item.name}
-                      {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
-                    </div>
-                    <div style={{ fontSize: '10px', color: textMuted }}>
-                      x{item.quantity} × RM {item.price.toFixed(2)}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '12px' }}>
-                      RM {item.subtotal.toFixed(2)}
-                    </span>
-                    <button
-                      onClick={() => removeFromCart(index)}
-                      style={{
-                        background: 'transparent',
-                        color: '#ef4444',
-                        border: 'none',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        padding: '2px 6px'
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-            
-            <div style={{
-              borderTop: `1px solid ${borderColor}`,
-              paddingTop: '10px',
-              marginTop: '8px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: textColor }}>
-                <span>{t('subtotal')}</span>
-                <span>RM {getSubtotal().toFixed(2)}</span>
-              </div>
-              {orderType !== 'take_away' && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: textColor }}>
-                  <span>{t('service_charge')} ({settings.service_charge}%)</span>
-                  <span>RM {getServiceCharge().toFixed(2)}</span>
-                </div>
-              )}
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: textColor }}>
-                <span>{t('tax')} ({settings.tax}%)</span>
-                <span>RM {getTax().toFixed(2)}</span>
-              </div>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                fontSize: isMobile ? '16px' : '18px',
-                fontWeight: 'bold',
-                color: priceColor,
-                marginTop: '6px',
-                paddingTop: '6px',
-                borderTop: `1px solid ${borderColor}`
-              }}>
-                <span>{t('total')}</span>
-                <span>RM {grandTotal.toFixed(2)}</span>
-              </div>
-              
-              <button
-                onClick={sendOrder}
-                disabled={cart.length === 0}
-                style={{
-                  width: '100%',
-                  padding: isMobile ? '10px' : '12px',
-                  marginTop: '10px',
-                  background: cart.length === 0 ? '#94a3b8' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '40px',
-                  cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: isMobile ? '13px' : '14px'
-                }}
-              >
-                📤 {t('place_order')}
-              </button>
-            </div>
-          </>
-        )}
-      </div>
-    )
-  }
-
-  const renderNewOrders = () => {
-    if (newOrders.length === 0) {
-      return (
-        <div style={{ textAlign: 'center', padding: '30px 20px', color: textMuted }}>
-          📭 {t('no_new_orders')}
-        </div>
-      )
-    }
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {newOrders.map(order => (
-          <div key={order.id} style={{
-            ...glassEffect,
-            borderRadius: '16px',
-            padding: isMobile ? '14px' : '18px',
-            borderLeft: `4px solid #ef4444`
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-              <div>
-                <span style={{ fontWeight: 'bold', color: textColor }}>
-                  🆕 #{order.order_number}
-                </span>
-                <span style={{ marginLeft: '10px', color: textMuted, fontSize: '13px' }}>
-                  {order.order_type === 'take_away' ? '🥡 ' + t('take_away') : '🍽️ ' + t('table') + ' ' + (order.table_number || '')}
-                </span>
-              </div>
-              <span style={{ fontSize: '12px', color: textMuted }}>
-                🕐 {new Date(order.created_at).toLocaleTimeString()}
-              </span>
-            </div>
-            <div style={{ marginTop: '6px', color: textColor }}>
-              👤 {order.customer_name || t('guest')}
-              {order.customer_phone && <span style={{ marginLeft: '10px', fontSize: '12px', color: textMuted }}>📞 {order.customer_phone}</span>}
-            </div>
-            <div style={{ margin: '8px 0', padding: '8px', background: secondaryBg, borderRadius: '12px' }}>
-              {order.items?.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '2px 0' }}>
-                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}</span>
-                  <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <span style={{ fontWeight: 'bold', color: priceColor, fontSize: '16px' }}>
-                {t('total')}: RM {order.total?.toFixed(2) || '0.00'}
-              </span>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  onClick={() => confirmNewOrder(order)}
-                  style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', padding: '6px 16px', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
-                >
-                  ✅ {t('accept')}
-                </button>
-                <button
-                  onClick={() => cancelNewOrder(order)}
-                  style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', padding: '6px 16px', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '12px' }}
-                >
-                  ❌ {t('cancel')}
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  const renderUnpaidOrders = () => {
-    if (unpaidOrders.length === 0) {
-      return (
-        <div style={{ textAlign: 'center', padding: '30px 20px', color: textMuted }}>
-          💰 {t('no_unpaid_orders_msg')}
-        </div>
-      )
-    }
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {unpaidOrders.map(order => (
-          <div key={order.id} style={{
-            ...glassEffect,
-            borderRadius: '16px',
-            padding: isMobile ? '14px' : '18px',
-            borderLeft: `4px solid #eab308`
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px' }}>
-              <div>
-                <span style={{ fontWeight: 'bold', color: textColor }}>
-                  #{order.order_number}
-                </span>
-                <span style={{ marginLeft: '10px', color: textMuted, fontSize: '13px' }}>
-                  {order.order_type === 'take_away' ? '🥡 ' + t('take_away') : '🍽️ ' + t('table') + ' ' + (order.table_number || '')}
-                </span>
-                <span style={{
-                  marginLeft: '10px',
-                  padding: '2px 10px',
-                  borderRadius: '20px',
-                  fontSize: '10px',
-                  fontWeight: 'bold',
-                  background: order.status === 'ready' ? '#22c55e' : '#f59e0b',
-                  color: 'white'
-                }}>
-                  {order.status === 'ready' ? t('ready') : t('preparing')}
-                </span>
-              </div>
-              <span style={{ fontSize: '12px', color: textMuted }}>
-                🕐 {new Date(order.created_at).toLocaleTimeString()}
-              </span>
-            </div>
-            <div style={{ marginTop: '6px', color: textColor }}>
-              👤 {order.customer_name || t('guest')}
-              {order.customer_phone && <span style={{ marginLeft: '10px', fontSize: '12px', color: textMuted }}>📞 {order.customer_phone}</span>}
-            </div>
-            <div style={{ margin: '8px 0', padding: '8px', background: secondaryBg, borderRadius: '12px' }}>
-              {order.items?.map((item, idx) => (
-                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '2px 0' }}>
-                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}</span>
-                  <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
-              <span style={{ fontWeight: 'bold', color: priceColor, fontSize: '16px' }}>
-                {t('total')}: RM {order.total?.toFixed(2) || '0.00'}
-              </span>
-              <button
-                onClick={() => openPaymentModal(order)}
-                style={{ background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', padding: '8px 20px', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
-              >
-                💰 {t('record_payment')}
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    )
-  }
-
-  const renderHistory = () => {
-    const totalPages = Math.ceil(orderHistory.length / historyItemsPerPage)
-    const paginated = orderHistory.slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
-    
-    if (orderHistory.length === 0) {
-      return (
-        <div style={{ textAlign: 'center', padding: '30px 20px', color: textMuted }}>
-          📜 {t('no_history_orders')}
-        </div>
-      )
-    }
-    
-    return (
-      <div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: isMobile ? '12px' : '13px' }}>
-            <thead>
-              <tr style={{ background: secondaryBg }}>
-                <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>{t('id')}</th>
-                <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>{t('customer_name')}</th>
-                <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>{t('order_type')}</th>
-                <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>{t('total')}</th>
-                <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>{t('payment_method_label')}</th>
-                <th style={{ padding: '10px', textAlign: 'left', color: textColor }}>{t('action')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginated.map(order => (
-                <tr key={order.id} style={{ borderBottom: `1px solid ${borderColor}` }}>
-                  <td style={{ padding: '8px', color: textColor }}>{order.order_number || `ORD-${order.id}`}</td>
-                  <td style={{ padding: '8px', color: textColor }}>{order.customer_name || 'Walk-in'}</td>
-                  <td style={{ padding: '8px', color: textColor }}>{order.order_type === 'take_away' ? '🥡' : '🍽️'}</td>
-                  <td style={{ padding: '8px', color: priceColor, fontWeight: 'bold' }}>RM {Number(order.grand_total || order.total || 0).toFixed(2)}</td>
-                  <td style={{ padding: '8px', color: textColor }}>
-                    {order.payment_method === 'cash' ? '💵' : order.payment_method === 'tng' ? '📱' : '🏦'}
-                    {order.payment_method || '-'}
-                  </td>
-                  <td style={{ padding: '8px' }}>
-                    <button
-                      onClick={() => printReceipt(order)}
-                      style={{ background: '#3b82f6', color: 'white', padding: '4px 12px', border: 'none', borderRadius: '20px', cursor: 'pointer', fontSize: '11px' }}
-                    >
-                      🧾
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        
-        {totalPages > 1 && (
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '6px', marginTop: '14px', flexWrap: 'wrap' }}>
-            <button onClick={() => setHistoryPage(1)} disabled={historyPage === 1} style={{ padding: '4px 12px', background: historyPage === 1 ? secondaryBg : '#3b82f6', color: historyPage === 1 ? textMuted : 'white', border: 'none', borderRadius: '20px', cursor: historyPage === 1 ? 'not-allowed' : 'pointer', fontSize: '11px' }}>«</button>
-            <button onClick={() => setHistoryPage(p => Math.max(1, p-1))} disabled={historyPage === 1} style={{ padding: '4px 12px', background: historyPage === 1 ? secondaryBg : '#3b82f6', color: historyPage === 1 ? textMuted : 'white', border: 'none', borderRadius: '20px', cursor: historyPage === 1 ? 'not-allowed' : 'pointer', fontSize: '11px' }}>‹</button>
-            <span style={{ padding: '4px 12px', color: textColor, fontSize: '12px' }}>{historyPage} / {totalPages}</span>
-            <button onClick={() => setHistoryPage(p => Math.min(totalPages, p+1))} disabled={historyPage === totalPages} style={{ padding: '4px 12px', background: historyPage === totalPages ? secondaryBg : '#3b82f6', color: historyPage === totalPages ? textMuted : 'white', border: 'none', borderRadius: '20px', cursor: historyPage === totalPages ? 'not-allowed' : 'pointer', fontSize: '11px' }}>›</button>
-            <button onClick={() => setHistoryPage(totalPages)} disabled={historyPage === totalPages} style={{ padding: '4px 12px', background: historyPage === totalPages ? secondaryBg : '#3b82f6', color: historyPage === totalPages ? textMuted : 'white', border: 'none', borderRadius: '20px', cursor: historyPage === totalPages ? 'not-allowed' : 'pointer', fontSize: '11px' }}>»</button>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // ============================================================
-  // ITEM MODAL
-  // ============================================================
-  const renderItemModal = () => {
-    if (!selectedItem) return null
-    
-    const isDrink = isDrinkCategory(selectedItem.category)
-    const hasSize = isSizeCategory(selectedItem)
-    const drinkOpts = getDrinkOptionsForItem(selectedItem)
-    const sizes = menuOptions
-    const price = getItemPrice(selectedItem, selectedOption, selectedSize)
-    
-    return (
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        zIndex: 2000, padding: '20px'
-      }}>
-        <div style={{
-          background: cardBg,
-          padding: isMobile ? '20px' : '28px',
-          borderRadius: '24px',
-          maxWidth: '450px',
-          width: '100%',
-          ...glassEffect,
-          maxHeight: '90vh',
-          overflowY: 'auto'
-        }}>
-          {selectedItem.image_url && (
-            <img src={selectedItem.image_url} alt={selectedItem.name} style={{
-              width: '100%', height: '120px', objectFit: 'contain',
-              borderRadius: '12px', marginBottom: '12px',
-              background: '#fff', padding: '6px'
-            }} />
-          )}
-          
-          <h2 style={{ color: textColor, fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', marginBottom: '4px' }}>
-            {selectedItem.name}
-          </h2>
-          
-          {isDrink && drinkOpts.length > 0 && (
-            <div style={{ marginBottom: '14px' }}>
-              <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('select_drink_option')}</label>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                {drinkOpts.map(opt => (
-                  <button
-                    key={opt.id}
-                    onClick={() => setSelectedOption(opt.option_type)}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      background: selectedOption === opt.option_type ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : secondaryBg,
-                      color: selectedOption === opt.option_type ? 'white' : textColor,
-                      border: selectedOption === opt.option_type ? 'none' : `1px solid ${borderColor}`,
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      fontSize: '13px'
-                    }}
-                  >
-                    {opt.option_type === 'Panas' ? '🔥' : '🧊'} {opt.option_type}
-                    <br /><small>RM {opt.price}</small>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {hasSize && sizes.length > 0 && (
-            <div style={{ marginBottom: '14px' }}>
-              <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('select_size')}</label>
-              <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-                {sizes.map(size => (
-                  <button
-                    key={size.id}
-                    onClick={() => setSelectedSize(size)}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      background: selectedSize?.id === size.id ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : secondaryBg,
-                      color: selectedSize?.id === size.id ? 'white' : textColor,
-                      border: selectedSize?.id === size.id ? 'none' : `1px solid ${borderColor}`,
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      fontWeight: 'bold',
-                      fontSize: '13px'
-                    }}
-                  >
-                    {size.option_name}
-                    <br /><small>RM {getItemPrice(selectedItem, selectedOption, size).toFixed(2)}</small>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          <div style={{ marginBottom: '14px' }}>
-            <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('quantity')}</label>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
-              <button onClick={() => setQuantity(Math.max(1, quantity-1))} style={{ width: '36px', height: '36px', background: secondaryBg, border: `1px solid ${borderColor}`, borderRadius: '10px', cursor: 'pointer', fontSize: '18px', color: textColor }}>-</button>
-              <span style={{ fontSize: '18px', fontWeight: 'bold', color: textColor, minWidth: '40px', textAlign: 'center' }}>{quantity}</span>
-              <button onClick={() => setQuantity(quantity+1)} style={{ width: '36px', height: '36px', background: secondaryBg, border: `1px solid ${borderColor}`, borderRadius: '10px', cursor: 'pointer', fontSize: '18px', color: textColor }}>+</button>
-            </div>
-          </div>
-          
-          <div style={{ marginBottom: '14px' }}>
-            <input
-              type="text"
-              placeholder={t('special_request')}
-              value={selectedItem.notes || ''}
-              onChange={(e) => setSelectedItem({...selectedItem, notes: e.target.value})}
-              style={{
-                width: '100%',
-                padding: '10px',
-                borderRadius: '12px',
-                border: `1px solid ${borderColor}`,
-                background: inputBg,
-                color: textColor,
-                fontSize: '13px',
-                outline: 'none'
-              }}
-            />
-          </div>
-          
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={addToCart}
-              style={{
-                flex: 2,
-                padding: isMobile ? '12px' : '14px',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '40px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '13px' : '14px'
-              }}
-            >
-              ➕ {t('add_to_cart')} (RM {(price * quantity).toFixed(2)})
-            </button>
-            <button
-              onClick={() => { setShowItemModal(false); setSelectedItem(null); setSelectedOption(''); setSelectedSize(null); setQuantity(1) }}
-              style={{
-                flex: 1,
-                padding: isMobile ? '12px' : '14px',
-                background: '#64748b',
-                color: 'white',
-                border: 'none',
-                borderRadius: '40px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '13px' : '14px'
-              }}
-            >
-              {t('cancel')}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // ============================================================
-  // PAYMENT MODAL
-  // ============================================================
-  const renderPaymentModal = () => {
-    if (!showPaymentModal || !selectedOrder) return null
-    
-    const subtotal = parseFloat(selectedOrder.subtotal || selectedOrder.total || 0)
-    const serviceCharge = selectedOrder.order_type === 'take_away' ? 0 : subtotal * (settings.service_charge / 100)
-    const tax = subtotal * (settings.tax / 100)
-    const grandTotal = subtotal + serviceCharge + tax
-    
-    return (
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        zIndex: 3000, padding: '20px'
-      }}>
-        <div style={{
-          background: cardBg,
-          padding: isMobile ? '24px' : '32px',
-          borderRadius: '24px',
-          maxWidth: '420px',
-          width: '100%',
-          ...glassEffect
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-            <h2 style={{ color: textColor, margin: 0 }}>💰 {t('record_payment')}</h2>
-            <p style={{ color: textMuted, fontSize: '13px' }}>{selectedOrder.customer_name || t('guest')}</p>
-          </div>
-          
-          <div style={{ background: secondaryBg, padding: '14px', borderRadius: '16px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-              <span>{t('subtotal')}</span>
-              <span>RM {subtotal.toFixed(2)}</span>
-            </div>
-            {selectedOrder.order_type !== 'take_away' && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                <span>{t('service_charge')} ({settings.service_charge}%)</span>
-                <span>RM {serviceCharge.toFixed(2)}</span>
-              </div>
-            )}
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-              <span>{t('tax')} ({settings.tax}%)</span>
-              <span>RM {tax.toFixed(2)}</span>
-            </div>
-            <div style={{ borderTop: `1px solid ${borderColor}`, marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
-              <span>{t('total')}</span>
-              <span style={{ color: priceColor }}>RM {grandTotal.toFixed(2)}</span>
-            </div>
-          </div>
-          
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('payment_method')}</label>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-              {['cash', 'tng', 'bank'].map(m => (
-                <button
-                  key={m}
-                  onClick={() => setPaymentMethod(m)}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    background: paymentMethod === m ? 'linear-gradient(135deg, #22c55e, #16a34a)' : secondaryBg,
-                    color: paymentMethod === m ? 'white' : textColor,
-                    border: paymentMethod === m ? 'none' : `1px solid ${borderColor}`,
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '13px'
-                  }}
-                >
-                  {m === 'cash' ? '💵' : m === 'tng' ? '📱' : '🏦'} {m === 'cash' ? t('cash') : m === 'tng' ? t('tng') : t('bank')}
-                </button>
-              ))}
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={() => markAsPaid(selectedOrder)}
-              style={{
-                flex: 1,
-                padding: '12px',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '40px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '13px' : '14px'
-              }}
-            >
-              ✅ {t('save')}
-            </button>
-            <button
-              onClick={() => { setShowPaymentModal(false); setSelectedOrder(null) }}
-              style={{
-                flex: 1,
-                padding: '12px',
-                background: '#64748b',
-                color: 'white',
-                border: 'none',
-                borderRadius: '40px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '13px' : '14px'
-              }}
-            >
-              {t('cancel')}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // ============================================================
-  // RECEIPT MODAL
-  // ============================================================
-  const renderReceiptModal = () => {
-    if (!showReceipt || !currentReceiptOrder) return null
-    
-    return (
-      <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        zIndex: 4000, padding: '20px'
-      }}>
-        <div style={{
-          background: cardBg,
-          padding: isMobile ? '24px' : '32px',
-          borderRadius: '24px',
-          maxWidth: '400px',
-          width: '100%',
-          ...glassEffect
-        }}>
-          <div style={{ textAlign: 'center', borderBottom: `1px solid ${borderColor}`, paddingBottom: '12px', marginBottom: '12px' }}>
-            <h2 style={{ color: textColor, margin: 0 }}>🧾 {t('receipt_title')}</h2>
-            <p style={{ color: textMuted, fontSize: '12px' }}>{currentReceiptOrder.customer_name || t('guest')}</p>
-          </div>
-          
-          {currentReceiptOrder.items?.map((item, idx) => (
-            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '4px 0', borderBottom: idx !== currentReceiptOrder.items.length-1 ? `1px solid ${borderColor}` : 'none' }}>
-              <span>{item.name}{item.option ? ` (${item.option})` : ''} x{item.quantity}</span>
-              <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
-            </div>
-          ))}
-          
-          <div style={{ borderTop: `1px solid ${borderColor}`, marginTop: '10px', paddingTop: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
-              <span>{t('total')}</span>
-              <span style={{ color: priceColor }}>RM {Number(currentReceiptOrder.grand_total || currentReceiptOrder.total || 0).toFixed(2)}</span>
-            </div>
-            <div style={{ fontSize: '12px', color: textMuted, textAlign: 'center', marginTop: '8px' }}>
-              💳 {currentReceiptOrder.payment_method === 'cash' ? t('cash') : currentReceiptOrder.payment_method === 'tng' ? t('tng') : t('bank')}
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
-            <button
-              onClick={() => printReceipt(currentReceiptOrder)}
-              style={{
-                flex: 1,
-                padding: '12px',
-                background: '#3b82f6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '40px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              🖨️ {t('print_receipt')}
-            </button>
-            <button
-              onClick={() => { setShowReceipt(false); setCurrentReceiptOrder(null) }}
-              style={{
-                flex: 1,
-                padding: '12px',
-                background: '#64748b',
-                color: 'white',
-                border: 'none',
-                borderRadius: '40px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              {t('close')}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  // ... (render functions sama macam sebelum, terlalu panjang untuk full di sini)
 
   // ============================================================
   // LOADING STATE
@@ -1722,13 +863,13 @@ function StaffApp() {
   }
 
   // ============================================================
-  // MAIN RENDER
+  // MAIN RENDER (dipendekkan)
   // ============================================================
   return (
     <Sidebar>
       <div style={{ padding: isMobile ? '12px' : '20px', maxWidth: '1600px', margin: '0 auto', background: bgColor, minHeight: '100vh' }}>
         
-        {/* ===== HEADER ===== */}
+        {/* HEADER */}
         <div style={{ ...glassEffect, borderRadius: '20px', padding: isMobile ? '14px 18px' : '18px 24px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h1 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold' }}>{t('pos_title')}</h1>
@@ -1754,20 +895,7 @@ function StaffApp() {
           </div>
         </div>
         
-        {/* ===== ORDER TYPE & DETAILS ===== */}
-        <div style={{ ...glassEffect, borderRadius: '16px', padding: isMobile ? '12px 16px' : '16px 20px', marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button onClick={() => setOrderType('dine_in')} style={{ padding: '6px 14px', background: orderType === 'dine_in' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: orderType === 'dine_in' ? 'white' : textColor, border: orderType === 'dine_in' ? 'none' : `1px solid ${borderColor}`, borderRadius: '30px', cursor: 'pointer', fontSize: isMobile ? '10px' : '12px', fontWeight: 'bold' }}>🍽️ {t('dine_in')}</button>
-            <button onClick={() => setOrderType('take_away')} style={{ padding: '6px 14px', background: orderType === 'take_away' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: orderType === 'take_away' ? 'white' : textColor, border: orderType === 'take_away' ? 'none' : `1px solid ${borderColor}`, borderRadius: '30px', cursor: 'pointer', fontSize: isMobile ? '10px' : '12px', fontWeight: 'bold' }}>🥡 {t('take_away')}</button>
-          </div>
-          {orderType === 'dine_in' && (
-            <input type="number" placeholder={t('table_number')} value={tableNumber} onChange={(e) => setTableNumber(e.target.value)} style={{ padding: '8px 14px', borderRadius: '12px', border: `1px solid ${borderColor}`, background: inputBg, color: textColor, width: isMobile ? '80px' : '120px', outline: 'none', fontSize: '13px' }} />
-          )}
-          <input type="text" placeholder={t('customer_name')} value={customerName} onChange={(e) => setCustomerName(e.target.value)} style={{ padding: '8px 14px', borderRadius: '12px', border: `1px solid ${borderColor}`, background: inputBg, color: textColor, flex: 1, minWidth: '120px', outline: 'none', fontSize: '13px' }} />
-          <input type="tel" placeholder={t('customer_phone')} value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} style={{ padding: '8px 14px', borderRadius: '12px', border: `1px solid ${borderColor}`, background: inputBg, color: textColor, flex: 1, minWidth: '120px', outline: 'none', fontSize: '13px' }} />
-        </div>
-        
-        {/* ===== TOP TABS ===== */}
+        {/* TABS */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', background: darkMode ? 'rgba(30,30,46,0.5)' : 'rgba(0,0,0,0.03)', borderRadius: '50px', padding: '4px', overflowX: 'auto', flexWrap: 'nowrap' }}>
           <button onClick={() => setActiveTab('pos')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'pos' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'pos' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'pos' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap' }}>🧾 {t('pos')}</button>
           <button onClick={() => setActiveTab('orders')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'orders' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'orders' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'orders' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap', position: 'relative' }}>
@@ -1781,10 +909,9 @@ function StaffApp() {
           <button onClick={() => setActiveTab('history')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'history' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'history' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'history' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap' }}>📜 {t('history')}</button>
         </div>
         
-        {/* ===== CONTENT ===== */}
+        {/* POS CONTENT - Sama macam sebelum */}
         {activeTab === 'pos' && (
           <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '16px' }}>
-            {/* Menu Panel */}
             <div style={{ flex: isMobile ? 1 : 2, minWidth: 0 }}>
               <div style={{ ...glassEffect, borderRadius: '16px', padding: isMobile ? '12px' : '16px', marginBottom: '12px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -1793,25 +920,732 @@ function StaffApp() {
                   {searchTerm && <button onClick={() => setSearchTerm('')} style={{ background: 'transparent', border: 'none', color: textMuted, cursor: 'pointer', fontSize: '16px' }}>✕</button>}
                 </div>
               </div>
-              {renderCategoryTabs()}
-              <div style={{ marginTop: '12px' }}>{renderMenuItems()}</div>
+              {/* Category tabs */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '4px' }}>
+                {getCategories().map(cat => (
+                  <button
+                    key={cat}
+                    onClick={() => setSelectedCategory(cat)}
+                    style={{
+                      padding: isMobile ? '6px 14px' : '8px 20px',
+                      background: selectedCategory === cat ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
+                      color: selectedCategory === cat ? 'white' : textColor,
+                      border: selectedCategory === cat ? 'none' : `1px solid ${borderColor}`,
+                      borderRadius: '30px',
+                      cursor: 'pointer',
+                      fontWeight: selectedCategory === cat ? 'bold' : '500',
+                      fontSize: isMobile ? '11px' : '13px',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    {cat === 'All' ? '📋 ' + t('all_categories') : getCategoryIcon(cat) + ' ' + cat}
+                  </button>
+                ))}
+              </div>
+              {/* Menu grid */}
+              <div style={{ marginTop: '12px' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(160px, 1fr))',
+                  gap: isMobile ? '10px' : '14px'
+                }}>
+                  {getFilteredMenu().map(item => {
+                    const hasDrinkOpts = getDrinkOptionsForItem(item).length > 0
+                    const hasImage = item.image_url && item.image_url.trim() !== ''
+                    const promo = getItemPromotion(item)
+                    const promoPrice = getPromoPrice(item)
+                    const isBOGO = promo?.type === 'bogo'
+                    
+                    return (
+                      <div
+                        key={item.id}
+                        onClick={() => {
+                          setSelectedItem(item)
+                          setSelectedOption('')
+                          setSelectedSize(null)
+                          setQuantity(1)
+                          if (item.has_options) loadMenuOptions(item.id)
+                          setShowItemModal(true)
+                        }}
+                        style={{
+                          ...glassEffect,
+                          borderRadius: '16px',
+                          padding: isMobile ? '12px' : '16px',
+                          textAlign: 'center',
+                          cursor: 'pointer',
+                          transition: 'transform 0.2s, box-shadow 0.2s',
+                          position: 'relative'
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
+                        onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                      >
+                        {promo && (
+                          <div style={{
+                            position: 'absolute', top: '-8px', right: '-8px',
+                            background: promoColor, color: 'white',
+                            padding: '2px 10px', borderRadius: '20px',
+                            fontSize: '8px', fontWeight: 'bold',
+                            boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
+                            zIndex: 5
+                          }}>
+                            {promo.type === 'bogo' ? '🎁 BOGO' : '🔥 ' + t('promo')}
+                          </div>
+                        )}
+                        
+                        {hasDrinkOpts && (
+                          <div style={{
+                            position: 'absolute', top: '-8px', left: '-8px',
+                            background: '#3b82f6', color: 'white',
+                            padding: '2px 8px', borderRadius: '20px',
+                            fontSize: '7px', fontWeight: 'bold',
+                            zIndex: 5
+                          }}>
+                            ☕
+                          </div>
+                        )}
+                        
+                        {hasImage ? (
+                          <img
+                            src={item.image_url}
+                            alt={item.name}
+                            style={{
+                              width: '100%',
+                              height: isMobile ? '70px' : '90px',
+                              maxWidth: '120px',
+                              objectFit: 'contain',
+                              borderRadius: '12px',
+                              margin: '0 auto 8px auto',
+                              display: 'block',
+                              backgroundColor: '#fff',
+                              padding: '4px'
+                            }}
+                            onError={(e) => { e.currentTarget.style.display = 'none' }}
+                          />
+                        ) : (
+                          <div style={{ fontSize: isMobile ? '32px' : '40px', marginBottom: '4px' }}>
+                            {isDrinkCategory(item.category) ? '🥤' : '🍽️'}
+                          </div>
+                        )}
+                        
+                        <div style={{
+                          fontWeight: 'bold',
+                          color: textColor,
+                          fontSize: isMobile ? '11px' : '13px',
+                          marginBottom: '2px',
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis'
+                        }}>
+                          {item.name}
+                        </div>
+                        
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '6px',
+                          flexWrap: 'wrap'
+                        }}>
+                          {promoPrice !== null && promoPrice !== item.price ? (
+                            <>
+                              <span style={{ color: promoColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
+                                RM {promoPrice.toFixed(2)}
+                              </span>
+                              <span style={{ color: textMuted, fontSize: isMobile ? '9px' : '10px', textDecoration: 'line-through' }}>
+                                RM {item.price.toFixed(2)}
+                              </span>
+                              {isBOGO && (
+                                <span style={{ background: promoColor, color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '7px', fontWeight: 'bold' }}>
+                                  BOGO
+                                </span>
+                              )}
+                            </>
+                          ) : (
+                            <span style={{ color: priceColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
+                              RM {item.price.toFixed(2)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
             
             {/* Cart Panel */}
             <div style={{ flex: isMobile ? 1 : 1, minWidth: isMobile ? '100%' : '280px' }}>
-              {renderCart()}
+              <div style={{
+                ...glassEffect,
+                borderRadius: isMobile ? '16px' : '20px',
+                padding: isMobile ? '14px' : '18px',
+                height: isMobile ? 'auto' : '100%',
+                maxHeight: isMobile ? '300px' : 'calc(100vh - 280px)',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '12px',
+                  borderBottom: `1px solid ${borderColor}`,
+                  paddingBottom: '10px'
+                }}>
+                  <span style={{ fontWeight: 'bold', color: textColor, fontSize: isMobile ? '14px' : '16px' }}>
+                    🛒 {t('cart')} ({getCartItemCount()})
+                  </span>
+                  {cart.length > 0 && (
+                    <button
+                      onClick={clearCart}
+                      style={{
+                        background: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '30px',
+                        padding: '4px 12px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      🗑️ {t('clear_cart')}
+                    </button>
+                  )}
+                </div>
+                
+                {cart.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: textMuted, padding: '20px 0' }}>
+                    🛒 {t('empty_cart')}
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ flex: 1, overflowY: 'auto' }}>
+                      {cart.map((item, index) => (
+                        <div key={index} style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '6px 0',
+                          borderBottom: `1px solid ${borderColor}`
+                        }}>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: isMobile ? '12px' : '13px', color: textColor }}>
+                              {item.name}
+                              {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
+                            </div>
+                            <div style={{ fontSize: '10px', color: textMuted }}>
+                              x{item.quantity} × RM {item.price.toFixed(2)}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '12px' }}>
+                              RM {item.subtotal.toFixed(2)}
+                            </span>
+                            <button
+                              onClick={() => removeFromCart(index)}
+                              style={{
+                                background: 'transparent',
+                                color: '#ef4444',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                padding: '2px 6px'
+                              }}
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div style={{
+                      borderTop: `1px solid ${borderColor}`,
+                      paddingTop: '10px',
+                      marginTop: '8px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: textColor }}>
+                        <span>{t('subtotal')}</span>
+                        <span>RM {getSubtotal().toFixed(2)}</span>
+                      </div>
+                      {orderType !== 'take_away' && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: textColor }}>
+                          <span>{t('service_charge')} ({settings.service_charge}%)</span>
+                          <span>RM {getServiceCharge().toFixed(2)}</span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: textColor }}>
+                        <span>{t('tax')} ({settings.tax}%)</span>
+                        <span>RM {getTax().toFixed(2)}</span>
+                      </div>
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        fontSize: isMobile ? '16px' : '18px',
+                        fontWeight: 'bold',
+                        color: priceColor,
+                        marginTop: '6px',
+                        paddingTop: '6px',
+                        borderTop: `1px solid ${borderColor}`
+                      }}>
+                        <span>{t('total')}</span>
+                        <span>RM {getGrandTotal().toFixed(2)}</span>
+                      </div>
+                      
+                      <button
+                        onClick={sendOrder}
+                        disabled={cart.length === 0}
+                        style={{
+                          width: '100%',
+                          padding: isMobile ? '10px' : '12px',
+                          marginTop: '10px',
+                          background: cart.length === 0 ? '#94a3b8' : 'linear-gradient(135deg, #2563eb, #1d4ed8)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '40px',
+                          cursor: cart.length === 0 ? 'not-allowed' : 'pointer',
+                          fontWeight: 'bold',
+                          fontSize: isMobile ? '13px' : '14px'
+                        }}
+                      >
+                        📤 {t('place_order')}
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           </div>
         )}
         
-        {activeTab === 'orders' && renderNewOrders()}
-        {activeTab === 'unpaid' && renderUnpaidOrders()}
-        {activeTab === 'history' && renderHistory()}
+        {activeTab === 'orders' && (
+          <div>
+            {newOrders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px 20px', color: textMuted }}>📭 {t('no_new_orders')}</div>
+            ) : (
+              newOrders.map(order => (
+                <div key={order.id} style={{ ...glassEffect, borderRadius: '16px', padding: '16px', marginBottom: '12px', borderLeft: '4px solid #ef4444' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 'bold', color: textColor }}>🆕 {order.customer_name || 'Guest'}</span>
+                    <span style={{ fontSize: '12px', color: textMuted }}>{new Date(order.created_at).toLocaleTimeString()}</span>
+                  </div>
+                  <div style={{ margin: '8px 0' }}>
+                    {order.items?.map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor }}>
+                        <span>{item.quantity}x {item.name}</span>
+                        <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 'bold', color: priceColor }}>Total: RM {order.total?.toFixed(2)}</span>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button onClick={() => confirmNewOrder(order)} style={{ background: '#22c55e', color: 'white', padding: '6px 16px', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold' }}>✅ Confirm</button>
+                      <button onClick={() => cancelNewOrder(order)} style={{ background: '#ef4444', color: 'white', padding: '6px 16px', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold' }}>❌</button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
         
-        {/* ===== MODALS ===== */}
-        {showItemModal && renderItemModal()}
-        {renderPaymentModal()}
-        {renderReceiptModal()}
+        {activeTab === 'unpaid' && (
+          <div>
+            {unpaidOrders.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px 20px', color: textMuted }}>💰 {t('no_unpaid_orders_msg')}</div>
+            ) : (
+              unpaidOrders.map(order => (
+                <div key={order.id} style={{ ...glassEffect, borderRadius: '16px', padding: '16px', marginBottom: '12px', borderLeft: '4px solid #eab308' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 'bold', color: textColor }}>#{order.order_number}</span>
+                    <span style={{ fontSize: '12px', color: textMuted }}>{new Date(order.created_at).toLocaleTimeString()}</span>
+                  </div>
+                  <div style={{ margin: '8px 0' }}>
+                    {order.items?.map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor }}>
+                        <span>{item.quantity}x {item.name}</span>
+                        <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 'bold', color: priceColor }}>Total: RM {order.total?.toFixed(2)}</span>
+                    <button onClick={() => openPaymentModal(order)} style={{ background: '#3b82f6', color: 'white', padding: '6px 16px', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold' }}>💰 Pay</button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+        
+        {activeTab === 'history' && (
+          <div>
+            {orderHistory.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px 20px', color: textMuted }}>📜 {t('no_history_orders')}</div>
+            ) : (
+              orderHistory.slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage).map(order => (
+                <div key={order.id} style={{ ...glassEffect, borderRadius: '16px', padding: '16px', marginBottom: '12px', borderLeft: '4px solid #6c757d' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontWeight: 'bold', color: textColor }}>#{order.order_number}</span>
+                    <span style={{ fontSize: '12px', color: textMuted }}>{new Date(order.created_at).toLocaleTimeString()}</span>
+                  </div>
+                  <div style={{ margin: '8px 0' }}>
+                    {order.items?.map((item, idx) => (
+                      <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor }}>
+                        <span>{item.quantity}x {item.name}</span>
+                        <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 'bold', color: priceColor }}>Total: RM {order.total?.toFixed(2)}</span>
+                    <button onClick={() => printReceipt(order)} style={{ background: '#8b5cf6', color: 'white', padding: '6px 16px', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold' }}>🧾</button>
+                  </div>
+                </div>
+              ))
+            )}
+            {Math.ceil(orderHistory.length / historyItemsPerPage) > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '16px' }}>
+                <button onClick={() => setHistoryPage(p => Math.max(1, p-1))} disabled={historyPage === 1} style={{ padding: '4px 12px', background: historyPage === 1 ? '#94a3b8' : '#3b82f6', color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer' }}>‹</button>
+                <span style={{ color: textColor }}>{historyPage} / {Math.ceil(orderHistory.length / historyItemsPerPage)}</span>
+                <button onClick={() => setHistoryPage(p => Math.min(Math.ceil(orderHistory.length / historyItemsPerPage), p+1))} disabled={historyPage === Math.ceil(orderHistory.length / historyItemsPerPage)} style={{ padding: '4px 12px', background: historyPage === Math.ceil(orderHistory.length / historyItemsPerPage) ? '#94a3b8' : '#3b82f6', color: 'white', border: 'none', borderRadius: '20px', cursor: 'pointer' }}>›</button>
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* MODALS */}
+        {showItemModal && selectedItem && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            zIndex: 2000, padding: '20px'
+          }}>
+            <div style={{
+              background: cardBg,
+              padding: isMobile ? '20px' : '28px',
+              borderRadius: '24px',
+              maxWidth: '450px',
+              width: '100%',
+              ...glassEffect,
+              maxHeight: '90vh',
+              overflowY: 'auto'
+            }}>
+              {selectedItem.image_url && (
+                <img src={selectedItem.image_url} alt={selectedItem.name} style={{
+                  width: '100%', height: '120px', objectFit: 'contain',
+                  borderRadius: '12px', marginBottom: '12px',
+                  background: '#fff', padding: '6px'
+                }} />
+              )}
+              
+              <h2 style={{ color: textColor, fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', marginBottom: '4px' }}>
+                {selectedItem.name}
+              </h2>
+              
+              {isDrinkCategory(selectedItem.category) && getDrinkOptionsForItem(selectedItem).length > 0 && (
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('select_drink_option')}</label>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                    {getDrinkOptionsForItem(selectedItem).map(opt => (
+                      <button
+                        key={opt.id}
+                        onClick={() => setSelectedOption(opt.option_type)}
+                        style={{
+                          flex: 1,
+                          padding: '10px',
+                          background: selectedOption === opt.option_type ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : secondaryBg,
+                          color: selectedOption === opt.option_type ? 'white' : textColor,
+                          border: selectedOption === opt.option_type ? 'none' : `1px solid ${borderColor}`,
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          fontSize: '13px'
+                        }}
+                      >
+                        {opt.option_type === 'Panas' ? '🔥' : '🧊'} {opt.option_type}
+                        <br /><small>RM {opt.price}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {selectedItem.has_options && menuOptions.length > 0 && (
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('select_size')}</label>
+                  <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                    {menuOptions.map(size => (
+                      <button
+                        key={size.id}
+                        onClick={() => setSelectedSize(size)}
+                        style={{
+                          flex: 1,
+                          padding: '10px',
+                          background: selectedSize?.id === size.id ? 'linear-gradient(135deg, #8b5cf6, #7c3aed)' : secondaryBg,
+                          color: selectedSize?.id === size.id ? 'white' : textColor,
+                          border: selectedSize?.id === size.id ? 'none' : `1px solid ${borderColor}`,
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          fontSize: '13px'
+                        }}
+                      >
+                        {size.option_name}
+                        <br /><small>RM {getItemPrice(selectedItem, selectedOption, size).toFixed(2)}</small>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('quantity')}</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '6px' }}>
+                  <button onClick={() => setQuantity(Math.max(1, quantity-1))} style={{ width: '36px', height: '36px', background: secondaryBg, border: `1px solid ${borderColor}`, borderRadius: '10px', cursor: 'pointer', fontSize: '18px', color: textColor }}>-</button>
+                  <span style={{ fontSize: '18px', fontWeight: 'bold', color: textColor, minWidth: '40px', textAlign: 'center' }}>{quantity}</span>
+                  <button onClick={() => setQuantity(quantity+1)} style={{ width: '36px', height: '36px', background: secondaryBg, border: `1px solid ${borderColor}`, borderRadius: '10px', cursor: 'pointer', fontSize: '18px', color: textColor }}>+</button>
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: '14px' }}>
+                <input
+                  type="text"
+                  placeholder={t('special_request')}
+                  value={selectedItem.notes || ''}
+                  onChange={(e) => setSelectedItem({...selectedItem, notes: e.target.value})}
+                  style={{
+                    width: '100%',
+                    padding: '10px',
+                    borderRadius: '12px',
+                    border: `1px solid ${borderColor}`,
+                    background: inputBg,
+                    color: textColor,
+                    fontSize: '13px',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={addToCart}
+                  style={{
+                    flex: 2,
+                    padding: isMobile ? '12px' : '14px',
+                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: isMobile ? '13px' : '14px'
+                  }}
+                >
+                  ➕ {t('add_to_cart')} (RM {(getItemPrice(selectedItem, selectedOption, selectedSize) * quantity).toFixed(2)})
+                </button>
+                <button
+                  onClick={() => { setShowItemModal(false); setSelectedItem(null); setSelectedOption(''); setSelectedSize(null); setQuantity(1) }}
+                  style={{
+                    flex: 1,
+                    padding: isMobile ? '12px' : '14px',
+                    background: '#64748b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: isMobile ? '13px' : '14px'
+                  }}
+                >
+                  {t('cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {showPaymentModal && selectedOrder && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            zIndex: 3000, padding: '20px'
+          }}>
+            <div style={{
+              background: cardBg,
+              padding: isMobile ? '24px' : '32px',
+              borderRadius: '24px',
+              maxWidth: '420px',
+              width: '100%',
+              ...glassEffect
+            }}>
+              <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+                <h2 style={{ color: textColor, margin: 0 }}>💰 {t('record_payment')}</h2>
+                <p style={{ color: textMuted, fontSize: '13px' }}>{selectedOrder.customer_name || t('guest')}</p>
+              </div>
+              
+              <div style={{ background: secondaryBg, padding: '14px', borderRadius: '16px', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span>{t('subtotal')}</span>
+                  <span>RM {parseFloat(selectedOrder.subtotal || selectedOrder.total || 0).toFixed(2)}</span>
+                </div>
+                {selectedOrder.order_type !== 'take_away' && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                    <span>{t('service_charge')} ({settings.service_charge}%)</span>
+                    <span>RM {(parseFloat(selectedOrder.subtotal || selectedOrder.total || 0) * (settings.service_charge / 100)).toFixed(2)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                  <span>{t('tax')} ({settings.tax}%)</span>
+                  <span>RM {(parseFloat(selectedOrder.subtotal || selectedOrder.total || 0) * (settings.tax / 100)).toFixed(2)}</span>
+                </div>
+                <div style={{ borderTop: `1px solid ${borderColor}`, marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
+                  <span>{t('total')}</span>
+                  <span style={{ color: priceColor }}>RM {(parseFloat(selectedOrder.subtotal || selectedOrder.total || 0) + (parseFloat(selectedOrder.subtotal || selectedOrder.total || 0) * (settings.service_charge / 100)) + (parseFloat(selectedOrder.subtotal || selectedOrder.total || 0) * (settings.tax / 100))).toFixed(2)}</span>
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('payment_method')}</label>
+                <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+                  {['cash', 'tng', 'bank'].map(m => (
+                    <button
+                      key={m}
+                      onClick={() => setPaymentMethod(m)}
+                      style={{
+                        flex: 1,
+                        padding: '10px',
+                        background: paymentMethod === m ? 'linear-gradient(135deg, #22c55e, #16a34a)' : secondaryBg,
+                        color: paymentMethod === m ? 'white' : textColor,
+                        border: paymentMethod === m ? 'none' : `1px solid ${borderColor}`,
+                        borderRadius: '12px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '13px'
+                      }}
+                    >
+                      {m === 'cash' ? '💵' : m === 'tng' ? '📱' : '🏦'} {m === 'cash' ? t('cash') : m === 'tng' ? t('tng') : t('bank')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => markAsPaid(selectedOrder)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: isMobile ? '13px' : '14px'
+                  }}
+                >
+                  ✅ {t('save')}
+                </button>
+                <button
+                  onClick={() => { setShowPaymentModal(false); setSelectedOrder(null) }}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: '#64748b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: isMobile ? '13px' : '14px'
+                  }}
+                >
+                  {t('cancel')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {showReceipt && currentReceiptOrder && (
+          <div style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            zIndex: 4000, padding: '20px'
+          }}>
+            <div style={{
+              background: cardBg,
+              padding: isMobile ? '24px' : '32px',
+              borderRadius: '24px',
+              maxWidth: '400px',
+              width: '100%',
+              ...glassEffect
+            }}>
+              <div style={{ textAlign: 'center', borderBottom: `1px solid ${borderColor}`, paddingBottom: '12px', marginBottom: '12px' }}>
+                <h2 style={{ color: textColor, margin: 0 }}>🧾 {t('receipt_title')}</h2>
+                <p style={{ color: textMuted, fontSize: '12px' }}>{currentReceiptOrder.customer_name || t('guest')}</p>
+              </div>
+              
+              {currentReceiptOrder.items?.map((item, idx) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '4px 0', borderBottom: idx !== currentReceiptOrder.items.length-1 ? `1px solid ${borderColor}` : 'none' }}>
+                  <span>{item.name}{item.option ? ` (${item.option})` : ''} x{item.quantity}</span>
+                  <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
+                </div>
+              ))}
+              
+              <div style={{ borderTop: `1px solid ${borderColor}`, marginTop: '10px', paddingTop: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
+                  <span>{t('total')}</span>
+                  <span style={{ color: priceColor }}>RM {Number(currentReceiptOrder.grand_total || currentReceiptOrder.total || 0).toFixed(2)}</span>
+                </div>
+                <div style={{ fontSize: '12px', color: textMuted, textAlign: 'center', marginTop: '8px' }}>
+                  💳 {currentReceiptOrder.payment_method === 'cash' ? t('cash') : currentReceiptOrder.payment_method === 'tng' ? t('tng') : t('bank')}
+                </div>
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+                <button
+                  onClick={() => printReceipt(currentReceiptOrder)}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  🖨️ {t('print_receipt')}
+                </button>
+                <button
+                  onClick={() => { setShowReceipt(false); setCurrentReceiptOrder(null) }}
+                  style={{
+                    flex: 1,
+                    padding: '12px',
+                    background: '#64748b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  {t('close')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         
         <style>
           {`

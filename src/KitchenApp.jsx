@@ -91,7 +91,7 @@ function KitchenApp() {
   // THEME COLORS
   // ============================================================
   const bgColor = darkMode ? '#07111f' : '#eff6ff'
-  const cardBg = darkMode ? 'rgba(20, 20, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)'
+  const cardBg = darkMode ? 'rgba(20,  ￼20, 40, 0.95)' : 'rgba(255, 255, 255, 0.95)'
   const textColor = darkMode ? '#e8edf5' : '#1e293b'
   const textMuted = darkMode ? '#94a3b8' : '#64748b'
   const borderColor = darkMode ? 'rgba(71, 85, 105, 0.3)' : 'rgba(203, 213, 225, 0.5)'
@@ -150,7 +150,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // PLAY KITCHEN SOUND - CARA BASIC (new Audio)
+  // PLAY KITCHEN SOUND - CARA BASIC
   // ============================================================
   const playKitchenSound = () => {
     console.log('🔔 Kitchen: playKitchenSound called')
@@ -220,7 +220,7 @@ function KitchenApp() {
   }, [kitchenEnabled])
 
   // ============================================================
-  // LOAD ORDERS - Pisah Makanan & Minuman
+  // LOAD ORDERS
   // ============================================================
   async function loadOrders() {
     try {
@@ -296,7 +296,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // MAIN EFFECT - DENGAN SUBSCRIPTION (CARA BASIC)
+  // MAIN EFFECT - DENGAN SUBSCRIPTION (FIXED)
   // ============================================================
   useEffect(() => {
     if (!kitchenEnabled) return
@@ -310,17 +310,16 @@ function KitchenApp() {
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'customer_orders' },
         (payload) => {
-          console.log('🔔 INSERT TRIGGERED! Status:', payload.new?.status)
+          console.log('🔔🔔🔔🔔🔔 INSERT TRIGGERED! 🔔🔔🔔🔔🔔')
+          console.log('New status:', payload.new?.status)
           
           const validStatuses = ['confirmed', 'preparing', 'ready']
           
           if (validStatuses.includes(payload.new.status) || 
               validStatuses.includes(payload.new.order_status)) {
             
-            console.log('🔔 NEW ORDER! Playing sound...')
+            console.log('🔔🔔🔔 NEW ORDER! PLAYING SOUND! 🔔🔔🔔')
             playKitchenSound()
-            
-            toast.success('🆕 New order!', { duration: 2000 })
             loadOrders()
             loadCompletedOrders()
           }
@@ -329,24 +328,22 @@ function KitchenApp() {
       .on('postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'customer_orders' },
         (payload) => {
-          console.log('🔔 UPDATE TRIGGERED! New status:', payload.new?.status)
+          console.log('🔔🔔🔔🔔🔔 UPDATE TRIGGERED! 🔔🔔🔔🔔🔔')
+          console.log('Old status:', payload.old?.status)
+          console.log('New status:', payload.new?.status)
           
-          // 👇 MAIN SOUND UNTUK 'confirmed'
-          if (payload.new?.status === 'confirmed' || 
-              payload.new?.order_status === 'confirmed') {
-            
-            console.log('🔔 ORDER CONFIRMED! Playing sound...')
+          if (payload.new?.status === 'confirmed') {
+            console.log('🔔🔔🔔 ORDER CONFIRMED! PLAYING SOUND! 🔔🔔🔔')
             playKitchenSound()
-            
-            toast.success('✅ Order Confirmed!', { duration: 2000 })
             loadOrders()
             loadCompletedOrders()
           }
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('📡 Kitchen subscription status:', status)
+      })
     
-    // 👇 INTERVAL - 10 saat
     const interval = setInterval(() => {
       loadOrders()
       loadCompletedOrders()
@@ -359,7 +356,7 @@ function KitchenApp() {
   }, [soundEnabled, kitchenEnabled])
 
   // ============================================================
-  // INTERVAL CHECKING - CARA BASIC
+  // INTERVAL CHECKING - FIXED
   // ============================================================
   useEffect(() => {
     let previousCount = 0
@@ -523,7 +520,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // RENDER ORDER CARD - TUNJUK PHONE & NOTES
+  // RENDER ORDER CARD
   // ============================================================
   const renderOrderCard = (order, showActionButtons = true) => {
     const waitingColor = getWaitingColor(order.created_at)

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useTheme } './context/ThemeContext'
-import { useLanguage } './context/LanguageContext'
+import { useTheme } from './context/ThemeContext'
+import { useLanguage } from './context/LanguageContext'
 import Sidebar from './components/Sidebar'
 import { supabase } from './lib/supabase'
 import toast from 'react-hot-toast'

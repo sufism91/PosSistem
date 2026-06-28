@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { useTheme } from './context/ThemeContext'
-import { useLanguage } from './context/LanguageContext'
+import { useTheme } './context/ThemeContext'
+import { useLanguage } './context/LanguageContext'
 import Sidebar from './components/Sidebar'
 import { supabase } from './lib/supabase'
 import toast from 'react-hot-toast'
@@ -208,9 +208,18 @@ function ManageMenu() {
     price_adjustment: '', 
     is_absolute_price: true,
     sort_order: 0,
-    stock: 0  // <--- TAMBAH STOCK
+    stock: 0
   })
   const [editingOption, setEditingOption] = useState(null)
+
+  // ============================================================
+  // ===== ADD-ON STATE =====
+  // ============================================================
+  const [showAddonModal, setShowAddonModal] = useState(false)
+  const [selectedMenuForAddon, setSelectedMenuForAddon] = useState(null)
+  const [menuAddons, setMenuAddons] = useState([])
+  const [addonForm, setAddonForm] = useState({ name: '', price: '', category: 'Topping' })
+  const [editingAddon, setEditingAddon] = useState(null)
 
   const STORAGE_BUCKET = 'restaurant-logos'
 
@@ -354,6 +363,15 @@ function ManageMenu() {
     takeaway_label: { en: 'Takeaway', ms: 'Bungkus' },
     upload_image: { en: 'Upload Image', ms: 'Muat Naik Gambar' },
     drink_image: { en: 'Drink Image', ms: 'Gambar Minuman' },
+    // ===== ADD-ON TRANSLATIONS =====
+    manage_addons: { en: '✨ Add-On', ms: '✨ Tambahan' },
+    enable_addons: { en: 'Enable Add-On', ms: 'Aktifkan Tambahan' },
+    addon_list: { en: 'Add-On List', ms: 'Senarai Tambahan' },
+    add_new_addon: { en: 'Add New Add-On', ms: 'Tambah Tambahan Baru' },
+    edit_addon: { en: 'Edit Add-On', ms: 'Edit Tambahan' },
+    addon_name: { en: 'Add-On Name', ms: 'Nama Tambahan' },
+    addon_price: { en: 'Price', ms: 'Harga' },
+    addon_category: { en: 'Category', ms: 'Kategori' },
   }
 
   const translate = (key) => {
@@ -374,6 +392,7 @@ function ManageMenu() {
   const inputBorder = darkMode ? '#3d3d5c' : '#cbd5e1'
   const inputText = darkMode ? '#e8edf5' : '#1e293b'
   const glassBorder = darkMode ? 'rgba(71, 85, 105, 0.2)' : 'rgba(203, 213, 225, 0.4)'
+  const priceColor = '#22c55e'
   
   const glassEffect = {
     background: cardBg,
@@ -1026,8 +1045,12 @@ function ManageMenu() {
 
   async function deleteMenuItem(id, name) {
     if (window.confirm(`${translate('confirm_delete')} "${name}"?`)) {
+      // Delete menu options (size)
       await supabase.from('drink_options').delete().eq('drink_name', name)
       await supabase.from('menu_options').delete().eq('menu_id', id)
+      
+      // Delete add-ons
+      await supabase.from('menu_addons').delete().eq('menu_id', id)
       
       const { error } = await supabase.from('menu').delete().eq('id', id)
       if (error) { 
@@ -1223,7 +1246,7 @@ function ManageMenu() {
         price_adjustment: parseFloat(optionForm.price_adjustment),
         is_absolute_price: optionForm.is_absolute_price,
         sort_order: parseInt(optionForm.sort_order) || 0,
-        stock: parseInt(optionForm.stock) || 0,  // <--- TAMBAH STOCK
+        stock: parseInt(optionForm.stock) || 0,
         available: true
       }])
 
@@ -1237,7 +1260,7 @@ function ManageMenu() {
         price_adjustment: '', 
         is_absolute_price: true, 
         sort_order: 0,
-        stock: 0  // <--- RESET STOCK
+        stock: 0
       })
       await supabase.from('menu').update({ has_options: true }).eq('id', selectedMenuForOptions.id)
       await loadAvailableMenu()
@@ -1259,7 +1282,7 @@ function ManageMenu() {
         price_adjustment: parseFloat(optionForm.price_adjustment),
         is_absolute_price: optionForm.is_absolute_price,
         sort_order: parseInt(optionForm.sort_order) || 0,
-        stock: parseInt(optionForm.stock) || 0  // <--- TAMBAH STOCK
+        stock: parseInt(optionForm.stock) || 0
       })
       .eq('id', editingOption.id)
 
@@ -1314,8 +1337,118 @@ function ManageMenu() {
       price_adjustment: opt.price_adjustment,
       is_absolute_price: opt.is_absolute_price,
       sort_order: opt.sort_order || 0,
-      stock: opt.stock || 0  // <--- TAMBAH STOCK
+      stock: opt.stock || 0
     })
+  }
+
+  // ============================================================
+  // ===== ADD-ON FUNCTIONS =====
+  // ============================================================
+  async function loadAddons(menuId) {
+    try {
+      const { data } = await supabase
+        .from('menu_addons')
+        .select('*')
+        .eq('menu_id', menuId)
+        .order('sort_order')
+      setMenuAddons(data || [])
+    } catch (err) {
+      console.error('Error loading addons:', err)
+      setMenuAddons([])
+    }
+  }
+
+  async function toggleAddonsEnabled(menuId, currentStatus) {
+    try {
+      const { error } = await supabase
+        .from('menu')
+        .update({ has_addons: !currentStatus })
+        .eq('id', menuId)
+      
+      if (error) throw error
+      
+      setSelectedMenuForAddon(prev => ({ 
+        ...prev, 
+        has_addons: !currentStatus 
+      }))
+      
+      setMenu(menu.map(item => 
+        item.id === menuId 
+          ? { ...item, has_addons: !currentStatus } 
+          : item
+      ))
+      
+      toast.success(`✨ Add-On ${!currentStatus ? 'diaktifkan' : 'dilumpuhkan'}!`)
+      loadAvailableMenu()
+    } catch (err) {
+      toast.error('Gagal tukar status add-on: ' + err.message)
+    }
+  }
+
+  async function addAddon() {
+    if (!addonForm.name || !addonForm.price) {
+      toast.error('Nama dan harga diperlukan')
+      return
+    }
+    
+    const { error } = await supabase
+      .from('menu_addons')
+      .insert([{
+        menu_id: selectedMenuForAddon.id,
+        name: addonForm.name,
+        price: parseFloat(addonForm.price),
+        category: addonForm.category || 'Topping',
+        is_active: true
+      }])
+    
+    if (error) {
+      toast.error(error.message)
+    } else {
+      toast.success('Add-On ditambah!')
+      await loadAddons(selectedMenuForAddon.id)
+      setAddonForm({ name: '', price: '', category: 'Topping' })
+    }
+  }
+
+  async function updateAddon() {
+    if (!addonForm.name || !addonForm.price) {
+      toast.error('Nama dan harga diperlukan')
+      return
+    }
+    
+    const { error } = await supabase
+      .from('menu_addons')
+      .update({
+        name: addonForm.name,
+        price: parseFloat(addonForm.price),
+        category: addonForm.category || 'Topping'
+      })
+      .eq('id', editingAddon.id)
+    
+    if (error) {
+      toast.error(error.message)
+    } else {
+      toast.success('Add-On dikemaskini!')
+      await loadAddons(selectedMenuForAddon.id)
+      setEditingAddon(null)
+      setAddonForm({ name: '', price: '', category: 'Topping' })
+    }
+  }
+
+  async function deleteAddon(addonId) {
+    if (!window.confirm('Padam add-on ini?')) return
+    
+    const { error } = await supabase
+      .from('menu_addons')
+      .delete()
+      .eq('id', addonId)
+    
+    if (error) {
+      toast.error(error.message)
+    } else {
+      toast.success('Add-On dipadam!')
+      await loadAddons(selectedMenuForAddon.id)
+    }
   }
 
   // ============================================================
@@ -1506,7 +1639,7 @@ function ManageMenu() {
       console.log('🔄 Loading available menu items...')
       const { data, error } = await supabase
         .from('menu')
-        .select('id, name, price, category, has_options')
+        .select('id, name, price, category, has_options, has_addons')
         .order('name', { ascending: true })
       
       if (error) {
@@ -2128,7 +2261,6 @@ function ManageMenu() {
               <button 
                 onClick={() => {
                   setShowDrinkModal(true)
-                  // Reset image states
                   setNewDrinkImagePanas(null)
                   setNewDrinkImageSejuk(null)
                   setNewDrinkImageBungkus(null)
@@ -2308,6 +2440,7 @@ function ManageMenu() {
                         const stockStatus = getStockText(item.stock || 0)
                         const hasImage = item.image_url && item.image_url !== null && item.image_url !== ''
                         const hasDescription = item.description && item.description.trim() !== ''
+                        const hasAddons = item.has_addons === true
                         
                         return (
                           <SortableMenuItem key={item.id} item={item}>
@@ -2422,6 +2555,18 @@ function ManageMenu() {
                                         fontWeight: 'bold'
                                       }}>
                                         ⚙️ Size
+                                      </span>
+                                    )}
+                                    {hasAddons && (
+                                      <span style={{ 
+                                        background: '#8b5cf6', 
+                                        color: 'white', 
+                                        padding: '2px 10px', 
+                                        borderRadius: '12px', 
+                                        fontSize: '9px',
+                                        fontWeight: 'bold'
+                                      }}>
+                                        ✨ Add-On
                                       </span>
                                     )}
                                     {hasDrinkOptions && (
@@ -2543,6 +2688,28 @@ function ManageMenu() {
                                     >
                                       ⚙️
                                     </button>
+                                    {/* ===== ADD-ON BUTTON ===== */}
+                                    <button 
+                                      onClick={() => { 
+                                        setSelectedMenuForAddon(item); 
+                                        loadAddons(item.id); 
+                                        setShowAddonModal(true); 
+                                      }} 
+                                      style={{ 
+                                        background: hasAddons ? '#8b5cf6' : '#94a3b8', 
+                                        color: 'white', 
+                                        padding: '4px 8px', 
+                                        border: 'none', 
+                                        borderRadius: '16px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={hasAddons ? translate('manage_addons') : translate('enable_addons')}
+                                    >
+                                      ✨
+                                    </button>
                                     <button 
                                       onClick={() => deleteMenuItem(item.id, item.name)} 
                                       style={{ 
@@ -2594,7 +2761,6 @@ function ManageMenu() {
                                         borderRadius: '10px',
                                         border: `1px solid ${borderColor}`
                                       }}>
-                                        {/* IMAGE OR EMOJI */}
                                         {opt.image_url ? (
                                           <img 
                                             src={opt.image_url} 
@@ -3217,8 +3383,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* ===== OTHER MODALS (Add Menu, Edit, Special, Promo, Size) ===== */}
-        {/* ADD MENU MODAL */}
+        {/* ===== ADD MENU MODAL ===== */}
         {showAddModal && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
@@ -3249,7 +3414,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* EDIT MENU MODAL */}
+        {/* ===== EDIT MENU MODAL ===== */}
         {showEditModal && selectedItem && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
@@ -3281,7 +3446,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* ADD SPECIAL MODAL */}
+        {/* ===== ADD SPECIAL MODAL ===== */}
         {showAddSpecialModal && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
@@ -3305,7 +3470,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* EDIT SPECIAL MODAL */}
+        {/* ===== EDIT SPECIAL MODAL ===== */}
         {showEditSpecialModal && selectedSpecialItem && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
@@ -3330,7 +3495,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* PROMOTION MODALS */}
+        {/* ===== PROMOTION MODALS ===== */}
         {showAddPromoModal && (
           <div style={modalOverlayStyle}>
             <div style={{...modalContentStyle, maxWidth: isMobile ? '95%' : '550px'}}>
@@ -3399,7 +3564,6 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* EDIT PROMO MODAL */}
         {showEditPromoModal && selectedPromo && (
           <div style={modalOverlayStyle}>
             <div style={{...modalContentStyle, maxWidth: isMobile ? '95%' : '550px'}}>
@@ -3501,7 +3665,6 @@ function ManageMenu() {
                   style={inputStyle} 
                 />
 
-                {/* ===== STOCK INPUT ===== */}
                 <label style={labelStyle}>{translate('stock_qty')}</label>
                 <input 
                   type="number" 
@@ -3616,6 +3779,274 @@ function ManageMenu() {
                       sort_order: 0,
                       stock: 0 
                     })
+                  }} 
+                  style={buttonSecondaryStyle}
+                >
+                  {translate('close')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================
+            ===== ADD-ON MANAGEMENT MODAL =====
+            ============================================================ */}
+        {showAddonModal && selectedMenuForAddon && (
+          <div style={modalOverlayStyle}>
+            <div style={{ ...modalContentStyle, maxWidth: isMobile ? '95%' : '500px' }}>
+              <h3 style={modalTitleStyle}>
+                ✨ {translate('manage_addons')} - {selectedMenuForAddon.name}
+              </h3>
+              
+              {/* Toggle Enable/Disable */}
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                background: secondaryBg,
+                borderRadius: '12px',
+                marginBottom: '16px',
+                border: `1px solid ${borderColor}`
+              }}>
+                <span style={{ fontWeight: 'bold', color: textColor }}>
+                  {translate('enable_addons')}
+                </span>
+                <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '26px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedMenuForAddon.has_addons || false} 
+                    onChange={() => toggleAddonsEnabled(selectedMenuForAddon.id, selectedMenuForAddon.has_addons)} 
+                    style={{ opacity: 0, width: 0, height: 0 }} 
+                  />
+                  <span style={{ 
+                    position: 'absolute', 
+                    cursor: 'pointer', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    backgroundColor: selectedMenuForAddon.has_addons ? '#22c55e' : '#64748b', 
+                    transition: '.3s', 
+                    borderRadius: '34px' 
+                  }}>
+                    <span style={{ 
+                      position: 'absolute', 
+                      height: '20px', 
+                      width: '20px', 
+                      left: '3px', 
+                      bottom: '3px', 
+                      backgroundColor: 'white', 
+                      transition: '.3s', 
+                      borderRadius: '50%', 
+                      transform: selectedMenuForAddon.has_addons ? 'translateX(26px)' : 'none' 
+                    }} />
+                  </span>
+                </label>
+              </div>
+              
+              {/* Add-On List */}
+              <div style={{ marginBottom: '16px' }}>
+                <h4 style={{ color: textColor, marginBottom: '8px' }}>
+                  {translate('addon_list')} ({menuAddons.length})
+                </h4>
+                {menuAddons.length === 0 ? (
+                  <p style={{ 
+                    color: textMuted, 
+                    textAlign: 'center', 
+                    padding: '20px',
+                    background: secondaryBg,
+                    borderRadius: '8px'
+                  }}>
+                    {selectedMenuForAddon.has_addons 
+                      ? 'Tiada add-on. Tambah di bawah.' 
+                      : 'Aktifkan add-on terlebih dahulu'}
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {menuAddons.map(addon => (
+                      <div 
+                        key={addon.id} 
+                        style={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center', 
+                          padding: '8px 12px', 
+                          background: secondaryBg, 
+                          borderRadius: '8px', 
+                          border: `1px solid ${borderColor}` 
+                        }}
+                      >
+                        <div>
+                          <span style={{ color: textColor, fontWeight: 'bold' }}>{addon.name}</span>
+                          <span style={{ color: priceColor, marginLeft: '8px', fontSize: '13px' }}>
+                            +RM {parseFloat(addon.price).toFixed(2)}
+                          </span>
+                          <span style={{ 
+                            fontSize: '10px', 
+                            color: textMuted, 
+                            marginLeft: '8px',
+                            background: darkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
+                            padding: '1px 8px',
+                            borderRadius: '10px'
+                          }}>
+                            {addon.category || 'Topping'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button 
+                            onClick={() => {
+                              setEditingAddon(addon)
+                              setAddonForm({
+                                name: addon.name,
+                                price: addon.price,
+                                category: addon.category || 'Topping'
+                              })
+                            }} 
+                            style={{ 
+                              background: '#f59e0b', 
+                              color: 'white', 
+                              padding: '2px 10px', 
+                              border: 'none', 
+                              borderRadius: '12px', 
+                              cursor: 'pointer', 
+                              fontSize: '11px' 
+                            }}
+                          >
+                            ✏️
+                          </button>
+                          <button 
+                            onClick={() => deleteAddon(addon.id)} 
+                            style={{ 
+                              background: '#ef4444', 
+                              color: 'white', 
+                              padding: '2px 10px', 
+                              border: 'none', 
+                              borderRadius: '12px', 
+                              cursor: 'pointer', 
+                              fontSize: '11px' 
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {/* Add New Add-On */}
+              <div style={{ 
+                borderTop: `1px solid ${borderColor}`, 
+                paddingTop: '14px' 
+              }}>
+                <h4 style={{ color: textColor, marginBottom: '8px' }}>
+                  {editingAddon ? translate('edit_addon') : translate('add_new_addon')}
+                </h4>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input 
+                    type="text" 
+                    placeholder={translate('addon_name')}
+                    value={addonForm.name}
+                    onChange={(e) => setAddonForm({...addonForm, name: e.target.value})}
+                    style={{ 
+                      flex: 2,
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      border: `1px solid ${borderColor}`,
+                      background: inputBg,
+                      color: textColor,
+                      outline: 'none',
+                      fontSize: '13px',
+                      minWidth: '120px'
+                    }}
+                  />
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    placeholder={translate('addon_price')}
+                    value={addonForm.price}
+                    onChange={(e) => setAddonForm({...addonForm, price: e.target.value})}
+                    style={{ 
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      border: `1px solid ${borderColor}`,
+                      background: inputBg,
+                      color: textColor,
+                      outline: 'none',
+                      fontSize: '13px',
+                      minWidth: '80px'
+                    }}
+                  />
+                  <select
+                    value={addonForm.category}
+                    onChange={(e) => setAddonForm({...addonForm, category: e.target.value})}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      border: `1px solid ${borderColor}`,
+                      background: inputBg,
+                      color: textColor,
+                      outline: 'none',
+                      fontSize: '13px',
+                      minWidth: '80px'
+                    }}
+                  >
+                    <option value="Topping">Topping</option>
+                    <option value="Extra">Extra</option>
+                    <option value="Level">Level</option>
+                    <option value="Drink">Drink</option>
+                  </select>
+                  <button 
+                    onClick={editingAddon ? updateAddon : addAddon}
+                    disabled={!selectedMenuForAddon.has_addons}
+                    style={{ 
+                      padding: '8px 20px',
+                      background: !selectedMenuForAddon.has_addons ? '#94a3b8' : 'linear-gradient(135deg, #22c55e, #16a34a)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '10px',
+                      cursor: !selectedMenuForAddon.has_addons ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '13px'
+                    }}
+                  >
+                    {editingAddon ? '💾 Update' : '➕ Tambah'}
+                  </button>
+                  {editingAddon && (
+                    <button 
+                      onClick={() => {
+                        setEditingAddon(null)
+                        setAddonForm({ name: '', price: '', category: 'Topping' })
+                      }}
+                      style={{ 
+                        padding: '8px 16px',
+                        background: '#64748b',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      ✕ Batal
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div style={{ marginTop: '16px' }}>
+                <button 
+                  onClick={() => {
+                    setShowAddonModal(false)
+                    setSelectedMenuForAddon(null)
+                    setMenuAddons([])
+                    setEditingAddon(null)
+                    setAddonForm({ name: '', price: '', category: 'Topping' })
                   }} 
                   style={buttonSecondaryStyle}
                 >

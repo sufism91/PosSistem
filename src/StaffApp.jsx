@@ -7,9 +7,21 @@ import toast from 'react-hot-toast'
 import { playSound, initSound, unlockAudio } from './utils/sound'
 import { ORDER_STATUS, PAYMENT_STATUS, normalizeOrderForInsert } from './lib/orderWorkflow'
 
+// ===== IMPORT USE RECEIPT HOOK =====
+import { useReceipt } from '../hooks/useReceipt'
+
 function StaffApp() {
   const { darkMode } = useTheme()
   const { language } = useLanguage()
+  
+  // ===== USE RECEIPT HOOK =====
+  const { 
+    settings: receiptSettings, 
+    loading: receiptLoading, 
+    generateReceipt, 
+    printReceipt,
+    reload: reloadReceipt 
+  } = useReceipt()
   
   // ============================================================
   // TRANSLATIONS
@@ -293,6 +305,8 @@ function StaffApp() {
     loadUnpaidOrders()
     loadOrderHistory()
     loadSettings()
+    // Load receipt settings
+    reloadReceipt()
 
     const menuSub = supabase.channel('staff_menu')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'menu' }, () => loadMenu())
@@ -806,7 +820,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // SEND ORDER
+  // ===== SEND ORDER - WITH RECEIPT PRINT =====
   // ============================================================
   const sendOrder = async () => {
     if (cart.length === 0) { toast.error(t('cart_empty_msg')); return }
@@ -899,6 +913,47 @@ function StaffApp() {
       }
       
       toast.success(`✅ ${t('order_sent')} #${orderNumber}`)
+      
+      // ============================================================
+      // ===== PRINT RECEIPT USING USE RECEIPT HOOK =====
+      // ============================================================
+      if (data && data.length > 0 && receiptSettings) {
+        const order = data[0]
+        try {
+          const receiptText = generateReceipt({
+            ...order,
+            order_number: orderNumber,
+            customer_name: customerName || 'Guest',
+            table_number: orderType === 'dine_in' ? tableNumber : null,
+            order_type: orderType,
+            staff_name: 'Staff',
+            items: cart.map(item => ({
+              name: item.name,
+              option: item.option || null,
+              size: item.size || null,
+              addons: item.addons || null,
+              quantity: item.quantity,
+              price: item.price,
+              subtotal: item.subtotal
+            })),
+            subtotal: getSubtotal(),
+            service_charge: getServiceCharge(),
+            tax: getTax(),
+            total: getGrandTotal(),
+            payment_method: 'cash',
+            paid_amount: getGrandTotal()
+          })
+          
+          // Print using hook
+          await printReceipt(receiptText)
+          console.log('✅ Receipt printed successfully from StaffApp')
+        } catch (receiptError) {
+          console.error('Error printing receipt:', receiptError)
+          // Don't show error to user, order already sent
+        }
+      }
+      // ============================================================
+      
       setCart([])
       setCustomerName('')
       setCustomerPhone('')
@@ -980,9 +1035,36 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PRINT RECEIPT
+  // ===== PRINT RECEIPT - UPDATED WITH USE RECEIPT HOOK =====
   // ============================================================
-  const printReceipt = (order) => {
+  const printReceiptLegacy = (order) => {
+    // Gunakan hook untuk print
+    if (receiptSettings) {
+      try {
+        const receiptText = generateReceipt({
+          ...order,
+          items: order.items || [],
+          subtotal: order.subtotal || order.total || 0,
+          service_charge: order.service_charge || 0,
+          tax: order.tax || 0,
+          total: order.grand_total || order.total || 0,
+          payment_method: order.payment_method || 'cash',
+          paid_amount: order.grand_total || order.total || 0
+        })
+        printReceipt(receiptText)
+        console.log('✅ Receipt printed successfully from StaffApp (legacy)')
+      } catch (err) {
+        console.error('Error printing receipt:', err)
+        // Fallback to old method
+        fallbackPrintReceipt(order)
+      }
+    } else {
+      fallbackPrintReceipt(order)
+    }
+  }
+
+  // ===== FALLBACK: Original print method if hook fails =====
+  const fallbackPrintReceipt = (order) => {
     const total = Number(order.total || order.grand_total || 0).toFixed(2)
     const items = order.items || []
     const date = new Date(order.created_at).toLocaleString()
@@ -1824,7 +1906,7 @@ function StaffApp() {
                   </td>
                   <td style={{ padding: '8px' }}>
                     <button
-                      onClick={() => printReceipt(order)}
+                      onClick={() => printReceiptLegacy(order)}
                       style={{ background: '#3b82f6', color: 'white', padding: '4px 12px', border: 'none', borderRadius: '20px', cursor: 'pointer', fontSize: '11px' }}
                     >
                       🧾
@@ -2318,7 +2400,7 @@ function StaffApp() {
           
           <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
             <button
-              onClick={() => printReceipt(currentReceiptOrder)}
+              onClick={() => printReceiptLegacy(currentReceiptOrder)}
               style={{
                 flex: 1,
                 padding: '12px',
@@ -2390,6 +2472,7 @@ function StaffApp() {
                 loadUnpaidOrders(); 
                 loadOrderHistory(); 
                 resetNotifiedOrders();
+                reloadReceipt();
                 toast.success('🔄 Refreshed!') 
               }} 
               style={{ padding: isMobile ? '6px 14px' : '8px 18px', background: 'linear-gradient(135deg, #06b6d4, #0891b2)', color: 'white', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: isMobile ? '11px' : '13px' }}

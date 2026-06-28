@@ -203,38 +203,77 @@ function ManageSettings() {
   }
 
   // ============================================================
-  // TELEGRAM TEST FUNCTION
+  // TELEGRAM TEST FUNCTION - DIRECT CALL (NO BACKEND NEEDED)
   // ============================================================
   async function testTelegram() {
+    // Check if token and chat ID are filled
     if (!settings.telegram_bot_token || !settings.telegram_chat_id) {
-      toast.error(language === 'bm' ? '❌ Sila isi Bot Token dan Chat ID' : '❌ Please fill in Bot Token and Chat ID')
+      toast.error(
+        language === 'bm' 
+          ? '❌ Sila isi Bot Token dan Chat ID terlebih dahulu' 
+          : '❌ Please fill in Bot Token and Chat ID first'
+      )
       return
     }
 
     setTestingTelegram(true)
+    
     try {
-      const response = await fetch('/api/test-telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          token: settings.telegram_bot_token,
-          chatId: settings.telegram_chat_id,
-          message: language === 'bm' 
-            ? '✅ Ujian notifikasi daripada KedaiPOS! Bot berfungsi dengan baik.' 
-            : '✅ Test notification from KedaiPOS! Bot is working properly.'
-        })
-      })
-
+      // Build message
+      const message = language === 'bm' 
+        ? '✅ Ujian notifikasi daripada KedaiPOS! Bot berfungsi dengan baik.' 
+        : '✅ Test notification from KedaiPOS! Bot is working properly.'
+      
+      // Direct call to Telegram API (NO BACKEND NEEDED)
+      const url = `https://api.telegram.org/bot${settings.telegram_bot_token}/sendMessage?chat_id=${settings.telegram_chat_id}&text=${encodeURIComponent(message)}`
+      
+      const response = await fetch(url)
       const result = await response.json()
       
-      if (result.success) {
-        toast.success(language === 'bm' ? '✅ Notifikasi berjaya dihantar!' : '✅ Notification sent successfully!')
+      if (result.ok) {
+        toast.success(
+          language === 'bm' 
+            ? '✅ Notifikasi berjaya dihantar ke Telegram!' 
+            : '✅ Notification sent to Telegram successfully!'
+        )
       } else {
-        toast.error(language === 'bm' ? '❌ Gagal menghantar: ' + result.error : '❌ Failed to send: ' + result.error)
+        // Show specific error from Telegram
+        let errorMessage = result.description || 'Unknown error'
+        
+        // Friendly error messages
+        if (errorMessage.includes('bot token')) {
+          errorMessage = language === 'bm' 
+            ? 'Token bot tidak sah. Sila semak semula.' 
+            : 'Invalid bot token. Please check.'
+        } else if (errorMessage.includes('chat not found')) {
+          errorMessage = language === 'bm' 
+            ? 'Chat ID tidak dijumpai. Sila semak semula.' 
+            : 'Chat ID not found. Please check.'
+        } else if (errorMessage.includes('bot was blocked')) {
+          errorMessage = language === 'bm' 
+            ? 'Bot telah disekat oleh pengguna. Sila mula semula.' 
+            : 'Bot was blocked by user. Please restart.'
+        } else if (errorMessage.includes('chat_id is empty')) {
+          errorMessage = language === 'bm' 
+            ? 'Chat ID kosong. Sila isi Chat ID.' 
+            : 'Chat ID is empty. Please fill in Chat ID.'
+        }
+        
+        toast.error(
+          language === 'bm' 
+            ? `❌ Gagal: ${errorMessage}` 
+            : `❌ Failed: ${errorMessage}`
+        )
       }
     } catch (error) {
-      toast.error(language === 'bm' ? '❌ Ralat: ' + error.message : '❌ Error: ' + error.message)
+      console.error('Telegram test error:', error)
+      toast.error(
+        language === 'bm' 
+          ? `❌ Ralat sambungan: ${error.message}` 
+          : `❌ Connection error: ${error.message}`
+      )
     }
+    
     setTestingTelegram(false)
   }
 
@@ -289,9 +328,7 @@ function ManageSettings() {
   const updateSetting = (key, value) => { setSettings(prev => ({ ...prev, [key]: value })) }
 
   // ============================================================
-  // ============================================================
-  // DELETE DATA FUNCTIONS (TAMBAHAN BARU)
-  // ============================================================
+  // DELETE DATA FUNCTIONS
   // ============================================================
 
   // 1. Delete All Orders
@@ -332,7 +369,19 @@ function ManageSettings() {
     }
   }
 
-  // 4. Delete All Staff
+  // 4. Delete All Customers
+  async function deleteAllCustomers() {
+    try {
+      const { error } = await supabase.from('customers').delete().neq('id', 0)
+      if (error) throw error
+      toast.success(language === 'bm' ? '✅ Semua pelanggan dipadam!' : '✅ All customers deleted!')
+      setShowConfirmModal(null)
+    } catch (error) {
+      toast.error('❌ ' + error.message)
+    }
+  }
+
+  // 5. Delete All Staff
   async function deleteAllStaff() {
     try {
       let error = null
@@ -352,24 +401,12 @@ function ManageSettings() {
     }
   }
 
-  // 5. Delete All Tables
+  // 6. Delete All Tables
   async function deleteAllTables() {
     try {
       const { error } = await supabase.from('tables').delete().neq('id', 0)
       if (error) throw error
       toast.success(language === 'bm' ? '✅ Semua meja dipadam!' : '✅ All tables deleted!')
-      setShowConfirmModal(null)
-    } catch (error) {
-      toast.error('❌ ' + error.message)
-    }
-  }
-
-  // 6. Delete All Customers
-  async function deleteAllCustomers() {
-    try {
-      const { error } = await supabase.from('customers').delete().neq('id', 0)
-      if (error) throw error
-      toast.success(language === 'bm' ? '✅ Semua pelanggan dipadam!' : '✅ All customers deleted!')
       setShowConfirmModal(null)
     } catch (error) {
       toast.error('❌ ' + error.message)
@@ -388,7 +425,7 @@ function ManageSettings() {
     }
   }
 
-  // 8. Delete All Settings (Reset to Default)
+  // 8. Reset All Settings
   async function deleteAllSettings() {
     try {
       const defaultSettings = [
@@ -417,10 +454,8 @@ function ManageSettings() {
         { key: 'telegram_notify_payment', value: 'true' },
       ]
       
-      // Delete all existing settings first
       await supabase.from('settings').delete().neq('key', '')
       
-      // Insert default settings
       for (const setting of defaultSettings) {
         await supabase.from('settings').upsert({ key: setting.key, value: setting.value }, { onConflict: 'key' })
       }
@@ -433,7 +468,23 @@ function ManageSettings() {
     }
   }
 
-  // 9. Delete All Data (Complete Reset)
+  // 9. Delete All Logs
+  async function deleteAllLogs() {
+    try {
+      const { error } = await supabase.from('system_logs').delete().neq('id', 0)
+      if (error) {
+        toast.info(language === 'bm' ? 'ℹ️ Tiada log untuk dipadam' : 'ℹ️ No logs to delete')
+        setShowConfirmModal(null)
+        return
+      }
+      toast.success(language === 'bm' ? '✅ Semua log dipadam!' : '✅ All logs deleted!')
+      setShowConfirmModal(null)
+    } catch (error) {
+      toast.error('❌ ' + error.message)
+    }
+  }
+
+  // 10. Reset ALL Data
   async function resetAllData() {
     try {
       const tables = ['customer_orders', 'menu', 'categories', 'tables', 'customers', 'payments']
@@ -445,7 +496,6 @@ function ManageSettings() {
       await supabase.from('drink_options').delete().neq('id', 0)
       await supabase.from('menu_options').delete().neq('id', 0)
       
-      // Reset settings to default
       const defaultSettings = [
         { key: 'restaurant_name', value: 'KedaiPOS' },
         { key: 'service_charge', value: '6' },
@@ -484,82 +534,50 @@ function ManageSettings() {
     }
   }
 
-  // 10. Delete All System Logs (jika ada table logs)
-  async function deleteAllLogs() {
-    try {
-      // Check if logs table exists first
-      const { error } = await supabase.from('system_logs').delete().neq('id', 0)
-      if (error) {
-        // Table might not exist yet
-        toast.info(language === 'bm' ? 'ℹ️ Tiada log untuk dipadam' : 'ℹ️ No logs to delete')
-        setShowConfirmModal(null)
-        return
-      }
-      toast.success(language === 'bm' ? '✅ Semua log dipadam!' : '✅ All logs deleted!')
-      setShowConfirmModal(null)
-    } catch (error) {
-      toast.error('❌ ' + error.message)
-    }
-  }
-
   // ============================================================
-  // DELETE ACTIONS CONFIGURATION (DENGAN TAMBAHAN BARU)
+  // DELETE ACTIONS CONFIGURATION
   // ============================================================
   const deleteActions = {
     orders: { 
       icon: '📋', 
       title: { en: 'Delete All Orders', ms: 'Padam Semua Pesanan' },
       desc: { en: 'Delete all order records permanently', ms: 'Padam semua rekod pesanan secara kekal' },
-      color: '#ef4444',
-      category: 'orders',
       action: deleteAllOrders
     },
     menu: { 
       icon: '🍽️', 
       title: { en: 'Delete All Menu', ms: 'Padam Semua Menu' },
       desc: { en: 'Delete all menu items and options', ms: 'Padam semua item menu dan pilihan' },
-      color: '#ef4444',
-      category: 'menu',
       action: deleteAllMenu
     },
     categories: { 
       icon: '📂', 
       title: { en: 'Delete All Categories', ms: 'Padam Semua Kategori' },
       desc: { en: 'Delete all categories permanently', ms: 'Padam semua kategori secara kekal' },
-      color: '#ef4444',
-      category: 'menu',
       action: deleteAllCategories
     },
     customers: { 
       icon: '👤', 
       title: { en: 'Delete All Customers', ms: 'Padam Semua Pelanggan' },
       desc: { en: 'Delete all customer records', ms: 'Padam semua rekod pelanggan' },
-      color: '#ef4444',
-      category: 'customers',
       action: deleteAllCustomers
     },
     staff: { 
       icon: '👥', 
       title: { en: 'Delete All Staff', ms: 'Padam Semua Staff' },
       desc: { en: 'Delete all staff (except admin)', ms: 'Padam semua staff (kecuali admin)' },
-      color: '#ef4444',
-      category: 'staff',
       action: deleteAllStaff
     },
     tables: { 
       icon: '🪑', 
       title: { en: 'Delete All Tables', ms: 'Padam Semua Meja' },
       desc: { en: 'Delete all table records', ms: 'Padam semua rekod meja' },
-      color: '#ef4444',
-      category: 'tables',
       action: deleteAllTables
     },
     payments: { 
       icon: '💳', 
       title: { en: 'Delete All Payments', ms: 'Padam Semua Pembayaran' },
       desc: { en: 'Delete all payment records', ms: 'Padam semua rekod pembayaran' },
-      color: '#ef4444',
-      category: 'payments',
       action: deleteAllPayments
     },
     settings_reset: { 
@@ -567,7 +585,6 @@ function ManageSettings() {
       title: { en: 'Reset All Settings', ms: 'Reset Semua Tetapan' },
       desc: { en: 'Reset all settings to default values', ms: 'Reset semua tetapan ke nilai default' },
       color: '#f59e0b',
-      category: 'system',
       action: deleteAllSettings
     },
     logs: { 
@@ -575,7 +592,6 @@ function ManageSettings() {
       title: { en: 'Delete All Logs', ms: 'Padam Semua Log' },
       desc: { en: 'Delete all system activity logs', ms: 'Padam semua log aktiviti sistem' },
       color: '#f59e0b',
-      category: 'system',
       action: deleteAllLogs
     },
     reset_all: { 
@@ -583,7 +599,6 @@ function ManageSettings() {
       title: { en: 'Reset ALL Data', ms: 'Reset SEMUA Data' },
       desc: { en: 'Delete ALL data and reset everything to default', ms: 'Padam SEMUA data dan reset semua ke default' },
       color: '#dc2626',
-      category: 'danger',
       isDanger: true,
       action: resetAllData
     }
@@ -596,12 +611,13 @@ function ManageSettings() {
       title: item.title,
       desc: item.desc,
       action: item.action,
-      isDanger: item.isDanger || false
+      isDanger: item.isDanger || false,
+      color: item.color || '#ef4444'
     })
   }
 
   // ============================================================
-  // RENDER SECTION COMPONENT
+  // RENDER COMPONENTS
   // ============================================================
   const Section = ({ icon, title, children }) => (
     <div style={{ marginBottom: '28px' }}>
@@ -630,7 +646,7 @@ function ManageSettings() {
         <span style={{ fontSize: '20px' }}>{icon}</span>
         <div>
           <div style={{ fontWeight: '600', fontSize: '14px', color: isDanger ? danger : textColor }}>{label}</div>
-          {description && <div style={{ fontSize: '11px', color: isDanger ? '#ef4444' : textMuted }}>{description}</div>}
+          {description && <div style={{ fontSize: '11px', color: isDanger ? danger : textMuted }}>{description}</div>}
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 180px', justifyContent: 'flex-end' }}>
@@ -1180,6 +1196,42 @@ function ManageSettings() {
               </div>
             </SettingRow>
 
+            {/* Cara Dapatkan Chat ID */}
+            <div style={{ 
+              ...cardStyle, 
+              marginTop: '4px',
+              background: darkMode ? 'rgba(34, 197, 94, 0.08)' : '#f0fdf4',
+              borderColor: '#22c55e'
+            }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '20px' }}>🤖</span>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 'bold', color: textColor, fontSize: '13px' }}>
+                    {language === 'bm' ? '📌 Cara Mudah Dapatkan Chat ID:' : '📌 Easy Way to Get Chat ID:'}
+                  </div>
+                  <ol style={{ color: textMuted, fontSize: '12px', paddingLeft: '20px', marginTop: '4px', lineHeight: '1.8' }}>
+                    <li>{language === 'bm' ? 'Buka Telegram dan cari @userinfobot' : 'Open Telegram and search for @userinfobot'}</li>
+                    <li>{language === 'bm' ? 'Klik "Start" atau hantar /start' : 'Click "Start" or send /start'}</li>
+                    <li>{language === 'bm' ? 'Bot akan tunjukkan ID anda - salin dan tampal di atas' : 'Bot will show your ID - copy and paste above'}</li>
+                  </ol>
+                  <div style={{ 
+                    marginTop: '6px', 
+                    padding: '6px 10px', 
+                    background: darkMode ? 'rgba(255,255,255,0.05)' : 'white',
+                    borderRadius: '6px',
+                    border: `1px solid ${borderColor}`,
+                    fontFamily: 'monospace',
+                    fontSize: '11px',
+                    color: textMuted
+                  }}>
+                    💡 {language === 'bm' 
+                      ? 'Tip: Untuk group, tambah bot ke group dan guna @userinfobot' 
+                      : 'Tip: For groups, add bot to group and use @userinfobot'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Notify New Order */}
             <SettingRow 
               icon="🆕" 
@@ -1243,31 +1295,8 @@ function ManageSettings() {
                   && (e.currentTarget.style.transform = 'scale(1.03)')}
                 onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
               >
-                {testingTelegram ? '⏳' : '📨 ' + (language === 'bm' ? 'Uji Sekarang' : 'Test Now')}
+                {testingTelegram ? '⏳ Menghantar...' : '📨 ' + (language === 'bm' ? 'Uji Sekarang' : 'Test Now')}
               </button>
-            </div>
-
-            {/* How To Guide */}
-            <div style={{ 
-              ...cardStyle, 
-              marginTop: '20px',
-              background: darkMode ? 'rgba(59, 130, 246, 0.08)' : '#eff6ff',
-              borderColor: '#3b82f6'
-            }}>
-              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
-                <span style={{ fontSize: '20px' }}>💡</span>
-                <div>
-                  <div style={{ fontWeight: 'bold', color: textColor, fontSize: '13px' }}>
-                    {language === 'bm' ? 'Cara Dapatkan Bot Token & Chat ID:' : 'How to Get Bot Token & Chat ID:'}
-                  </div>
-                  <ol style={{ color: textMuted, fontSize: '12px', paddingLeft: '20px', marginTop: '6px', lineHeight: '1.8' }}>
-                    <li>{language === 'bm' ? 'Buka Telegram dan cari @BotFather' : 'Open Telegram and find @BotFather'}</li>
-                    <li>{language === 'bm' ? 'Hantar /newbot dan ikut arahan untuk buat bot' : 'Send /newbot and follow instructions to create a bot'}</li>
-                    <li>{language === 'bm' ? 'Dapatkan token dari @BotFather' : 'Get token from @BotFather'}</li>
-                    <li>{language === 'bm' ? 'Untuk Chat ID, hantar mesej ke bot, kemudian pergi ke @userinfobot' : 'For Chat ID, send a message to bot, then go to @userinfobot'}</li>
-                  </ol>
-                </div>
-              </div>
             </div>
 
             {/* Butang Reset & Save */}
@@ -1295,7 +1324,6 @@ function ManageSettings() {
                 {saving ? '⏳ ' + t('saving') : '💾 ' + t('save')}
               </button>
 
-              {/* Reset All Telegram Settings */}
               <button 
                 onClick={() => {
                   const confirmMsg = language === 'bm' 
@@ -1369,12 +1397,11 @@ function ManageSettings() {
         )}
 
         {/* ============================================================ */}
-        {/* TAB 3: DELETE DATA (DENGAN TAMBAHAN BARU) */}
+        {/* TAB 3: DELETE DATA */}
         {/* ============================================================ */}
         {activeTab === 'data' && (
           <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
             
-            {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
               <span style={{ fontSize: '32px' }}>🗑️</span>
               <h3 style={{ margin: 0, color: textColor, fontSize: '20px', fontWeight: 'bold' }}>
@@ -1388,7 +1415,7 @@ function ManageSettings() {
                 : '⚠️ Caution! This action cannot be undone.'}
             </p>
 
-            {/* ===== CATEGORY: ORDERS & PAYMENTS ===== */}
+            {/* Category: Orders & Payments */}
             <div style={{ marginBottom: '24px' }}>
               <div style={{ 
                 fontSize: '13px', 
@@ -1457,7 +1484,7 @@ function ManageSettings() {
               </div>
             </div>
 
-            {/* ===== CATEGORY: MENU & CATEGORIES ===== */}
+            {/* Category: Menu & Categories */}
             <div style={{ marginBottom: '24px' }}>
               <div style={{ 
                 fontSize: '13px', 
@@ -1526,7 +1553,7 @@ function ManageSettings() {
               </div>
             </div>
 
-            {/* ===== CATEGORY: CUSTOMERS, STAFF & TABLES ===== */}
+            {/* Category: Customers, Staff & Tables */}
             <div style={{ marginBottom: '24px' }}>
               <div style={{ 
                 fontSize: '13px', 
@@ -1623,7 +1650,7 @@ function ManageSettings() {
               </div>
             </div>
 
-            {/* ===== CATEGORY: SYSTEM ===== */}
+            {/* Category: System */}
             <div style={{ marginBottom: '24px' }}>
               <div style={{ 
                 fontSize: '13px', 
@@ -1692,7 +1719,7 @@ function ManageSettings() {
               </div>
             </div>
 
-            {/* ===== DIVIDER ===== */}
+            {/* Divider */}
             <div style={{ 
               borderTop: `2px dashed ${borderColor}`, 
               margin: '20px 0 24px 0',
@@ -1713,7 +1740,7 @@ function ManageSettings() {
               </span>
             </div>
 
-            {/* ===== DANGER: RESET ALL ===== */}
+            {/* Danger: Reset ALL Data */}
             <div>
               <div style={{ 
                 fontSize: '13px', 

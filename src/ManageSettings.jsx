@@ -12,7 +12,7 @@ function ManageSettings() {
   const [activeTab, setActiveTab] = useState('settings')
   const [showConfirmModal, setShowConfirmModal] = useState(null)
   
-  // ✅ Mobile detection
+  // Mobile detection
   const [isMobile, setIsMobile] = useState(false)
   
   useEffect(() => {
@@ -43,15 +43,21 @@ function ManageSettings() {
     login_footer_text: '© 2024 KedaiPOS • POS System',
     auto_complete_enabled: true,
     auto_complete_minutes: 5,
-    // ===== TAMBAH INI =====
     auto_print_customer_order: true,
-    // ======================
+    // Telegram Settings
+    telegram_enabled: false,
+    telegram_bot_token: '',
+    telegram_chat_id: '',
+    telegram_notify_new_order: true,
+    telegram_notify_payment: true,
   })
+  
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [kitchenEnabled, setKitchenEnabled] = useState(true)
+  const [testingTelegram, setTestingTelegram] = useState(false)
 
   // Theme colors
   const bgColor = darkMode ? '#0f0f1a' : '#f1f5f9'
@@ -61,6 +67,11 @@ function ManageSettings() {
   const borderColor = darkMode ? 'rgba(71, 85, 105, 0.3)' : 'rgba(203, 213, 225, 0.6)'
   const secondaryBg = darkMode ? 'rgba(30, 30, 46, 0.8)' : 'rgba(248, 250, 252, 0.9)'
   const inputBg = darkMode ? '#1e1e2e' : '#ffffff'
+  const primary = '#3b82f6'
+  const primaryGradient = 'linear-gradient(135deg, #3b82f6, #2563eb)'
+  const success = '#22c55e'
+  const danger = '#ef4444'
+  const warning = '#f59e0b'
   
   const glassEffect = {
     background: cardBg,
@@ -75,12 +86,61 @@ function ManageSettings() {
     borderRadius: '40px',
     cursor: 'pointer',
     fontWeight: isActive ? 'bold' : 'normal',
-    background: isActive ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
+    background: isActive ? primaryGradient : 'transparent',
     color: isActive ? 'white' : textColor,
     transition: 'all 0.2s ease',
     fontSize: '14px',
     border: isActive ? 'none' : `1px solid ${borderColor}`
   })
+
+  const cardStyle = {
+    background: secondaryBg,
+    borderRadius: '16px',
+    padding: '16px',
+    marginBottom: '12px',
+    border: `1px solid ${borderColor}`
+  }
+
+  const inputStyle = {
+    width: '100%',
+    padding: '12px 16px',
+    borderRadius: '12px',
+    border: `1px solid ${borderColor}`,
+    fontSize: '14px',
+    background: inputBg,
+    color: textColor,
+    outline: 'none',
+    transition: 'all 0.2s'
+  }
+
+  const toggleSwitch = (checked, onChange) => (
+    <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '26px', flexShrink: 0 }}>
+      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
+      <span style={{ 
+        position: 'absolute', 
+        cursor: 'pointer', 
+        top: 0, 
+        left: 0, 
+        right: 0, 
+        bottom: 0, 
+        backgroundColor: checked ? success : '#64748b', 
+        transition: '.3s', 
+        borderRadius: '34px' 
+      }}>
+        <span style={{ 
+          position: 'absolute', 
+          height: '20px', 
+          width: '20px', 
+          left: '3px', 
+          bottom: '3px', 
+          backgroundColor: 'white', 
+          transition: '.3s', 
+          borderRadius: '50%', 
+          transform: checked ? 'translateX(26px)' : 'none' 
+        }} />
+      </span>
+    </label>
+  )
 
   useEffect(() => {
     loadSettings()
@@ -94,9 +154,9 @@ function ManageSettings() {
       if (data && data.length > 0) {
         const newSettings = { ...settings }
         data.forEach(item => {
-          if (item.key === 'service_charge' || item.key === 'tax' || item.key === 'auto_complete_minutes') {
+          if (['service_charge', 'tax', 'auto_complete_minutes'].includes(item.key)) {
             newSettings[item.key] = parseFloat(item.value) || 0
-          } else if (item.key === 'auto_print' || item.key === 'notification_sound' || item.key === 'kitchen_enabled' || item.key === 'special_menu_enabled' || item.key === 'auto_complete_enabled' || item.key === 'auto_print_customer_order') {
+          } else if (['auto_print', 'notification_sound', 'kitchen_enabled', 'special_menu_enabled', 'auto_complete_enabled', 'auto_print_customer_order', 'telegram_enabled', 'telegram_notify_new_order', 'telegram_notify_payment'].includes(item.key)) {
             newSettings[item.key] = item.value === 'true'
           } else {
             newSettings[item.key] = item.value
@@ -142,6 +202,42 @@ function ManageSettings() {
     setTimeout(() => setMessage(''), 3000)
   }
 
+  // ============================================================
+  // TELEGRAM TEST FUNCTION
+  // ============================================================
+  async function testTelegram() {
+    if (!settings.telegram_bot_token || !settings.telegram_chat_id) {
+      toast.error(language === 'bm' ? '❌ Sila isi Bot Token dan Chat ID' : '❌ Please fill in Bot Token and Chat ID')
+      return
+    }
+
+    setTestingTelegram(true)
+    try {
+      const response = await fetch('/api/test-telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          token: settings.telegram_bot_token,
+          chatId: settings.telegram_chat_id,
+          message: language === 'bm' 
+            ? '✅ Ujian notifikasi daripada KedaiPOS! Bot berfungsi dengan baik.' 
+            : '✅ Test notification from KedaiPOS! Bot is working properly.'
+        })
+      })
+
+      const result = await response.json()
+      
+      if (result.success) {
+        toast.success(language === 'bm' ? '✅ Notifikasi berjaya dihantar!' : '✅ Notification sent successfully!')
+      } else {
+        toast.error(language === 'bm' ? '❌ Gagal menghantar: ' + result.error : '❌ Failed to send: ' + result.error)
+      }
+    } catch (error) {
+      toast.error(language === 'bm' ? '❌ Ralat: ' + error.message : '❌ Error: ' + error.message)
+    }
+    setTestingTelegram(false)
+  }
+
   async function saveSettings() {
     setSaving(true)
     setMessage('')
@@ -164,9 +260,13 @@ function ManageSettings() {
         { key: 'login_footer_text', value: settings.login_footer_text },
         { key: 'auto_complete_enabled', value: settings.auto_complete_enabled.toString() },
         { key: 'auto_complete_minutes', value: settings.auto_complete_minutes.toString() },
-        // ===== TAMBAH INI =====
         { key: 'auto_print_customer_order', value: settings.auto_print_customer_order.toString() },
-        // ======================
+        // Telegram Settings
+        { key: 'telegram_enabled', value: settings.telegram_enabled.toString() },
+        { key: 'telegram_bot_token', value: settings.telegram_bot_token },
+        { key: 'telegram_chat_id', value: settings.telegram_chat_id },
+        { key: 'telegram_notify_new_order', value: settings.telegram_notify_new_order.toString() },
+        { key: 'telegram_notify_payment', value: settings.telegram_notify_payment.toString() },
       ]
       let hasError = false
       for (const update of updates) {
@@ -189,9 +289,12 @@ function ManageSettings() {
   const updateSetting = (key, value) => { setSettings(prev => ({ ...prev, [key]: value })) }
 
   // ============================================================
-  // DELETE DATA FUNCTIONS
   // ============================================================
-  
+  // DELETE DATA FUNCTIONS (TAMBAHAN BARU)
+  // ============================================================
+  // ============================================================
+
+  // 1. Delete All Orders
   async function deleteAllOrders() {
     try {
       const { error } = await supabase.from('customer_orders').delete().neq('id', 0)
@@ -203,14 +306,13 @@ function ManageSettings() {
     }
   }
 
+  // 2. Delete All Menu
   async function deleteAllMenu() {
     try {
       const { error } = await supabase.from('menu').delete().neq('id', 0)
       if (error) throw error
-      
       await supabase.from('drink_options').delete().neq('id', 0)
       await supabase.from('menu_options').delete().neq('id', 0)
-      
       toast.success(language === 'bm' ? '✅ Semua menu dipadam!' : '✅ All menu deleted!')
       setShowConfirmModal(null)
     } catch (error) {
@@ -218,6 +320,7 @@ function ManageSettings() {
     }
   }
 
+  // 3. Delete All Categories
   async function deleteAllCategories() {
     try {
       const { error } = await supabase.from('categories').delete().neq('id', 0)
@@ -229,6 +332,7 @@ function ManageSettings() {
     }
   }
 
+  // 4. Delete All Staff
   async function deleteAllStaff() {
     try {
       let error = null
@@ -237,9 +341,7 @@ function ManageSettings() {
         const { error: err2 } = await supabase.from('users').delete().neq('username', 'admin')
         if (err2) {
           const { error: err3 } = await supabase.from('staff').delete().neq('username', 'admin')
-          if (err3) {
-            error = err3
-          }
+          if (err3) error = err3
         }
       }
       if (error) throw error
@@ -250,6 +352,7 @@ function ManageSettings() {
     }
   }
 
+  // 5. Delete All Tables
   async function deleteAllTables() {
     try {
       const { error } = await supabase.from('tables').delete().neq('id', 0)
@@ -261,17 +364,33 @@ function ManageSettings() {
     }
   }
 
-  async function resetAllData() {
+  // 6. Delete All Customers
+  async function deleteAllCustomers() {
     try {
-      const tables = ['customer_orders', 'menu', 'categories', 'tables']
-      for (const table of tables) {
-        const { error } = await supabase.from(table).delete().neq('id', 0)
-        if (error) console.error(`Error deleting ${table}:`, error)
-      }
-      
-      await supabase.from('drink_options').delete().neq('id', 0)
-      await supabase.from('menu_options').delete().neq('id', 0)
-      
+      const { error } = await supabase.from('customers').delete().neq('id', 0)
+      if (error) throw error
+      toast.success(language === 'bm' ? '✅ Semua pelanggan dipadam!' : '✅ All customers deleted!')
+      setShowConfirmModal(null)
+    } catch (error) {
+      toast.error('❌ ' + error.message)
+    }
+  }
+
+  // 7. Delete All Payments
+  async function deleteAllPayments() {
+    try {
+      const { error } = await supabase.from('payments').delete().neq('id', 0)
+      if (error) throw error
+      toast.success(language === 'bm' ? '✅ Semua pembayaran dipadam!' : '✅ All payments deleted!')
+      setShowConfirmModal(null)
+    } catch (error) {
+      toast.error('❌ ' + error.message)
+    }
+  }
+
+  // 8. Delete All Settings (Reset to Default)
+  async function deleteAllSettings() {
+    try {
       const defaultSettings = [
         { key: 'restaurant_name', value: 'KedaiPOS' },
         { key: 'service_charge', value: '6' },
@@ -291,6 +410,66 @@ function ManageSettings() {
         { key: 'auto_complete_enabled', value: 'true' },
         { key: 'auto_complete_minutes', value: '5' },
         { key: 'auto_print_customer_order', value: 'true' },
+        { key: 'telegram_enabled', value: 'false' },
+        { key: 'telegram_bot_token', value: '' },
+        { key: 'telegram_chat_id', value: '' },
+        { key: 'telegram_notify_new_order', value: 'true' },
+        { key: 'telegram_notify_payment', value: 'true' },
+      ]
+      
+      // Delete all existing settings first
+      await supabase.from('settings').delete().neq('key', '')
+      
+      // Insert default settings
+      for (const setting of defaultSettings) {
+        await supabase.from('settings').upsert({ key: setting.key, value: setting.value }, { onConflict: 'key' })
+      }
+      
+      toast.success(language === 'bm' ? '✅ Semua tetapan direset ke default!' : '✅ All settings reset to default!')
+      setShowConfirmModal(null)
+      await loadSettings()
+    } catch (error) {
+      toast.error('❌ ' + error.message)
+    }
+  }
+
+  // 9. Delete All Data (Complete Reset)
+  async function resetAllData() {
+    try {
+      const tables = ['customer_orders', 'menu', 'categories', 'tables', 'customers', 'payments']
+      for (const table of tables) {
+        const { error } = await supabase.from(table).delete().neq('id', 0)
+        if (error) console.error(`Error deleting ${table}:`, error)
+      }
+      
+      await supabase.from('drink_options').delete().neq('id', 0)
+      await supabase.from('menu_options').delete().neq('id', 0)
+      
+      // Reset settings to default
+      const defaultSettings = [
+        { key: 'restaurant_name', value: 'KedaiPOS' },
+        { key: 'service_charge', value: '6' },
+        { key: 'tax', value: '6' },
+        { key: 'printer_type', value: 'thermal' },
+        { key: 'auto_print', value: 'true' },
+        { key: 'notification_sound', value: 'true' },
+        { key: 'kitchen_enabled', value: 'true' },
+        { key: 'special_menu_enabled', value: 'false' },
+        { key: 'special_menu_title', value: 'Istimewa Hari Ini' },
+        { key: 'business_hours_start', value: '09:00' },
+        { key: 'business_hours_end', value: '22:00' },
+        { key: 'login_welcome_text', value: 'Welcome Back!' },
+        { key: 'login_subtitle_text', value: 'Please sign in to continue' },
+        { key: 'login_branding_text', value: 'POS System for Small & Medium Restaurants' },
+        { key: 'login_footer_text', value: '© 2024 KedaiPOS • POS System' },
+        { key: 'auto_complete_enabled', value: 'true' },
+        { key: 'auto_complete_minutes', value: '5' },
+        { key: 'auto_print_customer_order', value: 'true' },
+        { key: 'telegram_enabled', value: 'false' },
+        { key: 'telegram_bot_token', value: '' },
+        { key: 'telegram_chat_id', value: '' },
+        { key: 'telegram_notify_new_order', value: 'true' },
+        { key: 'telegram_notify_payment', value: 'true' },
       ]
       
       for (const setting of defaultSettings) {
@@ -299,39 +478,72 @@ function ManageSettings() {
       
       toast.success(language === 'bm' ? '✅ Semua data direset!' : '✅ All data reset!')
       setShowConfirmModal(null)
-      setTimeout(() => window.location.reload(), 1000)
+      setTimeout(() => window.location.reload(), 1500)
     } catch (error) {
       toast.error('❌ ' + error.message)
     }
   }
 
+  // 10. Delete All System Logs (jika ada table logs)
+  async function deleteAllLogs() {
+    try {
+      // Check if logs table exists first
+      const { error } = await supabase.from('system_logs').delete().neq('id', 0)
+      if (error) {
+        // Table might not exist yet
+        toast.info(language === 'bm' ? 'ℹ️ Tiada log untuk dipadam' : 'ℹ️ No logs to delete')
+        setShowConfirmModal(null)
+        return
+      }
+      toast.success(language === 'bm' ? '✅ Semua log dipadam!' : '✅ All logs deleted!')
+      setShowConfirmModal(null)
+    } catch (error) {
+      toast.error('❌ ' + error.message)
+    }
+  }
+
+  // ============================================================
+  // DELETE ACTIONS CONFIGURATION (DENGAN TAMBAHAN BARU)
+  // ============================================================
   const deleteActions = {
     orders: { 
       icon: '📋', 
       title: { en: 'Delete All Orders', ms: 'Padam Semua Pesanan' },
-      desc: { en: 'Delete all order records', ms: 'Padam semua rekod pesanan' },
+      desc: { en: 'Delete all order records permanently', ms: 'Padam semua rekod pesanan secara kekal' },
       color: '#ef4444',
+      category: 'orders',
       action: deleteAllOrders
     },
     menu: { 
       icon: '🍽️', 
       title: { en: 'Delete All Menu', ms: 'Padam Semua Menu' },
-      desc: { en: 'Delete all menu items', ms: 'Padam semua item menu' },
+      desc: { en: 'Delete all menu items and options', ms: 'Padam semua item menu dan pilihan' },
       color: '#ef4444',
+      category: 'menu',
       action: deleteAllMenu
     },
     categories: { 
       icon: '📂', 
       title: { en: 'Delete All Categories', ms: 'Padam Semua Kategori' },
-      desc: { en: 'Delete all categories', ms: 'Padam semua kategori' },
+      desc: { en: 'Delete all categories permanently', ms: 'Padam semua kategori secara kekal' },
       color: '#ef4444',
+      category: 'menu',
       action: deleteAllCategories
+    },
+    customers: { 
+      icon: '👤', 
+      title: { en: 'Delete All Customers', ms: 'Padam Semua Pelanggan' },
+      desc: { en: 'Delete all customer records', ms: 'Padam semua rekod pelanggan' },
+      color: '#ef4444',
+      category: 'customers',
+      action: deleteAllCustomers
     },
     staff: { 
       icon: '👥', 
       title: { en: 'Delete All Staff', ms: 'Padam Semua Staff' },
       desc: { en: 'Delete all staff (except admin)', ms: 'Padam semua staff (kecuali admin)' },
       color: '#ef4444',
+      category: 'staff',
       action: deleteAllStaff
     },
     tables: { 
@@ -339,13 +551,40 @@ function ManageSettings() {
       title: { en: 'Delete All Tables', ms: 'Padam Semua Meja' },
       desc: { en: 'Delete all table records', ms: 'Padam semua rekod meja' },
       color: '#ef4444',
+      category: 'tables',
       action: deleteAllTables
+    },
+    payments: { 
+      icon: '💳', 
+      title: { en: 'Delete All Payments', ms: 'Padam Semua Pembayaran' },
+      desc: { en: 'Delete all payment records', ms: 'Padam semua rekod pembayaran' },
+      color: '#ef4444',
+      category: 'payments',
+      action: deleteAllPayments
+    },
+    settings_reset: { 
+      icon: '⚙️', 
+      title: { en: 'Reset All Settings', ms: 'Reset Semua Tetapan' },
+      desc: { en: 'Reset all settings to default values', ms: 'Reset semua tetapan ke nilai default' },
+      color: '#f59e0b',
+      category: 'system',
+      action: deleteAllSettings
+    },
+    logs: { 
+      icon: '📜', 
+      title: { en: 'Delete All Logs', ms: 'Padam Semua Log' },
+      desc: { en: 'Delete all system activity logs', ms: 'Padam semua log aktiviti sistem' },
+      color: '#f59e0b',
+      category: 'system',
+      action: deleteAllLogs
     },
     reset_all: { 
       icon: '⚠️', 
       title: { en: 'Reset ALL Data', ms: 'Reset SEMUA Data' },
-      desc: { en: 'Delete all data and reset settings to default', ms: 'Padam semua data dan reset tetapan ke default' },
+      desc: { en: 'Delete ALL data and reset everything to default', ms: 'Padam SEMUA data dan reset semua ke default' },
       color: '#dc2626',
+      category: 'danger',
+      isDanger: true,
       action: resetAllData
     }
   }
@@ -356,9 +595,49 @@ function ManageSettings() {
       key: key,
       title: item.title,
       desc: item.desc,
-      action: item.action
+      action: item.action,
+      isDanger: item.isDanger || false
     })
   }
+
+  // ============================================================
+  // RENDER SECTION COMPONENT
+  // ============================================================
+  const Section = ({ icon, title, children }) => (
+    <div style={{ marginBottom: '28px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+        <span style={{ fontSize: '24px' }}>{icon}</span>
+        <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>{title}</h3>
+      </div>
+      {children}
+    </div>
+  )
+
+  const SettingRow = ({ icon, label, description, children, isDanger = false }) => (
+    <div style={{ 
+      display: 'flex', 
+      justifyContent: 'space-between', 
+      alignItems: 'center', 
+      padding: '14px 16px',
+      background: isDanger ? 'rgba(239, 68, 68, 0.05)' : secondaryBg,
+      borderRadius: '14px',
+      marginBottom: '10px',
+      flexWrap: 'wrap',
+      gap: '10px',
+      border: isDanger ? `1px solid rgba(239, 68, 68, 0.3)` : 'none'
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: '1 1 200px' }}>
+        <span style={{ fontSize: '20px' }}>{icon}</span>
+        <div>
+          <div style={{ fontWeight: '600', fontSize: '14px', color: isDanger ? danger : textColor }}>{label}</div>
+          {description && <div style={{ fontSize: '11px', color: isDanger ? '#ef4444' : textMuted }}>{description}</div>}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 180px', justifyContent: 'flex-end' }}>
+        {children}
+      </div>
+    </div>
+  )
 
   if (loading) {
     return (
@@ -374,7 +653,7 @@ function ManageSettings() {
     <Sidebar>
       <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto', background: bgColor, minHeight: '100vh' }}>
         
-        {/* Header */}
+        {/* ===== HEADER ===== */}
         <div style={{ marginBottom: '32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '12px' }}>
             <div style={{
@@ -426,6 +705,12 @@ function ManageSettings() {
             ⚙️ {language === 'bm' ? 'Tetapan' : 'Settings'}
           </button>
           <button 
+            onClick={() => setActiveTab('telegram')}
+            style={tabButtonStyle(activeTab === 'telegram')}
+          >
+            📱 {language === 'bm' ? 'Telegram' : 'Telegram'}
+          </button>
+          <button 
             onClick={() => setActiveTab('data')}
             style={tabButtonStyle(activeTab === 'data')}
           >
@@ -433,7 +718,7 @@ function ManageSettings() {
           </button>
         </div>
 
-        {/* Message Alert */}
+        {/* ===== MESSAGE ALERT ===== */}
         {message && (
           <div style={{ 
             background: message.includes('✅') ? '#dcfce7' : '#fee2e2', 
@@ -455,329 +740,279 @@ function ManageSettings() {
         {activeTab === 'settings' && (
           <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
             
-            {/* Section 1: Language */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '24px' }}>🌐</span>
-                <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>{t('language')}</h3>
-              </div>
+            {/* 🌐 Language */}
+            <Section icon="🌐" title={t('language')}>
               <select 
                 value={language} 
                 onChange={(e) => setLanguage(e.target.value)} 
-                style={{ 
-                  width: '100%', 
-                  padding: '14px', 
-                  borderRadius: '16px', 
-                  border: `1px solid ${borderColor}`, 
-                  fontSize: '14px', 
-                  background: inputBg, 
-                  color: textColor,
-                  outline: 'none'
-                }}
+                style={inputStyle}
               >
                 <option value="bm">🇲🇾 Bahasa Melayu</option>
                 <option value="en">🇺🇸 English</option>
               </select>
-            </div>
+            </Section>
 
-            {/* Section 2: Restaurant Info */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '24px' }}>🏪</span>
-                <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>
-                  {language === 'bm' ? 'Maklumat Restoran' : 'Restaurant Info'}
-                </h3>
-              </div>
-              
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>🖼️ {t('restaurant_logo')}</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+            {/* 🏪 Restaurant Info */}
+            <Section icon="🏪" title={language === 'bm' ? 'Maklumat Restoran' : 'Restaurant Info'}>
+              <SettingRow 
+                icon="🖼️" 
+                label={t('restaurant_logo')}
+                description={language === 'bm' ? 'JPG, PNG (Saiz terbaik: 200x200px)' : 'JPG, PNG (Best size: 200x200px)'}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                   {settings.logo_url ? (
                     <div style={{ position: 'relative' }}>
-                      <img src={settings.logo_url} alt="Logo" style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '16px', border: `1px solid ${borderColor}` }} />
-                      <button onClick={deleteLogo} style={{ position: 'absolute', top: '-8px', right: '-8px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', fontSize: '12px', cursor: 'pointer' }}>✕</button>
+                      <img src={settings.logo_url} alt="Logo" style={{ width: '48px', height: '48px', objectFit: 'cover', borderRadius: '10px', border: `1px solid ${borderColor}` }} />
+                      <button onClick={deleteLogo} style={{ position: 'absolute', top: '-6px', right: '-6px', background: danger, color: 'white', border: 'none', borderRadius: '50%', width: '18px', height: '18px', fontSize: '10px', cursor: 'pointer' }}>✕</button>
                     </div>
                   ) : (
-                    <div style={{ width: '80px', height: '80px', background: secondaryBg, borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${borderColor}` }}>
-                      <span style={{ fontSize: '40px' }}>🏪</span>
+                    <div style={{ width: '48px', height: '48px', background: secondaryBg, borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${borderColor}` }}>
+                      <span style={{ fontSize: '24px' }}>🏪</span>
                     </div>
                   )}
                   <div>
                     <input type="file" accept="image/*" onChange={(e) => { if (e.target.files[0]) uploadLogo(e.target.files[0]) }} style={{ display: 'none' }} id="logo-upload" />
-                    <label htmlFor="logo-upload" style={{ display: 'inline-block', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', padding: '10px 20px', borderRadius: '40px', cursor: 'pointer', fontSize: '13px', fontWeight: 'bold' }}>
-                      {uploadingLogo ? '⏳ ' + t('uploading') : '📤 ' + t('select_logo')}
+                    <label htmlFor="logo-upload" style={{ display: 'inline-block', background: primaryGradient, color: 'white', padding: '6px 14px', borderRadius: '30px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>
+                      {uploadingLogo ? '⏳' : '📤'}
                     </label>
-                    <p style={{ fontSize: '11px', color: textMuted, marginTop: '8px' }}>
-                      {language === 'bm' ? 'Format: JPG, PNG (Saiz terbaik: 200x200px)' : 'Format: JPG, PNG (Best size: 200x200px)'}
-                    </p>
                   </div>
                 </div>
-              </div>
+              </SettingRow>
 
-              <div>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>📛 {t('restaurant_name')}</label>
-                <input type="text" value={settings.restaurant_name} onChange={(e) => updateSetting('restaurant_name', e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} />
-              </div>
-            </div>
+              <SettingRow 
+                icon="📛" 
+                label={t('restaurant_name')}
+              >
+                <input 
+                  type="text" 
+                  value={settings.restaurant_name} 
+                  onChange={(e) => updateSetting('restaurant_name', e.target.value)} 
+                  style={{ ...inputStyle, maxWidth: '250px' }} 
+                />
+              </SettingRow>
+            </Section>
 
-            {/* Section 3: Tax & Service Charge */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '24px' }}>💰</span>
-                <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>
-                  {language === 'bm' ? 'Cukai & Caj Perkhidmatan' : 'Tax & Service Charge'}
-                </h3>
+            {/* 💰 Tax & Service Charge */}
+            <Section icon="💰" title={language === 'bm' ? 'Cukai & Caj Perkhidmatan' : 'Tax & Service Charge'}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
+                <SettingRow 
+                  icon="🧾" 
+                  label={t('service_charge') + ' (%)'}
+                >
+                  <input 
+                    type="number" 
+                    step="0.5" 
+                    min="0" 
+                    max="100" 
+                    value={settings.service_charge} 
+                    onChange={(e) => updateSetting('service_charge', parseFloat(e.target.value) || 0)} 
+                    style={{ ...inputStyle, maxWidth: '100px' }} 
+                  />
+                </SettingRow>
+                <SettingRow 
+                  icon="🏛️" 
+                  label={t('tax') + ' (%)'}
+                >
+                  <input 
+                    type="number" 
+                    step="0.5" 
+                    min="0" 
+                    max="100" 
+                    value={settings.tax} 
+                    onChange={(e) => updateSetting('tax', parseFloat(e.target.value) || 0)} 
+                    style={{ ...inputStyle, maxWidth: '100px' }} 
+                  />
+                </SettingRow>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>{t('service_charge')} (%)</label>
-                  <input type="number" step="0.5" min="0" max="100" value={settings.service_charge} onChange={(e) => updateSetting('service_charge', parseFloat(e.target.value) || 0)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>{t('tax')} (%)</label>
-                  <input type="number" step="0.5" min="0" max="100" value={settings.tax} onChange={(e) => updateSetting('tax', parseFloat(e.target.value) || 0)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} />
-                </div>
-              </div>
-            </div>
+            </Section>
 
-            {/* Section 4: Printer Settings */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '24px' }}>🖨️</span>
-                <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>
-                  {language === 'bm' ? 'Pencetakan' : 'Printing'}
-                </h3>
-              </div>
-              
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>{t('printer_type')}</label>
-                <select value={settings.printer_type} onChange={(e) => updateSetting('printer_type', e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }}>
+            {/* 🖨️ Printing */}
+            <Section icon="🖨️" title={language === 'bm' ? 'Pencetakan' : 'Printing'}>
+              <SettingRow 
+                icon="🖨️" 
+                label={t('printer_type')}
+              >
+                <select 
+                  value={settings.printer_type} 
+                  onChange={(e) => updateSetting('printer_type', e.target.value)} 
+                  style={{ ...inputStyle, maxWidth: '200px' }}
+                >
                   <option value="thermal">🖨️ {t('thermal_printer')}</option>
                   <option value="a4">📄 {t('a4_printer')}</option>
                   <option value="none">❌ {t('no_printer')}</option>
                 </select>
-              </div>
+              </SettingRow>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: secondaryBg, borderRadius: '16px' }}>
-                  <label style={{ fontWeight: 'bold', fontSize: '13px', color: textColor }}>🖨️ {t('auto_print')}</label>
-                  <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '26px' }}>
-                    <input type="checkbox" checked={settings.auto_print} onChange={(e) => updateSetting('auto_print', e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
-                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: settings.auto_print ? '#22c55e' : '#64748b', transition: '.3s', borderRadius: '34px' }}>
-                      <span style={{ position: 'absolute', height: '20px', width: '20px', left: '3px', bottom: '3px', backgroundColor: 'white', transition: '.3s', borderRadius: '50%', transform: settings.auto_print ? 'translateX(26px)' : 'none' }} />
-                    </span>
-                  </label>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', background: secondaryBg, borderRadius: '16px' }}>
-                  <label style={{ fontWeight: 'bold', fontSize: '13px', color: textColor }}>🔔 {t('notification_sound')}</label>
-                  <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '26px' }}>
-                    <input type="checkbox" checked={settings.notification_sound} onChange={(e) => updateSetting('notification_sound', e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
-                    <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: settings.notification_sound ? '#22c55e' : '#64748b', transition: '.3s', borderRadius: '34px' }}>
-                      <span style={{ position: 'absolute', height: '20px', width: '20px', left: '3px', bottom: '3px', backgroundColor: 'white', transition: '.3s', borderRadius: '50%', transform: settings.notification_sound ? 'translateX(26px)' : 'none' }} />
-                    </span>
-                  </label>
-                </div>
-              </div>
-            </div>
+              <SettingRow 
+                icon="🖨️" 
+                label={t('auto_print')}
+                description={language === 'bm' ? 'Cetak resit secara automatik' : 'Auto print receipt'}
+              >
+                {toggleSwitch(settings.auto_print, (val) => updateSetting('auto_print', val))}
+              </SettingRow>
 
-            {/* Section 5: Kitchen Settings */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '24px' }}>🍳</span>
-                <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>
-                  {language === 'bm' ? 'Dapur Digital' : 'Digital Kitchen'}
-                </h3>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: secondaryBg, borderRadius: '20px' }}>
-                <div>
-                  <label style={{ fontWeight: 'bold', fontSize: '14px', color: textColor }}>{t('kitchen_app')}</label>
-                  <p style={{ fontSize: '11px', color: textMuted, marginTop: '4px' }}>{t('kitchen_on_off')}</p>
-                </div>
-                <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '26px' }}>
-                  <input type="checkbox" checked={kitchenEnabled} onChange={(e) => setKitchenEnabled(e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
-                  <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: kitchenEnabled ? '#22c55e' : '#64748b', transition: '.3s', borderRadius: '34px' }}>
-                    <span style={{ position: 'absolute', height: '20px', width: '20px', left: '3px', bottom: '3px', backgroundColor: 'white', transition: '.3s', borderRadius: '50%', transform: kitchenEnabled ? 'translateX(26px)' : 'none' }} />
-                  </span>
-                </label>
-              </div>
+              <SettingRow 
+                icon="🔔" 
+                label={t('notification_sound')}
+                description={language === 'bm' ? 'Bunyi notifikasi untuk pesanan baru' : 'Notification sound for new orders'}
+              >
+                {toggleSwitch(settings.notification_sound, (val) => updateSetting('notification_sound', val))}
+              </SettingRow>
+            </Section>
+
+            {/* 🧾 Customer Order Auto Print */}
+            <Section icon="🧾" title={language === 'bm' ? 'Cetakan Pesanan Pelanggan' : 'Customer Order Printing'}>
+              <SettingRow 
+                icon="🧾" 
+                label={language === 'bm' ? 'Cetak Resit Pelanggan' : 'Print Customer Receipt'}
+                description={language === 'bm' ? 'Cetak resit pelanggan secara automatik' : 'Auto print customer receipt'}
+              >
+                {toggleSwitch(settings.auto_print_customer_order, (val) => updateSetting('auto_print_customer_order', val))}
+              </SettingRow>
+            </Section>
+
+            {/* 🍳 Kitchen */}
+            <Section icon="🍳" title={language === 'bm' ? 'Dapur Digital' : 'Digital Kitchen'}>
+              <SettingRow 
+                icon="🍳" 
+                label={t('kitchen_app')}
+                description={language === 'bm' ? 'Hidupkan/matikan modul dapur' : 'Enable/disable kitchen module'}
+              >
+                {toggleSwitch(kitchenEnabled, setKitchenEnabled)}
+              </SettingRow>
 
               {!kitchenEnabled && (
-                <div style={{ marginTop: '16px', padding: '16px', background: secondaryBg, borderRadius: '16px' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-                    <div>
-                      <label style={{ fontWeight: 'bold', fontSize: '14px', color: textColor }}>⏱️ {t('auto_complete')}</label>
-                      <p style={{ fontSize: '11px', color: textMuted, marginTop: '2px' }}>
-                        {language === 'bm' ? 'Pesanan akan dilengkapkan secara automatik selepas X minit' : 'Order will be auto completed after X minutes'}
-                      </p>
-                    </div>
-                    <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '26px' }}>
-                      <input type="checkbox" checked={settings.auto_complete_enabled} onChange={(e) => updateSetting('auto_complete_enabled', e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
-                      <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: settings.auto_complete_enabled ? '#22c55e' : '#64748b', transition: '.3s', borderRadius: '34px' }}>
-                        <span style={{ position: 'absolute', height: '20px', width: '20px', left: '3px', bottom: '3px', backgroundColor: 'white', transition: '.3s', borderRadius: '50%', transform: settings.auto_complete_enabled ? 'translateX(26px)' : 'none' }} />
-                      </span>
-                    </label>
-                  </div>
-                  
+                <>
+                  <SettingRow 
+                    icon="⏱️" 
+                    label={t('auto_complete')}
+                    description={language === 'bm' ? 'Lengkapkan pesanan secara automatik' : 'Auto complete orders'}
+                  >
+                    {toggleSwitch(settings.auto_complete_enabled, (val) => updateSetting('auto_complete_enabled', val))}
+                  </SettingRow>
+
                   {settings.auto_complete_enabled && (
-                    <div>
-                      <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>
-                        ⏱️ {t('minutes_to_complete')}
-                      </label>
+                    <SettingRow 
+                      icon="⏱️" 
+                      label={language === 'bm' ? 'Minit Untuk Lengkap' : 'Minutes To Complete'}
+                    >
                       <input 
                         type="number" 
                         min="1" 
                         max="30" 
                         value={settings.auto_complete_minutes} 
                         onChange={(e) => updateSetting('auto_complete_minutes', parseInt(e.target.value) || 5)} 
-                        style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} 
+                        style={{ ...inputStyle, maxWidth: '100px' }} 
                       />
-                      <p style={{ fontSize: '11px', color: textMuted, marginTop: '4px' }}>
-                        {language === 'bm' ? 'Pesanan akan dilengkapkan secara automatik selepas' : 'Order will be auto completed after'} {settings.auto_complete_minutes} {language === 'bm' ? 'minit' : 'minutes'}
-                      </p>
-                    </div>
+                    </SettingRow>
                   )}
-                </div>
+                </>
               )}
-            </div>
+            </Section>
 
-            {/* Section 6: Special Menu */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '24px' }}>⭐</span>
-                <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>
-                  {language === 'bm' ? 'Menu Istimewa' : 'Special Menu'}
-                </h3>
-              </div>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: secondaryBg, borderRadius: '20px', marginBottom: '16px' }}>
-                <div>
-                  <label style={{ fontWeight: 'bold', fontSize: '14px', color: textColor }}>{t('enable_special_menu')}</label>
-                  <p style={{ fontSize: '11px', color: textMuted, marginTop: '4px' }}>
-                    {language === 'bm' ? 'Paparkan menu istimewa di laman utama' : 'Display special menu on main page'}
-                  </p>
-                </div>
-                <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '26px' }}>
-                  <input type="checkbox" checked={settings.special_menu_enabled} onChange={(e) => updateSetting('special_menu_enabled', e.target.checked)} style={{ opacity: 0, width: 0, height: 0 }} />
-                  <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: settings.special_menu_enabled ? '#22c55e' : '#64748b', transition: '.3s', borderRadius: '34px' }}>
-                    <span style={{ position: 'absolute', height: '20px', width: '20px', left: '3px', bottom: '3px', backgroundColor: 'white', transition: '.3s', borderRadius: '50%', transform: settings.special_menu_enabled ? 'translateX(26px)' : 'none' }} />
-                  </span>
-                </label>
-              </div>
+            {/* ⭐ Special Menu */}
+            <Section icon="⭐" title={language === 'bm' ? 'Menu Istimewa' : 'Special Menu'}>
+              <SettingRow 
+                icon="⭐" 
+                label={t('enable_special_menu')}
+                description={language === 'bm' ? 'Paparkan menu istimewa di laman utama' : 'Display special menu on main page'}
+              >
+                {toggleSwitch(settings.special_menu_enabled, (val) => updateSetting('special_menu_enabled', val))}
+              </SettingRow>
 
               {settings.special_menu_enabled && (
-                <div>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>⭐ {t('special_menu_title')}</label>
-                  <input type="text" value={settings.special_menu_title} onChange={(e) => updateSetting('special_menu_title', e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} />
-                </div>
-              )}
-            </div>
-
-            {/* Section 7: Business Hours */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '24px' }}>⏰</span>
-                <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>{t('business_hours')}</h3>
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <div>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>🕐 {t('start')}</label>
-                  <input type="time" value={settings.business_hours_start} onChange={(e) => updateSetting('business_hours_start', e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>🕐 {t('end')}</label>
-                  <input type="time" value={settings.business_hours_end} onChange={(e) => updateSetting('business_hours_end', e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} />
-                </div>
-              </div>
-            </div>
-
-            {/* Section 8: Login Page */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '24px' }}>🔐</span>
-                <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>{t('login_page')}</h3>
-              </div>
-              
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>👋 {t('welcome_text')}</label>
-                <input type="text" value={settings.login_welcome_text} onChange={(e) => updateSetting('login_welcome_text', e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} />
-              </div>
-              
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>📝 {t('subtitle_text')}</label>
-                <input type="text" value={settings.login_subtitle_text} onChange={(e) => updateSetting('login_subtitle_text', e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} />
-              </div>
-              
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>⭐ {t('branding_text')}</label>
-                <input type="text" value={settings.login_branding_text} onChange={(e) => updateSetting('login_branding_text', e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} />
-              </div>
-              
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontWeight: 'bold', marginBottom: '8px', fontSize: '13px', color: textColor }}>© {t('footer_text')}</label>
-                <input type="text" value={settings.login_footer_text} onChange={(e) => updateSetting('login_footer_text', e.target.value)} style={{ width: '100%', padding: '14px', borderRadius: '16px', border: `1px solid ${borderColor}`, fontSize: '14px', background: inputBg, color: textColor, outline: 'none' }} />
-              </div>
-            </div>
-
-            {/* Section 9: Customer Order Auto Print - TAMBAH INI */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '24px' }}>🧾</span>
-                <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>
-                  {language === 'bm' ? 'Cetakan Pesanan Pelanggan' : 'Customer Order Printing'}
-                </h3>
-              </div>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', background: secondaryBg, borderRadius: '20px' }}>
-                <div>
-                  <label style={{ fontWeight: 'bold', fontSize: '14px', color: textColor }}>
-                    {language === 'bm' ? '🧾 Cetak Resit Automatik (Pesanan Pelanggan)' : '🧾 Auto Print Receipt (Customer Order)'}
-                  </label>
-                  <p style={{ fontSize: '11px', color: textMuted, marginTop: '4px' }}>
-                    {language === 'bm' 
-                      ? 'Cetak resit secara automatik apabila pelanggan membuat pesanan' 
-                      : 'Auto print receipt when customer places order'}
-                  </p>
-                </div>
-                <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '26px' }}>
+                <SettingRow 
+                  icon="📝" 
+                  label={t('special_menu_title')}
+                >
                   <input 
-                    type="checkbox" 
-                    checked={settings.auto_print_customer_order} 
-                    onChange={(e) => updateSetting('auto_print_customer_order', e.target.checked)} 
-                    style={{ opacity: 0, width: 0, height: 0 }} 
+                    type="text" 
+                    value={settings.special_menu_title} 
+                    onChange={(e) => updateSetting('special_menu_title', e.target.value)} 
+                    style={{ ...inputStyle, maxWidth: '250px' }} 
                   />
-                  <span style={{ 
-                    position: 'absolute', 
-                    cursor: 'pointer', 
-                    top: 0, 
-                    left: 0, 
-                    right: 0, 
-                    bottom: 0, 
-                    backgroundColor: settings.auto_print_customer_order ? '#22c55e' : '#64748b', 
-                    transition: '.3s', 
-                    borderRadius: '34px' 
-                  }}>
-                    <span style={{ 
-                      position: 'absolute', 
-                      height: '20px', 
-                      width: '20px', 
-                      left: '3px', 
-                      bottom: '3px', 
-                      backgroundColor: 'white', 
-                      transition: '.3s', 
-                      borderRadius: '50%', 
-                      transform: settings.auto_print_customer_order ? 'translateX(26px)' : 'none' 
-                    }} />
-                  </span>
-                </label>
-              </div>
-            </div>
+                </SettingRow>
+              )}
+            </Section>
 
-            {/* Preview */}
-            <div style={{ marginBottom: '28px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-                <span style={{ fontSize: '24px' }}>📊</span>
-                <h3 style={{ margin: 0, color: textColor, fontSize: '17px', fontWeight: 'bold' }}>{t('preview')}</h3>
+            {/* ⏰ Business Hours */}
+            <Section icon="⏰" title={t('business_hours')}>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
+                <SettingRow 
+                  icon="🕐" 
+                  label={t('start')}
+                >
+                  <input 
+                    type="time" 
+                    value={settings.business_hours_start} 
+                    onChange={(e) => updateSetting('business_hours_start', e.target.value)} 
+                    style={{ ...inputStyle, maxWidth: '150px' }} 
+                  />
+                </SettingRow>
+                <SettingRow 
+                  icon="🕐" 
+                  label={t('end')}
+                >
+                  <input 
+                    type="time" 
+                    value={settings.business_hours_end} 
+                    onChange={(e) => updateSetting('business_hours_end', e.target.value)} 
+                    style={{ ...inputStyle, maxWidth: '150px' }} 
+                  />
+                </SettingRow>
               </div>
+            </Section>
+
+            {/* 🔐 Login Page */}
+            <Section icon="🔐" title={t('login_page')}>
+              <SettingRow 
+                icon="👋" 
+                label={t('welcome_text')}
+              >
+                <input 
+                  type="text" 
+                  value={settings.login_welcome_text} 
+                  onChange={(e) => updateSetting('login_welcome_text', e.target.value)} 
+                  style={{ ...inputStyle, maxWidth: '250px' }} 
+                />
+              </SettingRow>
+              <SettingRow 
+                icon="📝" 
+                label={t('subtitle_text')}
+              >
+                <input 
+                  type="text" 
+                  value={settings.login_subtitle_text} 
+                  onChange={(e) => updateSetting('login_subtitle_text', e.target.value)} 
+                  style={{ ...inputStyle, maxWidth: '250px' }} 
+                />
+              </SettingRow>
+              <SettingRow 
+                icon="⭐" 
+                label={t('branding_text')}
+              >
+                <input 
+                  type="text" 
+                  value={settings.login_branding_text} 
+                  onChange={(e) => updateSetting('login_branding_text', e.target.value)} 
+                  style={{ ...inputStyle, maxWidth: '300px' }} 
+                />
+              </SettingRow>
+              <SettingRow 
+                icon="©️" 
+                label={t('footer_text')}
+              >
+                <input 
+                  type="text" 
+                  value={settings.login_footer_text} 
+                  onChange={(e) => updateSetting('login_footer_text', e.target.value)} 
+                  style={{ ...inputStyle, maxWidth: '300px' }} 
+                />
+              </SettingRow>
+            </Section>
+
+            {/* 📊 Preview */}
+            <Section icon="📊" title={t('preview')}>
               <div style={{ background: secondaryBg, borderRadius: '20px', padding: '20px' }}>
                 <div style={{ fontSize: '14px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', color: textColor }}>
@@ -794,15 +1029,33 @@ function ManageSettings() {
                   </div>
                   <div style={{ borderTop: `1px solid ${borderColor}`, margin: '14px 0', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
                     <span style={{ color: textColor }}>{t('total')}:</span>
-                    <span style={{ color: '#22c55e' }}>RM {(100 + (100 * settings.service_charge / 100) + (100 * settings.tax / 100)).toFixed(2)}</span>
+                    <span style={{ color: success }}>RM {(100 + (100 * settings.service_charge / 100) + (100 * settings.tax / 100)).toFixed(2)}</span>
                   </div>
                 </div>
               </div>
-            </div>
+            </Section>
 
-            {/* Save Button */}
+            {/* 💾 Save Button */}
             <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
-              <button onClick={saveSettings} disabled={saving} style={{ flex: 1, background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', padding: '14px', border: 'none', borderRadius: '60px', fontSize: '15px', fontWeight: 'bold', cursor: saving ? 'not-allowed' : 'pointer', opacity: saving ? 0.7 : 1, transition: 'transform 0.2s' }} onMouseEnter={e => !saving && (e.currentTarget.style.transform = 'scale(1.02)')} onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}>
+              <button 
+                onClick={saveSettings} 
+                disabled={saving} 
+                style={{ 
+                  flex: 1, 
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
+                  color: 'white', 
+                  padding: '14px', 
+                  border: 'none', 
+                  borderRadius: '60px', 
+                  fontSize: '15px', 
+                  fontWeight: 'bold', 
+                  cursor: saving ? 'not-allowed' : 'pointer', 
+                  opacity: saving ? 0.7 : 1,
+                  transition: 'transform 0.2s'
+                }}
+                onMouseEnter={e => !saving && (e.currentTarget.style.transform = 'scale(1.02)')}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
                 {saving ? '⏳ ' + t('saving') : '💾 ' + t('save')}
               </button>
             </div>
@@ -810,11 +1063,319 @@ function ManageSettings() {
         )}
 
         {/* ============================================================ */}
-        {/* TAB: DELETE DATA */}
+        {/* TAB 2: TELEGRAM */}
+        {/* ============================================================ */}
+        {activeTab === 'telegram' && (
+          <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px' }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                background: 'linear-gradient(135deg, #0088cc, #006699)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '28px'
+              }}>
+                📱
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: textColor, fontSize: '20px', fontWeight: 'bold' }}>
+                  {language === 'bm' ? 'Notifikasi Telegram' : 'Telegram Notifications'}
+                </h3>
+                <p style={{ color: textMuted, marginTop: '4px', fontSize: '13px' }}>
+                  {language === 'bm' 
+                    ? 'Hantar notifikasi ke Telegram untuk pesanan dan pembayaran' 
+                    : 'Send notifications to Telegram for orders and payments'}
+                </p>
+              </div>
+            </div>
+
+            {/* Status */}
+            <SettingRow 
+              icon="🔔" 
+              label={language === 'bm' ? 'Status Notifikasi' : 'Notification Status'}
+              description={language === 'bm' ? 'Hidupkan untuk menghantar notifikasi ke Telegram' : 'Enable to send notifications to Telegram'}
+            >
+              {toggleSwitch(settings.telegram_enabled, (val) => updateSetting('telegram_enabled', val))}
+            </SettingRow>
+
+            {/* Bot Token - Dengan Butang Clear */}
+            <SettingRow 
+              icon="🤖" 
+              label={language === 'bm' ? 'Bot Token' : 'Bot Token'}
+              description={language === 'bm' ? 'Token daripada @BotFather' : 'Token from @BotFather'}
+            >
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input 
+                  type={settings.telegram_bot_token ? 'password' : 'text'} 
+                  placeholder="1234567890:ABCdefGHIjkl..." 
+                  value={settings.telegram_bot_token} 
+                  onChange={(e) => updateSetting('telegram_bot_token', e.target.value)} 
+                  style={{ ...inputStyle, maxWidth: '250px', fontFamily: 'monospace', fontSize: '12px' }} 
+                />
+                {settings.telegram_bot_token && (
+                  <button 
+                    onClick={() => {
+                      if (window.confirm(language === 'bm' ? 'Padam token bot?' : 'Delete bot token?')) {
+                        updateSetting('telegram_bot_token', '')
+                        toast.success(language === 'bm' ? '✅ Token dipadam' : '✅ Token deleted')
+                      }
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      background: danger,
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    ✕ {language === 'bm' ? 'Padam' : 'Clear'}
+                  </button>
+                )}
+              </div>
+            </SettingRow>
+
+            {/* Chat ID - Dengan Butang Clear */}
+            <SettingRow 
+              icon="💬" 
+              label={language === 'bm' ? 'Chat ID' : 'Chat ID'}
+              description={language === 'bm' ? 'ID pengguna atau kumpulan' : 'User or group ID'}
+            >
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input 
+                  type="text" 
+                  placeholder="-1001234567890" 
+                  value={settings.telegram_chat_id} 
+                  onChange={(e) => updateSetting('telegram_chat_id', e.target.value)} 
+                  style={{ ...inputStyle, maxWidth: '200px', fontFamily: 'monospace', fontSize: '12px' }} 
+                />
+                {settings.telegram_chat_id && (
+                  <button 
+                    onClick={() => {
+                      if (window.confirm(language === 'bm' ? 'Padam Chat ID?' : 'Delete Chat ID?')) {
+                        updateSetting('telegram_chat_id', '')
+                        toast.success(language === 'bm' ? '✅ Chat ID dipadam' : '✅ Chat ID deleted')
+                      }
+                    }}
+                    style={{
+                      padding: '6px 12px',
+                      background: danger,
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    ✕ {language === 'bm' ? 'Padam' : 'Clear'}
+                  </button>
+                )}
+              </div>
+            </SettingRow>
+
+            {/* Notify New Order */}
+            <SettingRow 
+              icon="🆕" 
+              label={language === 'bm' ? 'Notifikasi Pesanan Baru' : 'Notify New Order'}
+              description={language === 'bm' ? 'Hantar notifikasi bila ada pesanan baru' : 'Send notification when new order is placed'}
+            >
+              {toggleSwitch(settings.telegram_notify_new_order, (val) => updateSetting('telegram_notify_new_order', val))}
+            </SettingRow>
+
+            {/* Notify Payment */}
+            <SettingRow 
+              icon="💳" 
+              label={language === 'bm' ? 'Notifikasi Pembayaran' : 'Notify Payment'}
+              description={language === 'bm' ? 'Hantar notifikasi bila pembayaran diterima' : 'Send notification when payment is received'}
+            >
+              {toggleSwitch(settings.telegram_notify_payment, (val) => updateSetting('telegram_notify_payment', val))}
+            </SettingRow>
+
+            {/* Test Button */}
+            <div style={{ 
+              ...cardStyle, 
+              border: `2px solid ${settings.telegram_enabled ? '#22c55e' : '#64748b'}`,
+              background: settings.telegram_enabled ? 'rgba(34, 197, 94, 0.05)' : secondaryBg,
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '12px',
+              marginTop: '16px'
+            }}>
+              <div>
+                <div style={{ fontWeight: '600', color: textColor }}>
+                  📨 {language === 'bm' ? 'Uji Notifikasi' : 'Test Notification'}
+                </div>
+                <div style={{ fontSize: '12px', color: textMuted }}>
+                  {language === 'bm' 
+                    ? 'Hantar mesej ujian ke Telegram untuk memastikan konfigurasi betul' 
+                    : 'Send a test message to Telegram to verify configuration'}
+                </div>
+              </div>
+              <button 
+                onClick={testTelegram}
+                disabled={testingTelegram || !settings.telegram_enabled || !settings.telegram_bot_token || !settings.telegram_chat_id}
+                style={{
+                  padding: '10px 24px',
+                  background: (settings.telegram_enabled && settings.telegram_bot_token && settings.telegram_chat_id) 
+                    ? 'linear-gradient(135deg, #0088cc, #006699)' 
+                    : '#64748b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '40px',
+                  cursor: (settings.telegram_enabled && settings.telegram_bot_token && settings.telegram_chat_id && !testingTelegram) 
+                    ? 'pointer' 
+                    : 'not-allowed',
+                  fontWeight: 'bold',
+                  fontSize: '13px',
+                  opacity: (settings.telegram_enabled && settings.telegram_bot_token && settings.telegram_chat_id) ? 1 : 0.6,
+                  transition: 'transform 0.2s'
+                }}
+                onMouseEnter={e => (settings.telegram_enabled && settings.telegram_bot_token && settings.telegram_chat_id && !testingTelegram) 
+                  && (e.currentTarget.style.transform = 'scale(1.03)')}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {testingTelegram ? '⏳' : '📨 ' + (language === 'bm' ? 'Uji Sekarang' : 'Test Now')}
+              </button>
+            </div>
+
+            {/* How To Guide */}
+            <div style={{ 
+              ...cardStyle, 
+              marginTop: '20px',
+              background: darkMode ? 'rgba(59, 130, 246, 0.08)' : '#eff6ff',
+              borderColor: '#3b82f6'
+            }}>
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '20px' }}>💡</span>
+                <div>
+                  <div style={{ fontWeight: 'bold', color: textColor, fontSize: '13px' }}>
+                    {language === 'bm' ? 'Cara Dapatkan Bot Token & Chat ID:' : 'How to Get Bot Token & Chat ID:'}
+                  </div>
+                  <ol style={{ color: textMuted, fontSize: '12px', paddingLeft: '20px', marginTop: '6px', lineHeight: '1.8' }}>
+                    <li>{language === 'bm' ? 'Buka Telegram dan cari @BotFather' : 'Open Telegram and find @BotFather'}</li>
+                    <li>{language === 'bm' ? 'Hantar /newbot dan ikut arahan untuk buat bot' : 'Send /newbot and follow instructions to create a bot'}</li>
+                    <li>{language === 'bm' ? 'Dapatkan token dari @BotFather' : 'Get token from @BotFather'}</li>
+                    <li>{language === 'bm' ? 'Untuk Chat ID, hantar mesej ke bot, kemudian pergi ke @userinfobot' : 'For Chat ID, send a message to bot, then go to @userinfobot'}</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            {/* Butang Reset & Save */}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
+              <button 
+                onClick={saveSettings} 
+                disabled={saving} 
+                style={{ 
+                  flex: 2,
+                  minWidth: '150px',
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
+                  color: 'white', 
+                  padding: '14px', 
+                  border: 'none', 
+                  borderRadius: '60px', 
+                  fontSize: '15px', 
+                  fontWeight: 'bold', 
+                  cursor: saving ? 'not-allowed' : 'pointer', 
+                  opacity: saving ? 0.7 : 1,
+                  transition: 'transform 0.2s'
+                }}
+                onMouseEnter={e => !saving && (e.currentTarget.style.transform = 'scale(1.02)')}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {saving ? '⏳ ' + t('saving') : '💾 ' + t('save')}
+              </button>
+
+              {/* Reset All Telegram Settings */}
+              <button 
+                onClick={() => {
+                  const confirmMsg = language === 'bm' 
+                    ? '⚠️ Reset semua tetapan Telegram?\n\nToken, Chat ID, dan semua notifikasi akan dipadam.\n\nTindakan ini tidak boleh dibatalkan!'
+                    : '⚠️ Reset all Telegram settings?\n\nToken, Chat ID, and all notifications will be cleared.\n\nThis action cannot be undone!'
+                  
+                  if (window.confirm(confirmMsg)) {
+                    updateSetting('telegram_enabled', false)
+                    updateSetting('telegram_bot_token', '')
+                    updateSetting('telegram_chat_id', '')
+                    updateSetting('telegram_notify_new_order', true)
+                    updateSetting('telegram_notify_payment', true)
+                    toast.success(language === 'bm' ? '✅ Semua tetapan Telegram direset' : '✅ All Telegram settings reset')
+                  }
+                }}
+                style={{
+                  flex: 1,
+                  minWidth: '120px',
+                  padding: '14px 20px',
+                  background: 'transparent',
+                  color: danger,
+                  border: `2px solid ${danger}`,
+                  borderRadius: '60px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = danger
+                  e.currentTarget.style.color = 'white'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = danger
+                }}
+              >
+                🔄 {language === 'bm' ? 'Reset Semua' : 'Reset All'}
+              </button>
+            </div>
+
+            {/* Status Bar */}
+            <div style={{ 
+              marginTop: '16px',
+              padding: '12px 16px',
+              background: secondaryBg,
+              borderRadius: '12px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '8px',
+              border: `1px solid ${borderColor}`
+            }}>
+              <div style={{ fontSize: '12px', color: textMuted }}>
+                {language === 'bm' ? 'Status:' : 'Status:'}
+              </div>
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '12px', color: settings.telegram_bot_token ? success : textMuted }}>
+                  {settings.telegram_bot_token ? '✅ Token' : '❌ Token'}
+                </span>
+                <span style={{ fontSize: '12px', color: settings.telegram_chat_id ? success : textMuted }}>
+                  {settings.telegram_chat_id ? '✅ Chat ID' : '❌ Chat ID'}
+                </span>
+                <span style={{ fontSize: '12px', color: settings.telegram_enabled ? success : textMuted }}>
+                  {settings.telegram_enabled ? '✅ Aktif' : '❌ Tidak Aktif'}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB 3: DELETE DATA (DENGAN TAMBAHAN BARU) */}
         {/* ============================================================ */}
         {activeTab === 'data' && (
           <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+            
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
               <span style={{ fontSize: '32px' }}>🗑️</span>
               <h3 style={{ margin: 0, color: textColor, fontSize: '20px', fontWeight: 'bold' }}>
                 {language === 'bm' ? 'Padam Data' : 'Delete Data'}
@@ -827,170 +1388,377 @@ function ManageSettings() {
                 : '⚠️ Caution! This action cannot be undone.'}
             </p>
 
-            <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '12px' }}>
-              <button 
-                onClick={() => openConfirmModal('orders')}
-                style={{ 
-                  padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '16px', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold',
-                  fontSize: '14px',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  transition: 'transform 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <span style={{ fontSize: '24px' }}>📋</span>
-                <div>
-                  <div>{language === 'bm' ? 'Padam Semua Pesanan' : 'Delete All Orders'}</div>
-                  <div style={{ fontSize: '11px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua rekod pesanan' : 'Delete all order records'}</div>
-                </div>
-              </button>
+            {/* ===== CATEGORY: ORDERS & PAYMENTS ===== */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ 
+                fontSize: '13px', 
+                fontWeight: 'bold', 
+                color: textMuted, 
+                marginBottom: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                {language === 'bm' ? '📋 Pesanan & Pembayaran' : '📋 Orders & Payments'}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                <button 
+                  onClick={() => openConfirmModal('orders')}
+                  style={{ 
+                    padding: '14px 18px', 
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '14px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <span style={{ fontSize: '22px' }}>📋</span>
+                  <div>
+                    <div>{language === 'bm' ? 'Padam Semua Pesanan' : 'Delete All Orders'}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua rekod pesanan' : 'Delete all order records'}</div>
+                  </div>
+                </button>
 
-              <button 
-                onClick={() => openConfirmModal('menu')}
-                style={{ 
-                  padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '16px', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold',
-                  fontSize: '14px',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  transition: 'transform 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <span style={{ fontSize: '24px' }}>🍽️</span>
-                <div>
-                  <div>{language === 'bm' ? 'Padam Semua Menu' : 'Delete All Menu'}</div>
-                  <div style={{ fontSize: '11px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua item menu' : 'Delete all menu items'}</div>
-                </div>
-              </button>
+                <button 
+                  onClick={() => openConfirmModal('payments')}
+                  style={{ 
+                    padding: '14px 18px', 
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '14px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <span style={{ fontSize: '22px' }}>💳</span>
+                  <div>
+                    <div>{language === 'bm' ? 'Padam Semua Pembayaran' : 'Delete All Payments'}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua rekod pembayaran' : 'Delete all payment records'}</div>
+                  </div>
+                </button>
+              </div>
+            </div>
 
-              <button 
-                onClick={() => openConfirmModal('categories')}
-                style={{ 
-                  padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '16px', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold',
-                  fontSize: '14px',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  transition: 'transform 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <span style={{ fontSize: '24px' }}>📂</span>
-                <div>
-                  <div>{language === 'bm' ? 'Padam Semua Kategori' : 'Delete All Categories'}</div>
-                  <div style={{ fontSize: '11px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua kategori' : 'Delete all categories'}</div>
-                </div>
-              </button>
+            {/* ===== CATEGORY: MENU & CATEGORIES ===== */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ 
+                fontSize: '13px', 
+                fontWeight: 'bold', 
+                color: textMuted, 
+                marginBottom: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                {language === 'bm' ? '🍽️ Menu & Kategori' : '🍽️ Menu & Categories'}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                <button 
+                  onClick={() => openConfirmModal('menu')}
+                  style={{ 
+                    padding: '14px 18px', 
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '14px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <span style={{ fontSize: '22px' }}>🍽️</span>
+                  <div>
+                    <div>{language === 'bm' ? 'Padam Semua Menu' : 'Delete All Menu'}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua item menu' : 'Delete all menu items'}</div>
+                  </div>
+                </button>
 
-              <button 
-                onClick={() => openConfirmModal('staff')}
-                style={{ 
-                  padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '16px', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold',
-                  fontSize: '14px',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  transition: 'transform 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <span style={{ fontSize: '24px' }}>👥</span>
-                <div>
-                  <div>{language === 'bm' ? 'Padam Semua Staff' : 'Delete All Staff'}</div>
-                  <div style={{ fontSize: '11px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua staff (kecuali admin)' : 'Delete all staff (except admin)'}</div>
-                </div>
-              </button>
+                <button 
+                  onClick={() => openConfirmModal('categories')}
+                  style={{ 
+                    padding: '14px 18px', 
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '14px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <span style={{ fontSize: '22px' }}>📂</span>
+                  <div>
+                    <div>{language === 'bm' ? 'Padam Semua Kategori' : 'Delete All Categories'}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua kategori' : 'Delete all categories'}</div>
+                  </div>
+                </button>
+              </div>
+            </div>
 
-              <button 
-                onClick={() => openConfirmModal('tables')}
-                style={{ 
-                  padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
-                  color: 'white', 
-                  border: 'none', 
-                  borderRadius: '16px', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold',
-                  fontSize: '14px',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  transition: 'transform 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <span style={{ fontSize: '24px' }}>🪑</span>
-                <div>
-                  <div>{language === 'bm' ? 'Padam Semua Meja' : 'Delete All Tables'}</div>
-                  <div style={{ fontSize: '11px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua rekod meja' : 'Delete all table records'}</div>
-                </div>
-              </button>
+            {/* ===== CATEGORY: CUSTOMERS, STAFF & TABLES ===== */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ 
+                fontSize: '13px', 
+                fontWeight: 'bold', 
+                color: textMuted, 
+                marginBottom: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                {language === 'bm' ? '👥 Pelanggan, Staff & Meja' : '👥 Customers, Staff & Tables'}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                <button 
+                  onClick={() => openConfirmModal('customers')}
+                  style={{ 
+                    padding: '14px 18px', 
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '14px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <span style={{ fontSize: '22px' }}>👤</span>
+                  <div>
+                    <div>{language === 'bm' ? 'Padam Semua Pelanggan' : 'Delete All Customers'}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua rekod pelanggan' : 'Delete all customer records'}</div>
+                  </div>
+                </button>
 
+                <button 
+                  onClick={() => openConfirmModal('staff')}
+                  style={{ 
+                    padding: '14px 18px', 
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '14px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <span style={{ fontSize: '22px' }}>👥</span>
+                  <div>
+                    <div>{language === 'bm' ? 'Padam Semua Staff' : 'Delete All Staff'}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua staff (kecuali admin)' : 'Delete all staff (except admin)'}</div>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => openConfirmModal('tables')}
+                  style={{ 
+                    padding: '14px 18px', 
+                    background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '14px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'transform 0.2s',
+                    gridColumn: isMobile ? 'auto' : '1 / -1'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <span style={{ fontSize: '22px' }}>🪑</span>
+                  <div>
+                    <div>{language === 'bm' ? 'Padam Semua Meja' : 'Delete All Tables'}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua rekod meja' : 'Delete all table records'}</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* ===== CATEGORY: SYSTEM ===== */}
+            <div style={{ marginBottom: '24px' }}>
+              <div style={{ 
+                fontSize: '13px', 
+                fontWeight: 'bold', 
+                color: textMuted, 
+                marginBottom: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                {language === 'bm' ? '⚙️ Sistem' : '⚙️ System'}
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr', gap: '10px' }}>
+                <button 
+                  onClick={() => openConfirmModal('settings_reset')}
+                  style={{ 
+                    padding: '14px 18px', 
+                    background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '14px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <span style={{ fontSize: '22px' }}>⚙️</span>
+                  <div>
+                    <div>{language === 'bm' ? 'Reset Semua Tetapan' : 'Reset All Settings'}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8 }}>{language === 'bm' ? 'Reset semua tetapan ke default' : 'Reset all settings to default'}</div>
+                  </div>
+                </button>
+
+                <button 
+                  onClick={() => openConfirmModal('logs')}
+                  style={{ 
+                    padding: '14px 18px', 
+                    background: 'linear-gradient(135deg, #f59e0b, #d97706)', 
+                    color: 'white', 
+                    border: 'none', 
+                    borderRadius: '14px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    textAlign: 'left',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    transition: 'transform 0.2s'
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                  onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  <span style={{ fontSize: '22px' }}>📜</span>
+                  <div>
+                    <div>{language === 'bm' ? 'Padam Semua Log' : 'Delete All Logs'}</div>
+                    <div style={{ fontSize: '10px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua log aktiviti' : 'Delete all activity logs'}</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* ===== DIVIDER ===== */}
+            <div style={{ 
+              borderTop: `2px dashed ${borderColor}`, 
+              margin: '20px 0 24px 0',
+              position: 'relative'
+            }}>
+              <span style={{
+                position: 'absolute',
+                top: '-10px',
+                left: '50%',
+                transform: 'translateX(-50%)',
+                background: cardBg,
+                padding: '0 16px',
+                fontSize: '12px',
+                color: textMuted,
+                fontWeight: 'bold'
+              }}>
+                {language === 'bm' ? '⚠️ PERHATIAN' : '⚠️ WARNING'}
+              </span>
+            </div>
+
+            {/* ===== DANGER: RESET ALL ===== */}
+            <div>
+              <div style={{ 
+                fontSize: '13px', 
+                fontWeight: 'bold', 
+                color: danger, 
+                marginBottom: '10px',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}>
+                {language === 'bm' ? '🚨 TINDAKAN BERISIKO TINGGI' : '🚨 HIGH RISK ACTION'}
+              </div>
               <button 
                 onClick={() => openConfirmModal('reset_all')}
                 style={{ 
-                  padding: '16px 20px', 
-                  background: 'linear-gradient(135deg, #dc2626, #b91c1c)', 
+                  padding: '18px 24px', 
+                  background: 'linear-gradient(135deg, #dc2626, #991b1b)', 
                   color: 'white', 
                   border: 'none', 
                   borderRadius: '16px', 
                   cursor: 'pointer', 
                   fontWeight: 'bold',
-                  fontSize: '14px',
+                  fontSize: '15px',
                   textAlign: 'left',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '12px',
+                  gap: '16px',
                   transition: 'transform 0.2s',
-                  gridColumn: '1 / -1'
+                  width: '100%',
+                  boxShadow: '0 4px 20px rgba(220, 38, 38, 0.3)'
                 }}
                 onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
               >
-                <span style={{ fontSize: '24px' }}>⚠️</span>
+                <span style={{ fontSize: '28px' }}>⚠️</span>
                 <div>
                   <div>{language === 'bm' ? 'Reset SEMUA Data' : 'Reset ALL Data'}</div>
-                  <div style={{ fontSize: '11px', opacity: 0.8 }}>{language === 'bm' ? 'Padam semua data dan reset tetapan ke default' : 'Delete all data and reset settings to default'}</div>
+                  <div style={{ fontSize: '12px', opacity: 0.9 }}>
+                    {language === 'bm' 
+                      ? 'Padam SEMUA data (pesanan, menu, pelanggan, staff, meja, pembayaran) dan reset semua tetapan ke default' 
+                      : 'Delete ALL data (orders, menu, customers, staff, tables, payments) and reset all settings to default'}
+                  </div>
                 </div>
               </button>
             </div>
+
           </div>
         )}
 
@@ -1016,14 +1784,17 @@ function ManageSettings() {
               background: cardBg,
               padding: '32px',
               borderRadius: '28px',
-              maxWidth: '420px',
+              maxWidth: '440px',
               width: '90%',
               textAlign: 'center',
               ...glassEffect,
-              animation: 'popIn 0.3s cubic-bezier(0.34, 1.2, 0.64, 1)'
+              animation: 'popIn 0.3s cubic-bezier(0.34, 1.2, 0.64, 1)',
+              border: showConfirmModal.isDanger ? `2px solid ${danger}` : 'none'
             }}>
-              <div style={{ fontSize: '56px', marginBottom: '16px' }}>⚠️</div>
-              <h3 style={{ color: textColor, fontSize: '20px', fontWeight: 'bold', margin: 0 }}>
+              <div style={{ fontSize: '56px', marginBottom: '16px' }}>
+                {showConfirmModal.isDanger ? '🚨' : '⚠️'}
+              </div>
+              <h3 style={{ color: showConfirmModal.isDanger ? danger : textColor, fontSize: '20px', fontWeight: 'bold', margin: 0 }}>
                 {language === 'bm' ? 'Sahkan Padam' : 'Confirm Delete'}
               </h3>
               <p style={{ color: textMuted, marginTop: '12px', fontSize: '14px' }}>
@@ -1031,21 +1802,36 @@ function ManageSettings() {
                   ? `Anda pasti mahu ${showConfirmModal.title.ms.toLowerCase()}?` 
                   : `Are you sure you want to ${showConfirmModal.title.en.toLowerCase()}?`}
               </p>
-              <p style={{ color: '#ef4444', fontSize: '13px', marginTop: '8px', fontWeight: 'bold' }}>
-                {language === 'bm' ? '⚠️ Tindakan ini tidak boleh dibatalkan!' : '⚠️ This action cannot be undone!'}
-              </p>
+              {showConfirmModal.isDanger && (
+                <p style={{ 
+                  color: danger, 
+                  fontSize: '13px', 
+                  marginTop: '8px', 
+                  fontWeight: 'bold',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  padding: '8px 16px',
+                  borderRadius: '8px'
+                }}>
+                  {language === 'bm' 
+                    ? '⚠️ Tindakan ini tidak boleh dibatalkan! SEMUA data akan hilang.' 
+                    : '⚠️ This action cannot be undone! ALL data will be lost.'}
+                </p>
+              )}
               <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
                 <button 
                   onClick={showConfirmModal.action}
                   style={{ 
                     flex: 1, 
-                    background: 'linear-gradient(135deg, #ef4444, #dc2626)', 
+                    background: showConfirmModal.isDanger 
+                      ? 'linear-gradient(135deg, #dc2626, #991b1b)' 
+                      : 'linear-gradient(135deg, #ef4444, #dc2626)',
                     color: 'white', 
                     padding: '14px', 
                     border: 'none', 
                     borderRadius: '40px', 
                     cursor: 'pointer', 
-                    fontWeight: 'bold' 
+                    fontWeight: 'bold',
+                    fontSize: '14px'
                   }}
                 >
                   {language === 'bm' ? '✅ Ya, Padam' : '✅ Yes, Delete'}
@@ -1060,7 +1846,8 @@ function ManageSettings() {
                     border: 'none', 
                     borderRadius: '40px', 
                     cursor: 'pointer', 
-                    fontWeight: 'bold' 
+                    fontWeight: 'bold',
+                    fontSize: '14px'
                   }}
                 >
                   {language === 'bm' ? '❌ Batal' : '❌ Cancel'}
@@ -1072,13 +1859,42 @@ function ManageSettings() {
 
         <style>
           {`
-            .spinner { width: 48px; height: 48px; border: 4px solid rgba(59,130,246,0.2); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto; }
-            @keyframes spin { to { transform: rotate(360deg); } }
-            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-            @keyframes popIn { 0% { opacity: 0; transform: scale(0.95) translateY(10px); } 100% { opacity: 1; transform: scale(1) translateY(0); } }
-            ::-webkit-scrollbar { width: 6px; }
-            ::-webkit-scrollbar-track { background: ${darkMode ? '#2a2a3e' : '#e2e8f0'}; border-radius: 10px; }
-            ::-webkit-scrollbar-thumb { background: ${darkMode ? '#555' : '#94a3b8'}; border-radius: 10px; }
+            .spinner { 
+              width: 48px; 
+              height: 48px; 
+              border: 4px solid rgba(59,130,246,0.2); 
+              border-top-color: #3b82f6; 
+              border-radius: 50%; 
+              animation: spin 1s linear infinite; 
+              margin: 0 auto; 
+            }
+            @keyframes spin { 
+              to { transform: rotate(360deg); } 
+            }
+            @keyframes fadeIn { 
+              from { opacity: 0; } 
+              to { opacity: 1; } 
+            }
+            @keyframes popIn { 
+              0% { opacity: 0; transform: scale(0.95) translateY(10px); } 
+              100% { opacity: 1; transform: scale(1) translateY(0); } 
+            }
+            ::-webkit-scrollbar { 
+              width: 6px; 
+            }
+            ::-webkit-scrollbar-track { 
+              background: ${darkMode ? '#2a2a3e' : '#e2e8f0'}; 
+              border-radius: 10px; 
+            }
+            ::-webkit-scrollbar-thumb { 
+              background: ${darkMode ? '#555' : '#94a3b8'}; 
+              border-radius: 10px; 
+            }
+            @media (max-width: 768px) {
+              .tab-button-text {
+                display: none;
+              }
+            }
           `}
         </style>
       </div>

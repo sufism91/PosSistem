@@ -116,6 +116,8 @@ function StaffApp() {
       addon_optional: { en: 'Add-On (optional)', ms: 'Tambahan (pilihan)' },
       addon_list: { en: 'Add-On List', ms: 'Senarai Tambahan' },
       no_addons: { en: 'No add-ons available', ms: 'Tiada tambahan' },
+      base_price: { en: 'Base Price', ms: 'Harga Asal' },
+      from_base_price: { en: 'from base price', ms: 'dari harga asal' },
     }
     if (!translations[key]) return key
     return language === 'en' ? translations[key].en : translations[key].ms
@@ -129,8 +131,8 @@ function StaffApp() {
   const [promotions, setPromotions] = useState([])
   const [drinkOptions, setDrinkOptions] = useState([])
   const [menuOptions, setMenuOptions] = useState([])
-  const [menuAddons, setMenuAddons] = useState([])  // <--- TAMBAH
-  const [selectedAddons, setSelectedAddons] = useState([])  // <--- TAMBAH
+  const [menuAddons, setMenuAddons] = useState([])
+  const [selectedAddons, setSelectedAddons] = useState([])
   const [cart, setCart] = useState([])
   const [newOrders, setNewOrders] = useState([])
   const [unpaidOrders, setUnpaidOrders] = useState([])
@@ -505,7 +507,6 @@ function StaffApp() {
     }
   }
 
-  // ===== TOGGLE ADD-ON =====
   const toggleAddon = (addonId) => {
     setSelectedAddons(prev => {
       if (prev.includes(addonId)) {
@@ -516,14 +517,12 @@ function StaffApp() {
     })
   }
 
-  // ===== GET ADD-ON TOTAL =====
   const getAddonTotal = () => {
     return menuAddons
       .filter(a => selectedAddons.includes(a.id))
       .reduce((sum, a) => sum + parseFloat(a.price), 0)
   }
 
-  // ===== GET ADD-ON NAMES =====
   const getAddonNames = () => {
     return menuAddons
       .filter(a => selectedAddons.includes(a.id))
@@ -675,7 +674,6 @@ function StaffApp() {
       toast.error(t('select_size')); return
     }
     
-    // ===== CHECK STOCK UNTUK SIZE OPTIONS =====
     if (selectedSize) {
       const stockCheck = await checkOptionStock(selectedSize.id, quantity)
       
@@ -765,7 +763,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== SEND ORDER - DENGAN KURANGKAN STOCK & ADD-ONS =====
+  // ===== SEND ORDER =====
   // ============================================================
   const sendOrder = async () => {
     if (cart.length === 0) { toast.error(t('cart_empty_msg')); return }
@@ -773,7 +771,6 @@ function StaffApp() {
       toast.error('⚠️ Sila masukkan nombor meja!'); return
     }
     
-    // ===== CHECK ALL STOCK SEBELUM PROSES =====
     for (const item of cart) {
       if (item.size_id) {
         const stockCheck = await checkOptionStock(item.size_id, item.quantity)
@@ -827,7 +824,6 @@ function StaffApp() {
       const { data, error } = await supabase.from('customer_orders').insert([normalizeOrderForInsert(orderData)]).select()
       if (error) throw error
       
-      // ===== KURANGKAN STOCK UNTUK SETIAP ITEM DENGAN SIZE =====
       let stockUpdateErrors = []
       
       for (const item of cart) {
@@ -1052,6 +1048,7 @@ function StaffApp() {
           const promoPrice = getPromoPrice(item)
           const isBOGO = promo?.type === 'bogo'
           const hasAddons = item.has_addons === true
+          const hasSizeOptions = item.has_options === true
           
           return (
             <div
@@ -1151,6 +1148,7 @@ function StaffApp() {
                 {item.name}
               </div>
               
+              {/* ===== HARGA ASAL + BADGES ===== */}
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -1175,6 +1173,34 @@ function StaffApp() {
                 ) : (
                   <span style={{ color: priceColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
                     RM {item.price.toFixed(2)}
+                  </span>
+                )}
+                
+                {/* ===== BADGE ADD-ON ===== */}
+                {hasAddons && (
+                  <span style={{
+                    background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                    color: 'white',
+                    padding: '1px 8px',
+                    borderRadius: '12px',
+                    fontSize: isMobile ? '7px' : '9px',
+                    fontWeight: 'bold'
+                  }}>
+                    ✨ Add-On
+                  </span>
+                )}
+                
+                {/* ===== BADGE SIZE ===== */}
+                {hasSizeOptions && (
+                  <span style={{
+                    background: '#f59e0b',
+                    color: 'white',
+                    padding: '1px 8px',
+                    borderRadius: '12px',
+                    fontSize: isMobile ? '7px' : '9px',
+                    fontWeight: 'bold'
+                  }}>
+                    📏 Size
                   </span>
                 )}
               </div>
@@ -1253,6 +1279,11 @@ function StaffApp() {
                       {item.addons && (
                         <div style={{ fontSize: '9px', color: '#8b5cf6', fontWeight: 'normal', marginTop: '2px' }}>
                           ✨ + {item.addons} <span style={{ color: priceColor }}>(+RM {item.addon_total?.toFixed(2) || '0.00'})</span>
+                        </div>
+                      )}
+                      {item.basePrice && item.basePrice !== item.price && (
+                        <div style={{ fontSize: '9px', color: '#94a3b8', textDecoration: 'line-through', marginTop: '1px' }}>
+                          RM {item.basePrice.toFixed(2)}
                         </div>
                       )}
                     </div>
@@ -1584,6 +1615,16 @@ function StaffApp() {
           <h2 style={{ color: textColor, fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold', marginBottom: '4px' }}>
             {selectedItem.name}
           </h2>
+          
+          {/* ===== HARGA ASAL ===== */}
+          <div style={{ 
+            fontSize: isMobile ? '20px' : '24px',
+            fontWeight: 'bold',
+            color: priceColor,
+            marginBottom: '12px'
+          }}>
+            RM {basePrice.toFixed(2)}
+          </div>
           
           {isDrink && drinkOpts.length > 0 && (
             <div style={{ marginBottom: '14px' }}>

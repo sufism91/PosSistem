@@ -122,6 +122,8 @@ function CustomerMenu() {
     stock_label: { en: 'Stock', ms: 'Stok' },
     addons: { en: 'Add-Ons', ms: 'Tambahan' },
     addon_optional: { en: '(optional)', ms: '(pilihan)' },
+    base_price: { en: 'Base Price', ms: 'Harga Asal' },
+    from_base_price: { en: 'from base price', ms: 'dari harga asal' },
   }
 
   const translate = (key) => {
@@ -474,7 +476,6 @@ function CustomerMenu() {
     }
   }
 
-  // ===== TOGGLE ADD-ON =====
   const toggleAddon = (addonId) => {
     setSelectedAddons(prev => {
       if (prev.includes(addonId)) {
@@ -485,14 +486,12 @@ function CustomerMenu() {
     })
   }
 
-  // ===== GET ADD-ON TOTAL =====
   const getAddonTotal = () => {
     return menuAddons
       .filter(a => selectedAddons.includes(a.id))
       .reduce((sum, a) => sum + parseFloat(a.price), 0)
   }
 
-  // ===== GET ADD-ON NAMES =====
   const getAddonNames = () => {
     return menuAddons
       .filter(a => selectedAddons.includes(a.id))
@@ -547,6 +546,7 @@ function CustomerMenu() {
       id: `${item.id}_${option?.id || ''}_${Date.now()}`,
       name: item.name,
       price: finalPrice,
+      basePrice: basePrice,
       quantity: 1,
       option_name: option?.option_name || null,
       option_id: option?.id || null,
@@ -568,7 +568,6 @@ function CustomerMenu() {
   }
 
   async function addToCartWithOption(item, option) {
-    // ===== CHECK STOCK TERLEBIH DAHULU =====
     const stockCheck = await checkOptionStock(option.id, 1)
     
     if (!stockCheck.available) {
@@ -675,13 +674,11 @@ function CustomerMenu() {
     setClickedItemId(item.id)
     setTimeout(() => setClickedItemId(null), 250)
     
-    // Check if has size options
     if (item.has_options) {
       loadMenuOptions(item.id).then(options => {
         if (options && options.length > 0) {
           setSelectedSizeItem(item)
           setMenuOptions(options)
-          // Load add-ons if available
           if (item.has_addons) {
             loadAddons(item.id).then(() => {
               setShowAddonModal(true)
@@ -696,7 +693,6 @@ function CustomerMenu() {
       return
     }
     
-    // Check if has add-ons (without size)
     if (item.has_addons) {
       loadAddons(item.id).then(() => {
         setSelectedSizeItem(item)
@@ -870,6 +866,7 @@ function CustomerMenu() {
       id: item.id,
       name: item.name,
       price: item.price,
+      basePrice: item.basePrice || item.price,
       quantity: item.quantity,
       is_free: item.is_free || false,
       is_promo_item: item.is_promo_item || false,
@@ -1664,7 +1661,8 @@ function CustomerMenu() {
                       </div>
                     )}
                     
-                    {isPromoItem && item.original_price && (
+                    {/* ===== HARGA ASAL + BADGES ===== */}
+                    {isPromoItem && item.original_price ? (
                       <div style={{ marginBottom: '4px' }}>
                         <span style={{ 
                           fontSize: isMobile ? '10px' : '11px',
@@ -1681,6 +1679,54 @@ function CustomerMenu() {
                         }}>
                           RM {item.price.toFixed(2)}
                         </span>
+                      </div>
+                    ) : !isPromoItem && (
+                      <div style={{ 
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        marginBottom: '4px',
+                        flexWrap: 'wrap'
+                      }}>
+                        {/* Harga Asal */}
+                        <span style={{ 
+                          fontSize: isMobile ? '18px' : '22px',
+                          fontWeight: 'bold',
+                          color: successColor
+                        }}>
+                          RM {item.price?.toFixed(2)}
+                        </span>
+                        
+                        {/* Badge Add-On */}
+                        {hasAddons && (
+                          <span style={{
+                            background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                            color: 'white',
+                            padding: '2px 12px',
+                            borderRadius: '20px',
+                            fontSize: isMobile ? '9px' : '11px',
+                            fontWeight: 'bold',
+                            boxShadow: '0 2px 8px rgba(139,92,246,0.3)'
+                          }}>
+                            ✨ {translate('addons')}
+                          </span>
+                        )}
+                        
+                        {/* Badge Size */}
+                        {hasSizeOptions && (
+                          <span style={{
+                            background: '#f59e0b',
+                            color: 'white',
+                            padding: '2px 12px',
+                            borderRadius: '20px',
+                            fontSize: isMobile ? '9px' : '11px',
+                            fontWeight: 'bold',
+                            boxShadow: '0 2px 8px rgba(245,158,11,0.3)'
+                          }}>
+                            📏 {translate('select_size_btn')}
+                          </span>
+                        )}
                       </div>
                     )}
                     
@@ -1720,27 +1766,7 @@ function CustomerMenu() {
                           </span>
                         )}
                       </div>
-                    ) : !isPromoItem && !hasSizeOptions && !hasAddons && (
-                      <div style={{ 
-                        fontSize: isMobile ? '18px' : '22px',
-                        fontWeight: 'bold',
-                        color: successColor,
-                        marginBottom: '4px'
-                      }}>
-                        RM {item.price?.toFixed(2)}
-                      </div>
-                    )}
-                    
-                    {(hasSizeOptions || hasAddons) && (
-                      <div style={{ 
-                        fontSize: isMobile ? '12px' : '14px',
-                        fontWeight: 'bold',
-                        color: accentColor,
-                        marginBottom: '4px'
-                      }}>
-                        {hasSizeOptions ? '📏 ' + translate('select_size_btn') : '✨ ' + translate('addons')}
-                      </div>
-                    )}
+                    ) : null}
                     
                     <div style={{ 
                       width: '100%',
@@ -1942,7 +1968,7 @@ function CustomerMenu() {
       )}
 
       {/* ========================================================== */}
-      {/* ===== ADD-ON MODAL - WITH SIZE & ADD-ON ===== */}
+      {/* ===== ADD-ON MODAL - WITH BASE PRICE DISPLAY ===== */}
       {/* ========================================================== */}
       {showAddonModal && selectedSizeItem && (
         <div style={{ 
@@ -1963,15 +1989,58 @@ function CustomerMenu() {
             maxHeight: '90vh',
             overflowY: 'auto'
           }}>
-            <div style={{ fontSize: isMobile ? '36px' : '48px', marginBottom: '8px' }}>✨</div>
+            <div style={{ fontSize: isMobile ? '36px' : '48px', marginBottom: '8px' }}>🍽️</div>
             <h2 style={{ 
-              marginBottom: '6px',
-              fontSize: isMobile ? '18px' : '22px',
+              marginBottom: '4px',
+              fontSize: isMobile ? '20px' : '24px',
               fontWeight: 'bold',
               color: textColor
             }}>
               {selectedSizeItem.name}
             </h2>
+            
+            {/* ===== HARGA ASAL DENGAN BADGE ===== */}
+            {(() => {
+              const selectedSize = menuOptions.find(opt => opt.id === selectedSizeItem?.selectedOptionId)
+              const basePrice = selectedSize 
+                ? (selectedSize.is_absolute_price ? selectedSize.price_adjustment : selectedSizeItem.price + selectedSize.price_adjustment)
+                : selectedSizeItem.price
+              
+              return (
+                <div style={{ 
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px',
+                  marginBottom: '16px',
+                  padding: '10px 16px',
+                  background: secondaryBg,
+                  borderRadius: '12px',
+                  border: `1px solid ${borderColor}`
+                }}>
+                  <span style={{ 
+                    fontSize: isMobile ? '24px' : '30px',
+                    fontWeight: 'bold',
+                    color: priceColor
+                  }}>
+                    RM {basePrice.toFixed(2)}
+                  </span>
+                  {menuAddons.length > 0 && (
+                    <span style={{
+                      background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                      color: 'white',
+                      padding: '4px 12px',
+                      borderRadius: '20px',
+                      fontSize: isMobile ? '10px' : '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      ✨ {translate('addons')}
+                    </span>
+                  )}
+                </div>
+              )
+            })()}
+            
             <p style={{ 
               color: textMuted,
               marginBottom: '16px',
@@ -2025,7 +2094,7 @@ function CustomerMenu() {
               </div>
             )}
             
-            {/* Add-On Options */}
+            {/* ===== ADD-ON OPTIONS ===== */}
             {menuAddons.length > 0 && (
               <div style={{ marginBottom: '16px' }}>
                 <label style={{ 
@@ -2036,9 +2105,6 @@ function CustomerMenu() {
                   marginBottom: '8px' 
                 }}>
                   ✨ {translate('addons')} {translate('addon_optional')}
-                  <span style={{ fontSize: '11px', color: textMuted, fontWeight: 'normal', marginLeft: '6px' }}>
-                    (+RM {getAddonTotal().toFixed(2)})
-                  </span>
                 </label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   {menuAddons.map(addon => {
@@ -2060,8 +2126,24 @@ function CustomerMenu() {
                           color: textColor
                         }}
                       >
-                        <span>{addon.name}</span>
-                        <span style={{ color: priceColor, fontWeight: 'bold' }}>
+                        <span style={{ fontWeight: isSelected ? 'bold' : 'normal' }}>
+                          {addon.name}
+                          {isSelected && (
+                            <span style={{ 
+                              fontSize: '9px', 
+                              color: successColor, 
+                              marginLeft: '4px',
+                              fontWeight: 'bold'
+                            }}>
+                              ✓
+                            </span>
+                          )}
+                        </span>
+                        <span style={{ 
+                          color: isSelected ? priceColor : textMuted, 
+                          fontWeight: isSelected ? 'bold' : 'normal',
+                          fontSize: '13px'
+                        }}>
                           +RM {parseFloat(addon.price).toFixed(2)}
                         </span>
                       </button>
@@ -2071,7 +2153,7 @@ function CustomerMenu() {
               </div>
             )}
             
-            {/* Total Price */}
+            {/* ===== TOTAL BREAKDOWN ===== */}
             {(() => {
               const selectedSize = menuOptions.find(opt => opt.id === selectedSizeItem?.selectedOptionId)
               const basePrice = selectedSize 
@@ -2082,16 +2164,47 @@ function CustomerMenu() {
               
               return (
                 <div style={{ 
-                  padding: '10px 16px',
+                  padding: '12px 16px',
                   background: secondaryBg,
                   borderRadius: '12px',
                   marginBottom: '16px',
                   border: `1px solid ${borderColor}`
                 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', color: textColor }}>
-                    <span>{translate('subtotal')}:</span>
-                    <span>RM {finalPrice.toFixed(2)}</span>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: textColor, fontSize: '13px', padding: '2px 0' }}>
+                    <span>{translate('base_price')}:</span>
+                    <span style={{ fontWeight: 'bold' }}>RM {basePrice.toFixed(2)}</span>
                   </div>
+                  {addonTotal > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', color: textColor, fontSize: '13px', padding: '2px 0' }}>
+                      <span style={{ color: '#8b5cf6' }}>✨ {translate('addons')}:</span>
+                      <span style={{ color: '#8b5cf6', fontWeight: 'bold' }}>+RM {addonTotal.toFixed(2)}</span>
+                    </div>
+                  )}
+                  <div style={{ 
+                    borderTop: `1px solid ${borderColor}`,
+                    marginTop: '6px',
+                    paddingTop: '6px',
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    fontWeight: 'bold', 
+                    fontSize: '16px',
+                    color: textColor
+                  }}>
+                    <span>{translate('total')}:</span>
+                    <span style={{ color: successColor }}>RM {finalPrice.toFixed(2)}</span>
+                  </div>
+                  {addonTotal > 0 && (
+                    <div style={{ 
+                      fontSize: '10px', 
+                      color: textMuted,
+                      textAlign: 'center',
+                      marginTop: '4px',
+                      paddingTop: '4px',
+                      borderTop: `1px dashed ${borderColor}`
+                    }}>
+                      +RM {addonTotal.toFixed(2)} {translate('from_base_price')}
+                    </div>
+                  )}
                 </div>
               )
             })()}
@@ -2105,18 +2218,17 @@ function CustomerMenu() {
                     : selectedSizeItem.price
                   const addonTotal = getAddonTotal()
                   const finalPrice = basePrice + addonTotal
-                  
-                  // Get selected option or null
-                  const selectedOption = menuOptions.find(opt => opt.id === selectedSizeItem?.selectedOptionId) || null
+                  const addonNames = getAddonNames()
                   
                   const cartItem = {
-                    id: `${selectedSizeItem.id}_${selectedOption?.id || ''}_${Date.now()}`,
+                    id: `${selectedSizeItem.id}_${selectedSize?.id || ''}_${Date.now()}`,
                     name: selectedSizeItem.name,
                     price: finalPrice,
+                    basePrice: basePrice,
                     quantity: 1,
-                    option_name: selectedOption?.option_name || null,
-                    option_id: selectedOption?.id || null,
-                    addons: getAddonNames(),
+                    option_name: selectedSize?.option_name || null,
+                    option_id: selectedSize?.id || null,
+                    addons: addonNames,
                     addon_ids: [...selectedAddons],
                     addon_total: addonTotal,
                     category: selectedSizeItem.category || 'Makanan'
@@ -2441,7 +2553,6 @@ function CustomerMenu() {
                             ({item.option_name})
                           </span>
                         )}
-                        {/* ===== ADD-ON DISPLAY IN CART ===== */}
                         {item.addons && (
                           <div style={{ 
                             fontSize: '9px', 
@@ -2450,6 +2561,16 @@ function CustomerMenu() {
                             marginTop: '2px'
                           }}>
                             ✨ + {item.addons} <span style={{ color: successColor }}>(+RM {item.addon_total?.toFixed(2) || '0.00'})</span>
+                          </div>
+                        )}
+                        {item.basePrice && item.basePrice !== item.price && (
+                          <div style={{ 
+                            fontSize: '9px', 
+                            color: '#94a3b8',
+                            textDecoration: 'line-through',
+                            marginTop: '1px'
+                          }}>
+                            RM {item.basePrice.toFixed(2)}
                           </div>
                         )}
                       </div>

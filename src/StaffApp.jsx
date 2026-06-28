@@ -8,7 +8,7 @@ import { playSound, initSound, unlockAudio } from './utils/sound'
 import { ORDER_STATUS, PAYMENT_STATUS, normalizeOrderForInsert } from './lib/orderWorkflow'
 
 // ===== IMPORT USE RECEIPT HOOK =====
-import { useReceipt } from '../hooks/useReceipt'
+import { useReceipt } from './hooks/useReceipt'
 
 function StaffApp() {
   const { darkMode } = useTheme()

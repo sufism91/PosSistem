@@ -901,6 +901,8 @@ function CustomerMenu() {
   }
 
   const filteredMenu = getFilteredMenu()
+  
+  // ===== UBAH DI SINI - 1 COLUMN UNTUK MOBILE =====
   const menuGridCols = isMobile ? '1fr' : 'repeat(auto-fill, minmax(200px, 1fr))'
 
   // ============================================================
@@ -1349,7 +1351,7 @@ function CustomerMenu() {
         </div>
       </div>
 
-      {/* ===== MENU GRID ===== */}
+      {/* ===== MENU GRID - 1 COLUMN UNTUK MOBILE ===== */}
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '0 12px 100px 12px' : '0 20px 120px 20px' }}>
         {filteredMenu.length === 0 ? (
           <div style={{ 
@@ -1367,7 +1369,7 @@ function CustomerMenu() {
           <div style={{ 
             display: 'grid',
             gridTemplateColumns: menuGridCols,
-            gap: isMobile ? '14px' : '20px'
+            gap: isMobile ? '16px' : '20px'
           }}>
             {filteredMenu.map(item => {
               const isPromoItem = item.type === 'set_menu' || item.type === 'bundle' || item.type === 'bogo'
@@ -1415,13 +1417,13 @@ function CustomerMenu() {
                     }
                   }}
                 >
-                  {/* ===== IMAGE ===== */}
+                  {/* ===== IMAGE - LEBIH BESAR ===== */}
                   <div style={{ 
                     background: isPromoItem ? '#f3e8ff' : (darkMode ? '#1a1a2e' : '#fef3c7'),
-                    padding: isMobile ? '20px' : '24px',
+                    padding: isMobile ? '24px' : '28px',
                     textAlign: 'center',
                     position: 'relative',
-                    minHeight: isMobile ? '120px' : '160px',
+                    minHeight: isMobile ? '180px' : '220px',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
@@ -1465,20 +1467,20 @@ function CustomerMenu() {
                         src={item.image_url}
                         alt={item.name}
                         style={{ 
-                          width: isMobile ? '90px' : '120px',
-                          height: isMobile ? '90px' : '120px',
+                          width: isMobile ? '160px' : '180px',
+                          height: isMobile ? '160px' : '180px',
                           objectFit: 'cover',
-                          borderRadius: '16px',
+                          borderRadius: '20px',
                           margin: '0 auto',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
+                          boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
                         }}
                         onError={(e) => {
                           e.target.style.display = 'none'
-                          e.target.parentElement.innerHTML = `<span style="font-size:${isMobile ? '48px' : '64px'}">${isPromoItem ? '🏷️' : getDefaultIcon(item.category)}</span>`
+                          e.target.parentElement.innerHTML = `<span style="font-size:${isMobile ? '64px' : '80px'}">${isPromoItem ? '🏷️' : getDefaultIcon(item.category)}</span>`
                         }}
                       />
                     ) : (
-                      <span style={{ fontSize: isMobile ? '48px' : '64px' }}>
+                      <span style={{ fontSize: isMobile ? '64px' : '80px' }}>
                         {isPromoItem ? '🏷️' : getDefaultIcon(item.category)}
                       </span>
                     )}
@@ -1488,7 +1490,7 @@ function CustomerMenu() {
                   <div style={{ padding: isMobile ? '14px 14px' : '18px 20px', textAlign: 'center' }}>
                     <h3 style={{ 
                       margin: '0 0 4px 0',
-                      fontSize: isMobile ? '14px' : '16px',
+                      fontSize: isMobile ? '16px' : '18px',
                       fontWeight: 'bold',
                       color: textColor
                     }}>
@@ -1497,7 +1499,7 @@ function CustomerMenu() {
                     
                     {hasDescription && (
                       <div style={{ 
-                        fontSize: isMobile ? '9px' : '10px',
+                        fontSize: isMobile ? '10px' : '11px',
                         color: textMuted,
                         fontStyle: 'italic',
                         marginBottom: '4px',
@@ -1513,7 +1515,7 @@ function CustomerMenu() {
                     {isPromoItem && item.original_price && (
                       <div style={{ marginBottom: '4px' }}>
                         <span style={{ 
-                          fontSize: isMobile ? '9px' : '10px',
+                          fontSize: isMobile ? '10px' : '11px',
                           color: '#94a3b8',
                           textDecoration: 'line-through',
                           marginRight: '4px'
@@ -1521,7 +1523,7 @@ function CustomerMenu() {
                           RM {item.original_price.toFixed(2)}
                         </span>
                         <span style={{ 
-                          fontSize: isMobile ? '14px' : '16px',
+                          fontSize: isMobile ? '16px' : '18px',
                           fontWeight: 'bold',
                           color: '#8b5cf6'
                         }}>
@@ -1541,7 +1543,7 @@ function CustomerMenu() {
                         {panasPrice && (
                           <span style={{ 
                             color: '#f97316',
-                            fontSize: isMobile ? '8px' : '10px',
+                            fontSize: isMobile ? '9px' : '11px',
                             fontWeight: 'bold'
                           }}>
                             🔥 RM {panasPrice?.toFixed(2)}
@@ -1550,7 +1552,7 @@ function CustomerMenu() {
                         {sejukPrice && (
                           <span style={{ 
                             color: '#06b6d4',
-                            fontSize: isMobile ? '8px' : '10px',
+                            fontSize: isMobile ? '9px' : '11px',
                             fontWeight: 'bold'
                           }}>
                             🧊 RM {sejukPrice?.toFixed(2)}
@@ -1559,7 +1561,7 @@ function CustomerMenu() {
                         {bungkusPrice && (
                           <span style={{ 
                             color: '#8b5cf6',
-                            fontSize: isMobile ? '8px' : '10px',
+                            fontSize: isMobile ? '9px' : '11px',
                             fontWeight: 'bold'
                           }}>
                             📦 RM {bungkusPrice?.toFixed(2)}
@@ -1568,7 +1570,7 @@ function CustomerMenu() {
                       </div>
                     ) : !isPromoItem && !hasSizeOptions && (
                       <div style={{ 
-                        fontSize: isMobile ? '16px' : '20px',
+                        fontSize: isMobile ? '18px' : '22px',
                         fontWeight: 'bold',
                         color: successColor,
                         marginBottom: '4px'
@@ -1579,7 +1581,7 @@ function CustomerMenu() {
                     
                     {hasSizeOptions && (
                       <div style={{ 
-                        fontSize: isMobile ? '10px' : '12px',
+                        fontSize: isMobile ? '12px' : '14px',
                         fontWeight: 'bold',
                         color: accentColor,
                         marginBottom: '4px'
@@ -1590,12 +1592,12 @@ function CustomerMenu() {
                     
                     <div style={{ 
                       width: '100%',
-                      padding: isMobile ? '8px' : '10px',
+                      padding: isMobile ? '10px' : '12px',
                       background: isAdding ? successColor : (isPromoItem ? '#8b5cf6' : accentColor),
                       color: 'white',
                       borderRadius: '40px',
                       fontWeight: 'bold',
-                      fontSize: isMobile ? '11px' : '13px',
+                      fontSize: isMobile ? '13px' : '15px',
                       transition: 'all 0.2s'
                     }}>
                       {isAdding ? translate('added') : (isPromoItem ? translate('buy_promo') : (hasSizeOptions ? translate('select_size_btn') : translate('add')))}

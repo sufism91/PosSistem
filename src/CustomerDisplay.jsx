@@ -58,30 +58,23 @@ function CustomerDisplay() {
   const [paymentMethod, setPaymentMethod] = useState('cash')
   const [serviceChargePercent, setServiceChargePercent] = useState(6)
   const [taxPercent, setTaxPercent] = useState(6)
-  const [selectedCategory, setSelectedCategory] = useState('All')
   const [specialMenuEnabled, setSpecialMenuEnabled] = useState(false)
   const [specialMenuTitle, setSpecialMenuTitle] = useState('Istimewa Hari Ini')
   const [specialMenuItems, setSpecialMenuItems] = useState([])
   const [promotions, setPromotions] = useState([])
-  const [searchMenu, setSearchMenu] = useState('')
   const [refreshing, setRefreshing] = useState(false)
   const [searchOrder, setSearchOrder] = useState('')
   const [isMobile, setIsMobile] = useState(false)
   const [drinkOptions, setDrinkOptions] = useState([])
   
-  // ===== SELECTED MENU FOR DISPLAY - BARU =====
+  // ===== SELECTED MENU FOR DISPLAY =====
   const [selectedMenuIds, setSelectedMenuIds] = useState([])
   const [showMenuSelector, setShowMenuSelector] = useState(false)
   const [tempSelectedMenuIds, setTempSelectedMenuIds] = useState([])
   const [displayMenuItems, setDisplayMenuItems] = useState([])
   
-  // Display Settings
-  const [displaySettings, setDisplaySettings] = useState({
-    showFood: true,
-    showDrinks: true,
-    showSpecial: true,
-    showPromos: true
-  })
+  // ===== HIDDEN HINTS =====
+  const [showHiddenHints, setShowHiddenHints] = useState(true)
   
   // Business hours
   const [businessHoursStart, setBusinessHoursStart] = useState('09:00')
@@ -131,17 +124,7 @@ function CustomerDisplay() {
     find_order: { en: 'Find order...', ms: 'Cari pesanan...' },
     thank_you: { en: 'Thank you for dining with us!', ms: 'Terima kasih kerana makan di sini!' },
     error_updating: { en: 'Error updating order', ms: 'Ralat kemaskini pesanan' },
-    all: { en: 'All', ms: 'Semua' },
     special_today: { en: "Today's Special Menu", ms: 'Menu Istimewa Hari Ini' },
-    display_settings: { en: 'Display Settings', ms: 'Tetapan Paparan' },
-    show_food: { en: '🍳 Food', ms: '🍳 Makanan' },
-    show_drinks: { en: '🥤 Drinks', ms: '🥤 Minuman' },
-    show_special: { en: '⭐ Special', ms: '⭐ Istimewa' },
-    show_promos: { en: '🏷️ Promotions', ms: '🏷️ Promosi' },
-    showing_items: { en: 'Showing', ms: 'Menunjukkan' },
-    of_items: { en: 'of', ms: 'daripada' },
-    items_count: { en: 'items', ms: 'item' },
-    no_items_to_display: { en: 'No items to display. Please adjust display settings.', ms: 'Tiada item untuk dipaparkan. Sila tukar tetapan paparan.' },
     promo: { en: '🔥 PROMO', ms: '🔥 PROMOSI' },
     bogo: { en: 'BUY 1 FREE 1', ms: 'BELI 1 PERCUMA 1' },
     bundle: { en: 'BUNDLE DEAL', ms: 'TAWARAN BUNDLE' },
@@ -156,7 +139,9 @@ function CustomerDisplay() {
     select_menu: { en: 'Select Menu', ms: 'Pilih Menu' },
     select_menu_title: { en: 'Select Menu To Display', ms: 'Pilih Menu Untuk Paparan' },
     select_all: { en: 'Select All', ms: 'Pilih Semua' },
-    no_menu_selected: { en: 'No menu selected. Please select menu from left bottom button.', ms: 'Tiada menu dipilih. Sila pilih menu di butang kiri bawah.' },
+    no_menu_selected: { en: 'No menu selected. Tap left bottom to select.', ms: 'Tiada menu dipilih. Tap kiri bawah untuk pilih.' },
+    tap_left_select: { en: 'Tap left to select menu', ms: 'Tap kiri pilih menu' },
+    tap_right_pay: { en: 'Tap right for billing', ms: 'Tap kanan untuk bayar' },
   }
 
   const t2 = (key) => {
@@ -177,6 +162,16 @@ function CustomerDisplay() {
   }, [])
 
   // ============================================================
+  // HIDE HINTS AFTER 5 SECONDS
+  // ============================================================
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowHiddenHints(false)
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [])
+
+  // ============================================================
   // THEME COLORS
   // ============================================================
   const bgColor = darkMode ? '#07111f' : '#eff6ff'
@@ -188,7 +183,6 @@ function CustomerDisplay() {
   const secondaryBg = darkMode ? 'rgba(30, 30, 50, 0.6)' : 'rgba(248, 250, 252, 0.8)'
   const inputBg = darkMode ? '#1a1a2e' : '#ffffff'
   const promoColor = '#ef4444'
-  const promoBg = 'rgba(239, 68, 68, 0.12)'
   const priceColor = darkMode ? '#4ade80' : '#22c55e'
   
   const glassEffect = {
@@ -237,7 +231,6 @@ function CustomerDisplay() {
         .from('drink_options')
         .select('*')
       setDrinkOptions(data || [])
-      console.log('🍹 CustomerDisplay - Drink options loaded:', data?.length || 0, 'options')
     } catch (err) {
       console.error('Error loading drink options:', err)
       setDrinkOptions([])
@@ -287,12 +280,9 @@ function CustomerDisplay() {
         const ids = JSON.parse(data.value)
         setSelectedMenuIds(ids)
         setTempSelectedMenuIds(ids)
-        
-        // Filter menu items
         const filtered = menu.filter(item => ids.includes(item.id))
         setDisplayMenuItems(filtered)
       } else {
-        // Default: show all menu
         const allIds = menu.map(item => item.id)
         setSelectedMenuIds(allIds)
         setTempSelectedMenuIds(allIds)
@@ -425,19 +415,8 @@ function CustomerDisplay() {
   async function loadBusinessHours() {
     const { data: startData } = await supabase.from('settings').select('value').eq('key', 'business_hours_start').single()
     if (startData) setBusinessHoursStart(startData.value)
-    
     const { data: endData } = await supabase.from('settings').select('value').eq('key', 'business_hours_end').single()
     if (endData) setBusinessHoursEnd(endData.value)
-  }
-
-  async function refreshData() {
-    setRefreshing(true)
-    await loadAllData()
-    if (selectedTable) {
-      await loadTableOrders(selectedTable)
-    }
-    setRefreshing(false)
-    toast.success('Data refreshed!')
   }
 
   async function forceRefreshMenu() {
@@ -598,44 +577,6 @@ function CustomerDisplay() {
   }
 
   // ============================================================
-  // TOGGLE DISPLAY SETTINGS
-  // ============================================================
-  const toggleDisplay = (key) => {
-    setDisplaySettings(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }))
-  }
-
-  // ============================================================
-  // GET FILTERED MENU
-  // ============================================================
-  const getFilteredDisplayMenu = () => {
-    let filtered = [...menu]
-    
-    const foodSubCategories = ['Makanan', 'Mee', 'Bihup SUP', 'Telur', 'Meggie Sup', 'Sup', 'Nasi']
-    const drinkSubCategories = ['Minuman', 'Teh', 'Kopi', 'Jus', 'Air']
-    
-    if (!displaySettings.showFood) {
-      filtered = filtered.filter(item => !foodSubCategories.includes(item.category))
-    }
-    
-    if (!displaySettings.showDrinks) {
-      filtered = filtered.filter(item => !drinkSubCategories.includes(item.category))
-    }
-    
-    if (!displaySettings.showSpecial) {
-      filtered = filtered.filter(item => !item.is_special && item.category !== 'Istimewa')
-    }
-    
-    if (!displaySettings.showPromos) {
-      filtered = filtered.filter(item => !item.is_promo)
-    }
-    
-    return filtered
-  }
-
-  // ============================================================
   // GET PROMOTION INFO
   // ============================================================
   function getItemPromotion(item) {
@@ -666,6 +607,13 @@ function CustomerDisplay() {
       return bundleItem?.price || item.price
     }
     return null
+  }
+
+  function getPromoTypeLabel(type) {
+    if (type === 'bogo') return t2('bogo')
+    if (type === 'bundle') return t2('bundle')
+    if (type === 'set_menu') return t2('set_menu')
+    return t2('promo')
   }
 
   // ============================================================
@@ -762,54 +710,6 @@ function CustomerDisplay() {
       default: return '🍽️'
     }
   }
-
-  const getPromoTypeLabel = (type) => {
-    if (type === 'bogo') return t2('bogo')
-    if (type === 'bundle') return t2('bundle')
-    if (type === 'set_menu') return t2('set_menu')
-    return t2('promo')
-  }
-
-  // Get categories for filter with parent/child support
-  const getCategoriesWithParent = () => {
-    return ['All', ...categories.map(cat => cat.name)]
-  }
-
-  // Filter menu for display with parent/child support
-  const getFilteredMenuWithParent = () => {
-    let filtered = getFilteredDisplayMenu()
-    
-    if (selectedCategory !== 'All') {
-      const selectedCat = categories.find(c => c.name === selectedCategory)
-      
-      if (selectedCat) {
-        const isParent = selectedCat.parent_id === null || selectedCat.parent_id === undefined
-        
-        if (isParent) {
-          const subCategoryNames = categories
-            .filter(c => c.parent_id === selectedCat.id)
-            .map(c => c.name)
-          const allRelatedCategories = [selectedCategory, ...subCategoryNames]
-          filtered = filtered.filter(item => allRelatedCategories.includes(item.category))
-        } else {
-          filtered = filtered.filter(item => item.category === selectedCategory)
-        }
-      } else {
-        filtered = filtered.filter(item => item.category === selectedCategory)
-      }
-    }
-    
-    return filtered
-  }
-
-  // Filter menu by category and search
-  const categoryNames = getCategoriesWithParent()
-  const displayMenu = getFilteredMenuWithParent()
-  
-  const filteredMenu = displayMenu.filter(item => {
-    const matchSearch = item.name.toLowerCase().includes(searchMenu.toLowerCase())
-    return matchSearch
-  })
 
   // Filter orders
   const filteredOrders = tableOrders.filter(order => {
@@ -982,7 +882,6 @@ function CustomerDisplay() {
               fontSize: '18px',
               transition: 'all 0.2s'
             }}
-            title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
           >
             {darkMode ? '☀️' : '🌙'}
           </button>
@@ -997,8 +896,7 @@ function CustomerDisplay() {
               cursor: 'pointer', 
               fontSize: '12px', 
               fontWeight: 'bold',
-              color: textColor,
-              transition: 'all 0.2s'
+              color: textColor
             }}
           >
             {language === 'bm' ? '🇺🇸 EN' : '🇲🇾 BM'}
@@ -1014,11 +912,9 @@ function CustomerDisplay() {
               borderRadius: '40px', 
               padding: '8px 14px', 
               cursor: 'pointer',
-              transition: 'all 0.2s',
               opacity: refreshing ? 0.6 : 1,
               fontSize: '16px'
             }}
-            title="Refresh Menu"
           >
             🔄
           </button>
@@ -1026,7 +922,7 @@ function CustomerDisplay() {
       </div>
 
       {/* ===== PROMOTIONS BANNER ===== */}
-      {promotions.length > 0 && displaySettings.showPromos && (
+      {promotions.length > 0 && (
         <div style={{ 
           background: 'linear-gradient(135deg, #ef4444, #dc2626, #b91c1c)',
           borderRadius: '20px',
@@ -1215,7 +1111,7 @@ function CustomerDisplay() {
       )}
 
       {/* ===== SPECIAL MENU BANNER ===== */}
-      {specialMenuEnabled && specialMenuItems.length > 0 && displaySettings.showSpecial && (
+      {specialMenuEnabled && specialMenuItems.length > 0 && (
         <div style={{ 
           background: 'linear-gradient(135deg, #fef3c7, #fde68a, #f59e0b, #d97706)',
           borderRadius: '20px', 
@@ -1405,455 +1301,301 @@ function CustomerDisplay() {
         </div>
       )}
 
-      {/* ===== DISPLAY TOGGLE CONTROLS ===== */}
-      <div style={{ 
-        ...glassEffect, 
-        borderRadius: '16px', 
-        padding: isMobile ? '10px 14px' : '12px 20px', 
-        marginBottom: '16px',
-        flexShrink: 0,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap',
-        gap: '8px'
-      }}>
-        <span style={{ 
-          color: textColor, 
-          fontWeight: 'bold', 
-          fontSize: isMobile ? '12px' : '14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px'
-        }}>
-          ⚙️ {t2('display_settings')}
-        </span>
-        
-        <div style={{ 
-          display: 'flex', 
-          gap: isMobile ? '8px' : '16px', 
-          flexWrap: 'wrap',
-          alignItems: 'center'
-        }}>
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            cursor: 'pointer',
-            color: textColor,
-            fontSize: isMobile ? '11px' : '13px'
-          }}>
-            <input
-              type="checkbox"
-              checked={displaySettings.showFood}
-              onChange={() => toggleDisplay('showFood')}
-              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-            />
-            {t2('show_food')}
-          </label>
-          
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            cursor: 'pointer',
-            color: textColor,
-            fontSize: isMobile ? '11px' : '13px'
-          }}>
-            <input
-              type="checkbox"
-              checked={displaySettings.showDrinks}
-              onChange={() => toggleDisplay('showDrinks')}
-              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-            />
-            {t2('show_drinks')}
-          </label>
-          
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            cursor: 'pointer',
-            color: textColor,
-            fontSize: isMobile ? '11px' : '13px'
-          }}>
-            <input
-              type="checkbox"
-              checked={displaySettings.showSpecial}
-              onChange={() => toggleDisplay('showSpecial')}
-              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-            />
-            {t2('show_special')}
-          </label>
-          
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            cursor: 'pointer',
-            color: textColor,
-            fontSize: isMobile ? '11px' : '13px'
-          }}>
-            <input
-              type="checkbox"
-              checked={displaySettings.showPromos}
-              onChange={() => toggleDisplay('showPromos')}
-              style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-            />
-            {t2('show_promos')}
-          </label>
-          
-          <span style={{
-            fontSize: isMobile ? '10px' : '12px',
-            color: textMuted,
-            padding: '4px 12px',
-            background: secondaryBg,
-            borderRadius: '20px'
-          }}>
-            {t2('showing_items')} {displayMenuItems.length} {t2('of_items')} {menu.length} {t2('items_count')}
-          </span>
-        </div>
-      </div>
-
-      {/* ===== MAIN CONTENT ===== */}
+      {/* ===== MENU GRID ===== */}
       <div style={{ 
         flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden'
+        overflowY: 'auto',
+        paddingRight: '4px'
       }}>
-        
-        {/* Category Tabs */}
-        <div style={{ 
-          display: 'flex', 
-          gap: '8px', 
-          overflowX: 'auto', 
-          paddingBottom: '10px',
-          marginBottom: '12px',
-          scrollbarWidth: 'thin',
-          flexShrink: 0
-        }}>
-          {categoryNames.map(cat => (
-            <button 
-              key={cat} 
-              onClick={() => setSelectedCategory(cat)} 
-              style={{ 
-                padding: '8px 20px', 
-                background: selectedCategory === cat ? 'linear-gradient(135deg, #f59e0b, #ea580c)' : 'transparent', 
-                color: selectedCategory === cat ? 'white' : textColor, 
-                border: selectedCategory === cat ? 'none' : `1px solid ${borderColor}`, 
-                borderRadius: '40px', 
-                cursor: 'pointer', 
-                fontWeight: selectedCategory === cat ? 'bold' : '500', 
-                fontSize: '13px',
-                whiteSpace: 'nowrap',
-                transition: 'all 0.2s',
-                flexShrink: 0
-              }}
-            >
-              {cat === 'All' ? `🍽️ ${t2('all')}` : `${getDefaultIcon(cat)} ${cat}`}
-            </button>
-          ))}
-        </div>
-
-        {/* ===== MENU GRID - GUNA displayMenuItems ===== */}
-        <div style={{ 
-          flex: 1,
-          overflowY: 'auto',
-          paddingRight: '4px'
-        }}>
-          {displayMenuItems.length === 0 ? (
-            <div style={{ 
-              textAlign: 'center', 
-              padding: isMobile ? '40px 20px' : '80px 20px', 
-              ...glassEffect, 
-              borderRadius: '24px' 
-            }}>
-              <span style={{ fontSize: isMobile ? '48px' : '64px', opacity: 0.5 }}>📭</span>
-              <p style={{ color: textMuted, marginTop: '12px', fontSize: isMobile ? '14px' : '16px' }}>
-                {t2('no_menu_selected')}
-              </p>
-              <button
-                onClick={() => {
-                  setTempSelectedMenuIds(selectedMenuIds)
-                  setShowMenuSelector(true)
-                }}
-                style={{
-                  marginTop: '12px',
-                  padding: '10px 24px',
-                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '30px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '14px'
-                }}
-              >
-                📋 {t2('select_menu')}
-              </button>
-            </div>
-          ) : (
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(220px, 1fr))', 
-              gap: '16px'
-            }}>
-              {displayMenuItems.map(item => {
-                const hasImage = item.image_url && item.image_url.trim() !== ''
-                const promo = getItemPromotion(item)
-                const promoPrice = getPromoPrice(item)
-                const hasDescription = item.description && item.description.trim() !== ''
-                const hasDrinkOptions = getDrinkOptionsForItem(item).length > 0
-                const drinkOpts = getDrinkOptionsForItem(item)
-                
-                return (
-                  <div 
-                    key={item.id} 
-                    style={{ 
-                      background: cardBg,
+        {displayMenuItems.length === 0 ? (
+          <div style={{ 
+            textAlign: 'center', 
+            padding: isMobile ? '40px 20px' : '80px 20px', 
+            ...glassEffect, 
+            borderRadius: '24px' 
+          }}>
+            <span style={{ fontSize: isMobile ? '48px' : '64px', opacity: 0.5 }}>📭</span>
+            <p style={{ color: textMuted, marginTop: '12px', fontSize: isMobile ? '14px' : '16px' }}>
+              {t2('no_menu_selected')}
+            </p>
+          </div>
+        ) : (
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(200px, 1fr))', 
+            gap: '16px'
+          }}>
+            {displayMenuItems.map(item => {
+              const hasImage = item.image_url && item.image_url.trim() !== ''
+              const promo = getItemPromotion(item)
+              const promoPrice = getPromoPrice(item)
+              const hasDescription = item.description && item.description.trim() !== ''
+              const hasDrinkOptions = getDrinkOptionsForItem(item).length > 0
+              const drinkOpts = getDrinkOptionsForItem(item)
+              
+              return (
+                <div 
+                  key={item.id} 
+                  style={{ 
+                    background: cardBg,
+                    borderRadius: '20px',
+                    padding: '18px',
+                    textAlign: 'center',
+                    border: `1px solid ${borderColor}`,
+                    transition: 'transform 0.2s, box-shadow 0.2s',
+                    cursor: 'default',
+                    position: 'relative',
+                    boxShadow: darkMode ? '0 4px 16px rgba(0,0,0,0.2)' : '0 4px 16px rgba(0,0,0,0.06)'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-4px)'
+                    e.currentTarget.style.boxShadow = darkMode 
+                      ? '0 8px 32px rgba(0,0,0,0.4)' 
+                      : '0 8px 32px rgba(0,0,0,0.1)'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'translateY(0)'
+                    e.currentTarget.style.boxShadow = darkMode ? '0 4px 16px rgba(0,0,0,0.2)' : '0 4px 16px rgba(0,0,0,0.06)'
+                  }}
+                >
+                  {/* Promo Badge */}
+                  {promo && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '-6px',
+                      right: '-6px',
+                      background: promoColor,
+                      color: 'white',
+                      padding: '2px 12px',
                       borderRadius: '20px',
-                      padding: '18px',
-                      textAlign: 'center',
-                      border: `1px solid ${borderColor}`,
-                      transition: 'transform 0.2s, box-shadow 0.2s',
-                      cursor: 'default',
-                      position: 'relative',
-                      boxShadow: darkMode ? '0 4px 16px rgba(0,0,0,0.2)' : '0 4px 16px rgba(0,0,0,0.06)'
-                    }}
-                    onMouseEnter={e => {
-                      e.currentTarget.style.transform = 'translateY(-4px)'
-                      e.currentTarget.style.boxShadow = darkMode 
-                        ? '0 8px 32px rgba(0,0,0,0.4)' 
-                        : '0 8px 32px rgba(0,0,0,0.1)'
-                    }}
-                    onMouseLeave={e => {
-                      e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = darkMode ? '0 4px 16px rgba(0,0,0,0.2)' : '0 4px 16px rgba(0,0,0,0.06)'
-                    }}
-                  >
-                    {/* Promo Badge */}
-                    {promo && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '-6px',
-                        right: '-6px',
-                        background: promoColor,
-                        color: 'white',
-                        padding: '2px 12px',
-                        borderRadius: '20px',
-                        fontSize: '9px',
-                        fontWeight: 'bold',
-                        boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
-                        zIndex: 5
-                      }}>
-                        {promo.type === 'bogo' ? '🎁 BOGO' : 
-                         promo.type === 'bundle' ? '📦 Bundle' : 
-                         promo.type === 'set_menu' ? '🍽️ Set' : '🔥 Promo'}
-                      </div>
-                    )}
-                    
-                    {/* Image - LEBIH BESAR */}
-                    {hasImage ? (
-                      <img 
-                        src={item.image_url} 
-                        alt={item.name} 
-                        style={{ 
-                          width: '100%',
-                          maxWidth: '200px',
-                          height: '160px', 
-                          objectFit: 'cover', 
-                          borderRadius: '16px', 
-                          margin: '0 auto 12px auto',
-                          display: 'block',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
-                        }}
-                        onError={(e) => { 
-                          e.target.style.display = 'none'
-                          e.target.parentElement.innerHTML += `<div style="font-size:56px;margin:12px 0">${getDefaultIcon(item.category)}</div>`
-                        }}
-                      />
-                    ) : (
-                      <div style={{ fontSize: '56px', marginBottom: '10px' }}>{getDefaultIcon(item.category)}</div>
-                    )}
-                    
-                    <div style={{ 
-                      fontWeight: 'bold', 
-                      fontSize: isMobile ? '16px' : '18px', 
-                      color: textColor, 
-                      marginBottom: '4px'
+                      fontSize: '9px',
+                      fontWeight: 'bold',
+                      boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
+                      zIndex: 5
                     }}>
-                      {item.name}
+                      {promo.type === 'bogo' ? '🎁 BOGO' : 
+                       promo.type === 'bundle' ? '📦 Bundle' : 
+                       promo.type === 'set_menu' ? '🍽️ Set' : '🔥 Promo'}
                     </div>
-                    
-                    {hasDescription && (
-                      <div style={{ 
-                        fontSize: '11px', 
-                        color: textMuted, 
-                        fontStyle: 'italic',
-                        marginBottom: '6px',
-                        background: secondaryBg,
-                        padding: '4px 10px',
-                        borderRadius: '6px'
-                      }}>
-                        📝 {item.description}
-                      </div>
-                    )}
-                    
-                    {/* Price */}
+                  )}
+                  
+                  {/* Image - TAK ZOOM IN */}
+                  {hasImage ? (
+                    <img 
+                      src={item.image_url} 
+                      alt={item.name} 
+                      style={{ 
+                        width: '100%',
+                        maxWidth: '200px',
+                        height: '160px', 
+                        objectFit: 'contain',
+                        borderRadius: '12px', 
+                        margin: '0 auto 12px auto',
+                        display: 'block',
+                        background: '#f8fafc',
+                        padding: '4px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
+                      }}
+                      onError={(e) => { 
+                        e.target.style.display = 'none'
+                      }}
+                    />
+                  ) : (
+                    <div style={{ fontSize: '56px', marginBottom: '10px' }}>{getDefaultIcon(item.category)}</div>
+                  )}
+                  
+                  <div style={{ 
+                    fontWeight: 'bold', 
+                    fontSize: isMobile ? '16px' : '18px', 
+                    color: textColor, 
+                    marginBottom: '4px'
+                  }}>
+                    {item.name}
+                  </div>
+                  
+                  {hasDescription && (
                     <div style={{ 
-                      color: darkMode ? '#4ade80' : '#22c55e', 
-                      fontWeight: 'bold', 
-                      fontSize: '22px',
+                      fontSize: '11px', 
+                      color: textMuted, 
+                      fontStyle: 'italic',
+                      marginBottom: '6px',
                       background: secondaryBg,
-                      display: 'inline-block',
-                      padding: '4px 20px',
-                      borderRadius: '30px',
-                      marginBottom: '8px'
+                      padding: '4px 10px',
+                      borderRadius: '6px'
                     }}>
-                      {promoPrice !== null ? (
-                        <span style={{ color: promoColor }}>
-                          RM {promoPrice}
-                        </span>
-                      ) : (
-                        `RM ${item.price}`
-                      )}
+                      📝 {item.description}
                     </div>
-                    
-                    {/* Drink Options */}
-                    {hasDrinkOptions && (
-                      <div style={{
-                        marginTop: '8px',
-                        paddingTop: '8px',
-                        borderTop: `1px solid ${borderColor}`,
-                        display: 'flex',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        flexWrap: 'wrap'
-                      }}>
-                        {drinkOpts.slice(0, 3).map(opt => (
-                          <div key={opt.id} style={{
-                            fontSize: '10px',
-                            background: secondaryBg,
-                            padding: '4px 10px',
-                            borderRadius: '12px',
-                            color: textMuted,
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '2px',
-                            border: `1px solid ${borderColor}`,
-                            minWidth: '50px'
-                          }}>
-                            {opt.image_url ? (
-                              <img 
-                                src={opt.image_url} 
-                                alt={opt.option_type}
-                                style={{
-                                  width: '32px',
-                                  height: '32px',
-                                  objectFit: 'cover',
-                                  borderRadius: '6px',
-                                  border: `1px solid ${borderColor}`
-                                }}
-                              />
-                            ) : (
-                              <span style={{ fontSize: '16px' }}>{getOptionEmoji(opt.option_type)}</span>
-                            )}
-                            <span style={{ fontSize: '8px', fontWeight: 'bold' }}>{getOptionLabel(opt.option_type)}</span>
-                            <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '10px' }}>
-                              RM {parseFloat(opt.price).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
-                        {drinkOpts.length > 3 && (
-                          <span style={{
-                            fontSize: '9px',
-                            color: textMuted,
-                            padding: '2px 6px',
-                            alignSelf: 'center'
-                          }}>
-                            +{drinkOpts.length - 3}
-                          </span>
-                        )}
-                      </div>
+                  )}
+                  
+                  {/* Price */}
+                  <div style={{ 
+                    color: darkMode ? '#4ade80' : '#22c55e', 
+                    fontWeight: 'bold', 
+                    fontSize: '22px',
+                    background: secondaryBg,
+                    display: 'inline-block',
+                    padding: '4px 20px',
+                    borderRadius: '30px',
+                    marginBottom: '8px'
+                  }}>
+                    {promoPrice !== null ? (
+                      <span style={{ color: promoColor }}>
+                        RM {promoPrice}
+                      </span>
+                    ) : (
+                      `RM ${item.price}`
                     )}
                   </div>
-                )
-              })}
-            </div>
-          )}
-        </div>
+                  
+                  {/* Drink Options */}
+                  {hasDrinkOptions && (
+                    <div style={{
+                      marginTop: '8px',
+                      paddingTop: '8px',
+                      borderTop: `1px solid ${borderColor}`,
+                      display: 'flex',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      flexWrap: 'wrap'
+                    }}>
+                      {drinkOpts.slice(0, 3).map(opt => (
+                        <div key={opt.id} style={{
+                          fontSize: '10px',
+                          background: secondaryBg,
+                          padding: '4px 10px',
+                          borderRadius: '12px',
+                          color: textMuted,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          gap: '2px',
+                          border: `1px solid ${borderColor}`,
+                          minWidth: '50px'
+                        }}>
+                          {opt.image_url ? (
+                            <img 
+                              src={opt.image_url} 
+                              alt={opt.option_type}
+                              style={{
+                                width: '32px',
+                                height: '32px',
+                                objectFit: 'cover',
+                                borderRadius: '6px',
+                                border: `1px solid ${borderColor}`
+                              }}
+                            />
+                          ) : (
+                            <span style={{ fontSize: '16px' }}>{getOptionEmoji(opt.option_type)}</span>
+                          )}
+                          <span style={{ fontSize: '8px', fontWeight: 'bold' }}>{getOptionLabel(opt.option_type)}</span>
+                          <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '10px' }}>
+                            RM {parseFloat(opt.price).toFixed(2)}
+                          </span>
+                        </div>
+                      ))}
+                      {drinkOpts.length > 3 && (
+                        <span style={{
+                          fontSize: '9px',
+                          color: textMuted,
+                          padding: '2px 6px',
+                          alignSelf: 'center'
+                        }}>
+                          +{drinkOpts.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
-      {/* ===== BUTTON PILIH MENU - KIRI BAWAH (BARU) ===== */}
-      <button 
+      {/* ===== HIDDEN AREA - KLIK KIRI UNTUK PILIH MENU ===== */}
+      <div 
         onClick={() => {
           setTempSelectedMenuIds(selectedMenuIds)
           setShowMenuSelector(true)
-        }} 
-        style={{ 
-          position: 'fixed', 
-          bottom: '24px', 
-          left: '24px', 
-          padding: isMobile ? '10px 16px' : '12px 20px',
-          borderRadius: '40px', 
-          background: 'linear-gradient(135deg, #3b82f6, #2563eb)', 
-          color: 'white', 
-          border: 'none', 
-          fontSize: isMobile ? '12px' : '14px',
-          fontWeight: 'bold',
-          cursor: 'pointer', 
-          boxShadow: '0 8px 30px rgba(59,130,246,0.4)', 
-          zIndex: 1000,
+        }}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          left: 0,
+          width: isMobile ? '50%' : '30%',
+          height: '70px',
+          cursor: 'pointer',
+          zIndex: 999,
+          background: 'transparent',
           display: 'flex',
           alignItems: 'center',
-          gap: '8px',
-          transition: 'transform 0.2s'
+          justifyContent: 'center'
         }}
-        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        title={t2('tap_left_select')}
       >
-        📋 {t2('select_menu')}
-        <span style={{
-          background: 'rgba(255,255,255,0.2)',
-          padding: '2px 8px',
-          borderRadius: '20px',
-          fontSize: '10px'
-        }}>
-          {displayMenuItems.length}/{menu.length}
-        </span>
-      </button>
+        {showHiddenHints && (
+          <div style={{
+            background: 'rgba(59,130,246,0.12)',
+            backdropFilter: 'blur(8px)',
+            padding: '6px 16px',
+            borderRadius: '30px',
+            border: '1px dashed rgba(59,130,246,0.25)',
+            fontSize: isMobile ? '9px' : '11px',
+            color: '#3b82f6',
+            fontWeight: 'bold',
+            animation: 'pulse 2s ease-in-out infinite',
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            📋 {t2('tap_left_select')}
+          </div>
+        )}
+      </div>
 
-      {/* ===== BILLING BUTTON - KANAN BAWAH (SEDIA ADA) ===== */}
-      <button 
-        onClick={() => setShowBillingModal(true)} 
-        style={{ 
-          position: 'fixed', 
-          bottom: '24px', 
-          right: '24px', 
-          width: isMobile ? '56px' : '64px', 
-          height: isMobile ? '56px' : '64px', 
-          borderRadius: '32px', 
-          background: 'linear-gradient(135deg, #f59e0b, #ea580c)', 
-          color: 'white', 
-          border: 'none', 
-          fontSize: isMobile ? '24px' : '28px', 
-          cursor: 'pointer', 
-          boxShadow: '0 8px 30px rgba(245,158,11,0.5)', 
-          zIndex: 1000,
+      {/* ===== HIDDEN AREA - KLIK KANAN UNTUK BILLING ===== */}
+      <div 
+        onClick={() => setShowBillingModal(true)}
+        style={{
+          position: 'fixed',
+          bottom: 0,
+          right: 0,
+          width: isMobile ? '50%' : '30%',
+          height: '70px',
+          cursor: 'pointer',
+          zIndex: 999,
+          background: 'transparent',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'center',
-          transition: 'transform 0.2s'
+          justifyContent: 'center'
         }}
-        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
-        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+        title={t2('tap_right_pay')}
       >
-        💰
-      </button>
+        {showHiddenHints && (
+          <div style={{
+            background: 'rgba(245,158,11,0.12)',
+            backdropFilter: 'blur(8px)',
+            padding: '6px 16px',
+            borderRadius: '30px',
+            border: '1px dashed rgba(245,158,11,0.25)',
+            fontSize: isMobile ? '9px' : '11px',
+            color: '#f59e0b',
+            fontWeight: 'bold',
+            animation: 'pulse 2s ease-in-out infinite',
+            pointerEvents: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}>
+            💰 {t2('tap_right_pay')}
+          </div>
+        )}
+      </div>
 
-      {/* ===== MENU SELECTOR MODAL (BARU) ===== */}
+      {/* ========================================================== */}
+      {/* MENU SELECTOR MODAL */}
+      {/* ========================================================== */}
       {showMenuSelector && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
@@ -2069,7 +1811,9 @@ function CustomerDisplay() {
         </div>
       )}
 
-      {/* ===== BILLING MODAL (SEDIA ADA - TAK BERUBAH) ===== */}
+      {/* ========================================================== */}
+      {/* BILLING MODAL */}
+      {/* ========================================================== */}
       {showBillingModal && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
@@ -2437,7 +2181,9 @@ function CustomerDisplay() {
         </div>
       )}
 
-      {/* ===== PAYMENT MODAL (SEDIA ADA - TAK BERUBAH) ===== */}
+      {/* ========================================================== */}
+      {/* PAYMENT MODAL */}
+      {/* ========================================================== */}
       {showPaymentModal && selectedOrder && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
@@ -2602,7 +2348,9 @@ function CustomerDisplay() {
         </div>
       )}
       
-      {/* ===== STYLES ===== */}
+      {/* ========================================================== */}
+      {/* STYLES */}
+      {/* ========================================================== */}
       <style>
         {`
           .spinner { 
@@ -2630,8 +2378,8 @@ function CustomerDisplay() {
           }
           
           @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            0%, 100% { transform: scale(1); opacity: 0.6; }
+            50% { transform: scale(1.05); opacity: 1; }
           }
           
           @keyframes pulseGlow {

@@ -69,6 +69,12 @@ function CustomerDisplay() {
   const [isMobile, setIsMobile] = useState(false)
   const [drinkOptions, setDrinkOptions] = useState([])
   
+  // ===== SELECTED MENU FOR DISPLAY - BARU =====
+  const [selectedMenuIds, setSelectedMenuIds] = useState([])
+  const [showMenuSelector, setShowMenuSelector] = useState(false)
+  const [tempSelectedMenuIds, setTempSelectedMenuIds] = useState([])
+  const [displayMenuItems, setDisplayMenuItems] = useState([])
+  
   // Display Settings
   const [displaySettings, setDisplaySettings] = useState({
     showFood: true,
@@ -147,6 +153,10 @@ function CustomerDisplay() {
     no_drink_options: { en: 'No drink options available', ms: 'Tiada pilihan minuman' },
     preview_receipt: { en: 'Preview Receipt', ms: 'Preview Resit' },
     mark_paid: { en: 'Mark as Paid', ms: 'Tanda Bayar' },
+    select_menu: { en: 'Select Menu', ms: 'Pilih Menu' },
+    select_menu_title: { en: 'Select Menu To Display', ms: 'Pilih Menu Untuk Paparan' },
+    select_all: { en: 'Select All', ms: 'Pilih Semua' },
+    no_menu_selected: { en: 'No menu selected. Please select menu from left bottom button.', ms: 'Tiada menu dipilih. Sila pilih menu di butang kiri bawah.' },
   }
 
   const t2 = (key) => {
@@ -263,6 +273,78 @@ function CustomerDisplay() {
   }
 
   // ============================================================
+  // LOAD SELECTED MENU FOR DISPLAY
+  // ============================================================
+  async function loadSelectedMenu() {
+    try {
+      const { data } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'customer_display_menu_ids')
+        .single()
+      
+      if (data && data.value) {
+        const ids = JSON.parse(data.value)
+        setSelectedMenuIds(ids)
+        setTempSelectedMenuIds(ids)
+        
+        // Filter menu items
+        const filtered = menu.filter(item => ids.includes(item.id))
+        setDisplayMenuItems(filtered)
+      } else {
+        // Default: show all menu
+        const allIds = menu.map(item => item.id)
+        setSelectedMenuIds(allIds)
+        setTempSelectedMenuIds(allIds)
+        setDisplayMenuItems(menu)
+      }
+    } catch (err) {
+      console.error('Error loading selected menu:', err)
+      setDisplayMenuItems(menu)
+    }
+  }
+
+  async function saveSelectedMenu() {
+    try {
+      const { error } = await supabase
+        .from('settings')
+        .upsert({ 
+          key: 'customer_display_menu_ids', 
+          value: JSON.stringify(tempSelectedMenuIds) 
+        }, { onConflict: 'key' })
+      
+      if (error) throw error
+      
+      setSelectedMenuIds(tempSelectedMenuIds)
+      const filtered = menu.filter(item => tempSelectedMenuIds.includes(item.id))
+      setDisplayMenuItems(filtered)
+      setShowMenuSelector(false)
+      toast.success('✅ Menu paparan dikemaskini!')
+    } catch (err) {
+      console.error('Error saving selected menu:', err)
+      toast.error('❌ Gagal menyimpan menu paparan')
+    }
+  }
+
+  const toggleMenuSelection = (menuId) => {
+    setTempSelectedMenuIds(prev => {
+      if (prev.includes(menuId)) {
+        return prev.filter(id => id !== menuId)
+      } else {
+        return [...prev, menuId]
+      }
+    })
+  }
+
+  const toggleAllMenu = () => {
+    if (tempSelectedMenuIds.length === menu.length) {
+      setTempSelectedMenuIds([])
+    } else {
+      setTempSelectedMenuIds(menu.map(item => item.id))
+    }
+  }
+
+  // ============================================================
   // LOAD DATA
   // ============================================================
   useEffect(() => {
@@ -276,6 +358,7 @@ function CustomerDisplay() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'menu' }, () => {
         loadMenu()
         loadSpecialMenu()
+        loadSelectedMenu()
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
         loadCategories()
@@ -292,6 +375,7 @@ function CustomerDisplay() {
         loadSpecialMenu()
         loadBusinessHours()
         loadPrintSettings()
+        loadSelectedMenu()
       })
       .subscribe()
 
@@ -322,6 +406,7 @@ function CustomerDisplay() {
     await loadBusinessHours()
     await loadDrinkOptions()
     await loadPrintSettings()
+    await loadSelectedMenu()
     setLoading(false)
   }
 
@@ -361,6 +446,7 @@ function CustomerDisplay() {
     await loadSpecialMenu()
     await loadPromotions()
     await loadDrinkOptions()
+    await loadSelectedMenu()
     setRefreshing(false)
     toast.success('Menu refreshed!')
   }
@@ -583,7 +669,7 @@ function CustomerDisplay() {
   }
 
   // ============================================================
-  // PAYMENT & PRINT FUNCTIONS - SYNC WITH StaffApp
+  // PAYMENT & PRINT FUNCTIONS
   // ============================================================
   async function markAsPaid(order) {
     const subtotal = parseFloat(order.subtotal || order.total || 0)
@@ -618,7 +704,6 @@ function CustomerDisplay() {
     setSelectedOrder(null)
     toast.success(`✅ ${t2('payment_received')} RM ${grandTotal.toFixed(2)}!`)
     
-    // Auto print after payment
     if (printSettings.auto_print) {
       try {
         const receiptOrder = { 
@@ -630,7 +715,6 @@ function CustomerDisplay() {
           tax, 
           grand_total: grandTotal 
         }
-        
         setTimeout(() => {
           printReceiptDirect(receiptOrder)
         }, 500)
@@ -640,9 +724,6 @@ function CustomerDisplay() {
     }
   }
 
-  // ============================================================
-  // PRINT RECEIPT - SYNC WITH StaffApp
-  // ============================================================
   const printReceiptDirect = (order) => {
     const method = order.payment_method || paymentMethod || 'cash'
     
@@ -1429,7 +1510,7 @@ function CustomerDisplay() {
             background: secondaryBg,
             borderRadius: '20px'
           }}>
-            {t2('showing_items')} {filteredMenu.length} {t2('of_items')} {displayMenu.length} {t2('items_count')}
+            {t2('showing_items')} {displayMenuItems.length} {t2('of_items')} {menu.length} {t2('items_count')}
           </span>
         </div>
       </div>
@@ -1475,13 +1556,13 @@ function CustomerDisplay() {
           ))}
         </div>
 
-        {/* ===== MENU GRID ===== */}
+        {/* ===== MENU GRID - GUNA displayMenuItems ===== */}
         <div style={{ 
           flex: 1,
           overflowY: 'auto',
           paddingRight: '4px'
         }}>
-          {filteredMenu.length === 0 ? (
+          {displayMenuItems.length === 0 ? (
             <div style={{ 
               textAlign: 'center', 
               padding: isMobile ? '40px 20px' : '80px 20px', 
@@ -1490,36 +1571,55 @@ function CustomerDisplay() {
             }}>
               <span style={{ fontSize: isMobile ? '48px' : '64px', opacity: 0.5 }}>📭</span>
               <p style={{ color: textMuted, marginTop: '12px', fontSize: isMobile ? '14px' : '16px' }}>
-                {t2('no_items_to_display')}
+                {t2('no_menu_selected')}
               </p>
+              <button
+                onClick={() => {
+                  setTempSelectedMenuIds(selectedMenuIds)
+                  setShowMenuSelector(true)
+                }}
+                style={{
+                  marginTop: '12px',
+                  padding: '10px 24px',
+                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '30px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }}
+              >
+                📋 {t2('select_menu')}
+              </button>
             </div>
           ) : (
             <div style={{ 
               display: 'grid', 
-              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(180px, 1fr))', 
-              gap: '14px'
+              gridTemplateColumns: isMobile ? 'repeat(2, 1fr)' : 'repeat(auto-fill, minmax(220px, 1fr))', 
+              gap: '16px'
             }}>
-              {filteredMenu.map(item => {
+              {displayMenuItems.map(item => {
                 const hasImage = item.image_url && item.image_url.trim() !== ''
                 const promo = getItemPromotion(item)
                 const promoPrice = getPromoPrice(item)
-                
-                // Get drink options with images
+                const hasDescription = item.description && item.description.trim() !== ''
+                const hasDrinkOptions = getDrinkOptionsForItem(item).length > 0
                 const drinkOpts = getDrinkOptionsForItem(item)
-                const hasDrinkOpts = drinkOpts.length > 0
                 
                 return (
                   <div 
                     key={item.id} 
                     style={{ 
                       background: cardBg,
-                      borderRadius: '16px',
-                      padding: '14px',
+                      borderRadius: '20px',
+                      padding: '18px',
                       textAlign: 'center',
                       border: `1px solid ${borderColor}`,
                       transition: 'transform 0.2s, box-shadow 0.2s',
                       cursor: 'default',
-                      position: 'relative'
+                      position: 'relative',
+                      boxShadow: darkMode ? '0 4px 16px rgba(0,0,0,0.2)' : '0 4px 16px rgba(0,0,0,0.06)'
                     }}
                     onMouseEnter={e => {
                       e.currentTarget.style.transform = 'translateY(-4px)'
@@ -1529,7 +1629,7 @@ function CustomerDisplay() {
                     }}
                     onMouseLeave={e => {
                       e.currentTarget.style.transform = 'translateY(0)'
-                      e.currentTarget.style.boxShadow = 'none'
+                      e.currentTarget.style.boxShadow = darkMode ? '0 4px 16px rgba(0,0,0,0.2)' : '0 4px 16px rgba(0,0,0,0.06)'
                     }}
                   >
                     {/* Promo Badge */}
@@ -1540,7 +1640,7 @@ function CustomerDisplay() {
                         right: '-6px',
                         background: promoColor,
                         color: 'white',
-                        padding: '2px 10px',
+                        padding: '2px 12px',
                         borderRadius: '20px',
                         fontSize: '9px',
                         fontWeight: 'bold',
@@ -1553,68 +1653,63 @@ function CustomerDisplay() {
                       </div>
                     )}
                     
-                    {/* Drink Options Indicator */}
-                    {hasDrinkOpts && (
-                      <div style={{
-                        position: 'absolute',
-                        top: '-6px',
-                        left: '-6px',
-                        background: '#3b82f6',
-                        color: 'white',
-                        padding: '2px 8px',
-                        borderRadius: '20px',
-                        fontSize: '7px',
-                        fontWeight: 'bold',
-                        boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
-                        zIndex: 5,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '3px'
-                      }}>
-                        ☕ {drinkOpts.length}
-                      </div>
-                    )}
-                    
-                    {/* Image */}
+                    {/* Image - LEBIH BESAR */}
                     {hasImage ? (
                       <img 
                         src={item.image_url} 
                         alt={item.name} 
                         style={{ 
-                          width: '70px', 
-                          height: '70px', 
+                          width: '100%',
+                          maxWidth: '200px',
+                          height: '160px', 
                           objectFit: 'cover', 
-                          borderRadius: '14px', 
-                          margin: '0 auto 10px auto',
-                          display: 'block'
+                          borderRadius: '16px', 
+                          margin: '0 auto 12px auto',
+                          display: 'block',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
                         }}
-                        onError={(e) => { e.target.style.display = 'none' }}
+                        onError={(e) => { 
+                          e.target.style.display = 'none'
+                          e.target.parentElement.innerHTML += `<div style="font-size:56px;margin:12px 0">${getDefaultIcon(item.category)}</div>`
+                        }}
                       />
                     ) : (
-                      <div style={{ fontSize: '40px', marginBottom: '6px' }}>{getDefaultIcon(item.category)}</div>
+                      <div style={{ fontSize: '56px', marginBottom: '10px' }}>{getDefaultIcon(item.category)}</div>
                     )}
                     
                     <div style={{ 
                       fontWeight: 'bold', 
-                      fontSize: '14px', 
+                      fontSize: isMobile ? '16px' : '18px', 
                       color: textColor, 
-                      marginBottom: '6px',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
+                      marginBottom: '4px'
                     }}>
                       {item.name}
                     </div>
+                    
+                    {hasDescription && (
+                      <div style={{ 
+                        fontSize: '11px', 
+                        color: textMuted, 
+                        fontStyle: 'italic',
+                        marginBottom: '6px',
+                        background: secondaryBg,
+                        padding: '4px 10px',
+                        borderRadius: '6px'
+                      }}>
+                        📝 {item.description}
+                      </div>
+                    )}
                     
                     {/* Price */}
                     <div style={{ 
                       color: darkMode ? '#4ade80' : '#22c55e', 
                       fontWeight: 'bold', 
-                      fontSize: '18px',
+                      fontSize: '22px',
                       background: secondaryBg,
                       display: 'inline-block',
-                      padding: '2px 14px',
-                      borderRadius: '30px'
+                      padding: '4px 20px',
+                      borderRadius: '30px',
+                      marginBottom: '8px'
                     }}>
                       {promoPrice !== null ? (
                         <span style={{ color: promoColor }}>
@@ -1625,8 +1720,8 @@ function CustomerDisplay() {
                       )}
                     </div>
                     
-                    {/* Drink Options WITH IMAGES */}
-                    {hasDrinkOpts && (
+                    {/* Drink Options */}
+                    {hasDrinkOptions && (
                       <div style={{
                         marginTop: '8px',
                         paddingTop: '8px',
@@ -1638,9 +1733,9 @@ function CustomerDisplay() {
                       }}>
                         {drinkOpts.slice(0, 3).map(opt => (
                           <div key={opt.id} style={{
-                            fontSize: '9px',
+                            fontSize: '10px',
                             background: secondaryBg,
-                            padding: '4px 8px',
+                            padding: '4px 10px',
                             borderRadius: '12px',
                             color: textMuted,
                             display: 'flex',
@@ -1655,15 +1750,15 @@ function CustomerDisplay() {
                                 src={opt.image_url} 
                                 alt={opt.option_type}
                                 style={{
-                                  width: '30px',
-                                  height: '30px',
+                                  width: '32px',
+                                  height: '32px',
                                   objectFit: 'cover',
                                   borderRadius: '6px',
                                   border: `1px solid ${borderColor}`
                                 }}
                               />
                             ) : (
-                              <span style={{ fontSize: '14px' }}>{getOptionEmoji(opt.option_type)}</span>
+                              <span style={{ fontSize: '16px' }}>{getOptionEmoji(opt.option_type)}</span>
                             )}
                             <span style={{ fontSize: '8px', fontWeight: 'bold' }}>{getOptionLabel(opt.option_type)}</span>
                             <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '10px' }}>
@@ -1673,7 +1768,7 @@ function CustomerDisplay() {
                         ))}
                         {drinkOpts.length > 3 && (
                           <span style={{
-                            fontSize: '8px',
+                            fontSize: '9px',
                             color: textMuted,
                             padding: '2px 6px',
                             alignSelf: 'center'
@@ -1681,20 +1776,6 @@ function CustomerDisplay() {
                             +{drinkOpts.length - 3}
                           </span>
                         )}
-                      </div>
-                    )}
-                    
-                    {item.description && (
-                      <div style={{ 
-                        fontSize: '10px', 
-                        color: textMuted, 
-                        fontStyle: 'italic',
-                        marginTop: '6px',
-                        background: secondaryBg,
-                        padding: '3px 8px',
-                        borderRadius: '6px'
-                      }}>
-                        📝 {item.description}
                       </div>
                     )}
                   </div>
@@ -1705,20 +1786,59 @@ function CustomerDisplay() {
         </div>
       </div>
 
-      {/* ===== BILLING BUTTON ===== */}
+      {/* ===== BUTTON PILIH MENU - KIRI BAWAH (BARU) ===== */}
+      <button 
+        onClick={() => {
+          setTempSelectedMenuIds(selectedMenuIds)
+          setShowMenuSelector(true)
+        }} 
+        style={{ 
+          position: 'fixed', 
+          bottom: '24px', 
+          left: '24px', 
+          padding: isMobile ? '10px 16px' : '12px 20px',
+          borderRadius: '40px', 
+          background: 'linear-gradient(135deg, #3b82f6, #2563eb)', 
+          color: 'white', 
+          border: 'none', 
+          fontSize: isMobile ? '12px' : '14px',
+          fontWeight: 'bold',
+          cursor: 'pointer', 
+          boxShadow: '0 8px 30px rgba(59,130,246,0.4)', 
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          transition: 'transform 0.2s'
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.05)'}
+        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        📋 {t2('select_menu')}
+        <span style={{
+          background: 'rgba(255,255,255,0.2)',
+          padding: '2px 8px',
+          borderRadius: '20px',
+          fontSize: '10px'
+        }}>
+          {displayMenuItems.length}/{menu.length}
+        </span>
+      </button>
+
+      {/* ===== BILLING BUTTON - KANAN BAWAH (SEDIA ADA) ===== */}
       <button 
         onClick={() => setShowBillingModal(true)} 
         style={{ 
           position: 'fixed', 
           bottom: '24px', 
           right: '24px', 
-          width: '64px', 
-          height: '64px', 
+          width: isMobile ? '56px' : '64px', 
+          height: isMobile ? '56px' : '64px', 
           borderRadius: '32px', 
           background: 'linear-gradient(135deg, #f59e0b, #ea580c)', 
           color: 'white', 
           border: 'none', 
-          fontSize: '28px', 
+          fontSize: isMobile ? '24px' : '28px', 
           cursor: 'pointer', 
           boxShadow: '0 8px 30px rgba(245,158,11,0.5)', 
           zIndex: 1000,
@@ -1733,13 +1853,229 @@ function CustomerDisplay() {
         💰
       </button>
 
-      {/* ===== BILLING MODAL ===== */}
-      {showBillingModal && (
+      {/* ===== MENU SELECTOR MODAL (BARU) ===== */}
+      {showMenuSelector && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
           background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', 
           display: 'flex', justifyContent: 'center', alignItems: 'center', 
           zIndex: 2000, animation: 'fadeIn 0.25s ease' 
+        }}>
+          <div style={{ 
+            background: modalBg, borderRadius: '28px', padding: '28px', 
+            maxWidth: '550px', width: '92%', maxHeight: '80vh', 
+            overflowY: 'auto', ...glassEffect, animation: 'popIn 0.3s ease' 
+          }}>
+            
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              alignItems: 'center', 
+              marginBottom: '20px' 
+            }}>
+              <h2 style={{ 
+                fontSize: '20px', 
+                color: textColor, 
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px'
+              }}>
+                ✏️ {t2('select_menu_title')}
+              </h2>
+              <button 
+                onClick={() => setShowMenuSelector(false)} 
+                style={{ 
+                  background: '#ef4444', 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '40px', 
+                  padding: '6px 16px', 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  fontSize: '12px'
+                }}
+              >
+                ✕
+              </button>
+            </div>
+            
+            {/* Select All Toggle */}
+            <div style={{ 
+              marginBottom: '14px',
+              padding: '10px 14px',
+              background: secondaryBg,
+              borderRadius: '12px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>
+                {t2('select_all')}
+              </span>
+              <button
+                onClick={toggleAllMenu}
+                style={{
+                  padding: '4px 16px',
+                  background: tempSelectedMenuIds.length === menu.length ? '#ef4444' : '#22c55e',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '20px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '12px'
+                }}
+              >
+                {tempSelectedMenuIds.length === menu.length ? '✕' : '✓'}
+              </button>
+            </div>
+            
+            {/* Menu Items */}
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', 
+              gap: '8px',
+              marginBottom: '16px'
+            }}>
+              {menu.map(item => {
+                const isSelected = tempSelectedMenuIds.includes(item.id)
+                const hasImage = item.image_url && item.image_url.trim() !== ''
+                
+                return (
+                  <div 
+                    key={item.id}
+                    onClick={() => toggleMenuSelection(item.id)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      padding: '10px 14px',
+                      background: isSelected ? 'rgba(59,130,246,0.15)' : secondaryBg,
+                      border: isSelected ? `2px solid #3b82f6` : `1px solid ${borderColor}`,
+                      borderRadius: '12px',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={e => {
+                      if (!isSelected) {
+                        e.currentTarget.style.borderColor = '#3b82f6'
+                      }
+                    }}
+                    onMouseLeave={e => {
+                      if (!isSelected) {
+                        e.currentTarget.style.borderColor = borderColor
+                      }
+                    }}
+                  >
+                    {hasImage ? (
+                      <img 
+                        src={item.image_url} 
+                        alt={item.name}
+                        style={{
+                          width: '40px',
+                          height: '40px',
+                          objectFit: 'cover',
+                          borderRadius: '8px'
+                        }}
+                      />
+                    ) : (
+                      <div style={{
+                        width: '40px',
+                        height: '40px',
+                        background: secondaryBg,
+                        borderRadius: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '20px'
+                      }}>
+                        {getDefaultIcon(item.category)}
+                      </div>
+                    )}
+                    
+                    <div style={{ flex: 1 }}>
+                      <div style={{ 
+                        fontWeight: 'bold', 
+                        fontSize: '13px', 
+                        color: textColor 
+                      }}>
+                        {item.name}
+                      </div>
+                      <div style={{ 
+                        fontSize: '11px', 
+                        color: textMuted 
+                      }}>
+                        RM {item.price} • {item.category}
+                      </div>
+                    </div>
+                    
+                    <div style={{
+                      width: '24px',
+                      height: '24px',
+                      borderRadius: '50%',
+                      background: isSelected ? '#3b82f6' : '#e2e8f0',
+                      color: isSelected ? 'white' : '#94a3b8',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      flexShrink: 0
+                    }}>
+                      {isSelected ? '✓' : ''}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            
+            {/* Actions */}
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={saveSelectedMenu}
+                style={{
+                  flex: 2,
+                  padding: '12px',
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '40px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }}
+              >
+                💾 {language === 'bm' ? 'Simpan' : 'Save'}
+              </button>
+              <button
+                onClick={() => setShowMenuSelector(false)}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  background: '#64748b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '40px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '14px'
+                }}
+              >
+                {language === 'bm' ? 'Tutup' : 'Close'}
+              </button>
+            </div>
+            
+          </div>
+        </div>
+      )}
+
+      {/* ===== BILLING MODAL (SEDIA ADA - TAK BERUBAH) ===== */}
+      {showBillingModal && (
+        <div style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', 
+          display: 'flex', justifyContent: 'center', alignItems: 'center', 
+          zIndex: 3000, animation: 'fadeIn 0.25s ease' 
         }}>
           <div style={{ 
             background: modalBg, borderRadius: '28px', padding: '24px', 
@@ -2101,13 +2437,13 @@ function CustomerDisplay() {
         </div>
       )}
 
-      {/* ===== PAYMENT MODAL ===== */}
+      {/* ===== PAYMENT MODAL (SEDIA ADA - TAK BERUBAH) ===== */}
       {showPaymentModal && selectedOrder && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
           background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)', 
           display: 'flex', justifyContent: 'center', alignItems: 'center', 
-          zIndex: 3000, animation: 'fadeIn 0.25s ease' 
+          zIndex: 4000, animation: 'fadeIn 0.25s ease' 
         }}>
           <div style={{ 
             background: modalBg, borderRadius: '28px', padding: '28px', 

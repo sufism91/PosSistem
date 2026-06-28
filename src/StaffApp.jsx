@@ -112,6 +112,10 @@ function StaffApp() {
       ready: { en: 'Ready', ms: 'Siap' },
       preparing: { en: 'Preparing', ms: 'Sedang Siap' },
       stock_label: { en: 'Stock', ms: 'Stok' },
+      addons: { en: '✨ Add-Ons', ms: '✨ Tambahan' },
+      addon_optional: { en: 'Add-On (optional)', ms: 'Tambahan (pilihan)' },
+      addon_list: { en: 'Add-On List', ms: 'Senarai Tambahan' },
+      no_addons: { en: 'No add-ons available', ms: 'Tiada tambahan' },
     }
     if (!translations[key]) return key
     return language === 'en' ? translations[key].en : translations[key].ms
@@ -125,6 +129,8 @@ function StaffApp() {
   const [promotions, setPromotions] = useState([])
   const [drinkOptions, setDrinkOptions] = useState([])
   const [menuOptions, setMenuOptions] = useState([])
+  const [menuAddons, setMenuAddons] = useState([])  // <--- TAMBAH
+  const [selectedAddons, setSelectedAddons] = useState([])  // <--- TAMBAH
   const [cart, setCart] = useState([])
   const [newOrders, setNewOrders] = useState([])
   const [unpaidOrders, setUnpaidOrders] = useState([])
@@ -481,7 +487,52 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== CHECK STOCK FUNCTION =====
+  // ===== LOAD ADD-ONS =====
+  // ============================================================
+  async function loadAddons(menuId) {
+    try {
+      const { data } = await supabase
+        .from('menu_addons')
+        .select('*')
+        .eq('menu_id', menuId)
+        .eq('is_active', true)
+        .order('sort_order')
+      setMenuAddons(data || [])
+      setSelectedAddons([])
+    } catch (err) {
+      console.error('Error loading addons:', err)
+      setMenuAddons([])
+    }
+  }
+
+  // ===== TOGGLE ADD-ON =====
+  const toggleAddon = (addonId) => {
+    setSelectedAddons(prev => {
+      if (prev.includes(addonId)) {
+        return prev.filter(id => id !== addonId)
+      } else {
+        return [...prev, addonId]
+      }
+    })
+  }
+
+  // ===== GET ADD-ON TOTAL =====
+  const getAddonTotal = () => {
+    return menuAddons
+      .filter(a => selectedAddons.includes(a.id))
+      .reduce((sum, a) => sum + parseFloat(a.price), 0)
+  }
+
+  // ===== GET ADD-ON NAMES =====
+  const getAddonNames = () => {
+    return menuAddons
+      .filter(a => selectedAddons.includes(a.id))
+      .map(a => a.name)
+      .join(', ')
+  }
+
+  // ============================================================
+  // CHECK STOCK FUNCTION
   // ============================================================
   async function checkOptionStock(optionId, quantity = 1) {
     try {
@@ -610,7 +661,7 @@ function StaffApp() {
   const getCartItemCount = () => cart.reduce((sum, item) => sum + item.quantity, 0)
 
   // ============================================================
-  // ===== ADD TO CART - WITH STOCK CHECK =====
+  // ===== ADD TO CART - WITH STOCK CHECK & ADD-ONS =====
   // ============================================================
   const addToCart = async () => {
     if (!selectedItem) { toast.error(t('please_select_item')); return }
@@ -643,8 +694,12 @@ function StaffApp() {
       }
     }
     
-    const price = getItemPrice(selectedItem, selectedOption, selectedSize)
-    const isFree = price === 0
+    const basePrice = getItemPrice(selectedItem, selectedOption, selectedSize)
+    const addonTotal = getAddonTotal()
+    const finalPrice = basePrice + addonTotal
+    const addonNames = getAddonNames()
+    
+    const isFree = finalPrice === 0
     const promo = getItemPromotion(selectedItem)
     
     const cartItem = {
@@ -654,18 +709,28 @@ function StaffApp() {
       option: selectedOption || null,
       size: selectedSize?.option_name || null,
       size_id: selectedSize?.id || null,
-      price: price,
+      price: finalPrice,
+      basePrice: basePrice,
       originalPrice: selectedItem.price,
       quantity: quantity,
-      subtotal: price * quantity,
+      subtotal: finalPrice * quantity,
       image_url: selectedItem.image_url,
       notes: selectedItem.notes || '',
       isFree: isFree,
       promoType: promo?.type || null,
       promoName: promo?.promo?.name || null,
+      addons: addonNames,
+      addon_ids: [...selectedAddons],
+      addon_total: addonTotal
     }
     
-    const existingIndex = cart.findIndex(c => c.id === cartItem.id && c.option === cartItem.option && c.size === cartItem.size)
+    const existingIndex = cart.findIndex(c => 
+      c.id === cartItem.id && 
+      c.option === cartItem.option && 
+      c.size === cartItem.size &&
+      JSON.stringify(c.addon_ids) === JSON.stringify(cartItem.addon_ids)
+    )
+    
     if (existingIndex >= 0) {
       const newCart = [...cart]
       newCart[existingIndex].quantity += quantity
@@ -679,6 +744,8 @@ function StaffApp() {
     setSelectedItem(null)
     setSelectedOption('')
     setSelectedSize(null)
+    setSelectedAddons([])
+    setMenuAddons([])
     setQuantity(1)
     toast.success(isFree ? `🎁 ${selectedItem.name} FREE!` : t('order_added'))
   }
@@ -698,7 +765,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== SEND ORDER - DENGAN KURANGKAN STOCK =====
+  // ===== SEND ORDER - DENGAN KURANGKAN STOCK & ADD-ONS =====
   // ============================================================
   const sendOrder = async () => {
     if (cart.length === 0) { toast.error(t('cart_empty_msg')); return }
@@ -733,13 +800,17 @@ function StaffApp() {
         size: item.size || null,
         size_id: item.size_id || null,
         price: item.price,
+        basePrice: item.basePrice || item.price,
         originalPrice: item.originalPrice || item.price,
         quantity: item.quantity,
         subtotal: item.subtotal,
         isFree: item.isFree || false,
         promoType: item.promoType || null,
         promoName: item.promoName || null,
-        image_url: item.image_url || null
+        image_url: item.image_url || null,
+        addons: item.addons || null,
+        addon_ids: item.addon_ids || [],
+        addon_total: item.addon_total || 0
       })),
       total: total,
       customer_name: customerName || 'Guest',
@@ -761,7 +832,6 @@ function StaffApp() {
       
       for (const item of cart) {
         if (item.size_id) {
-          // Get current stock
           const { data: currentData } = await supabase
             .from('menu_options')
             .select('stock')
@@ -914,7 +984,7 @@ function StaffApp() {
             <tbody>
               ${items.map(item => `
                 <tr>
-                  <td>${item.name}${item.option ? ` (${item.option})` : ''}${item.size ? ` [${item.size}]` : ''}</td>
+                  <td>${item.name}${item.option ? ` (${item.option})` : ''}${item.size ? ` [${item.size}]` : ''}${item.addons ? ` ✨${item.addons}` : ''}</td>
                   <td style="text-align:center">${item.quantity || 1}</td>
                   <td>RM ${Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
                 </tr>
@@ -981,6 +1051,7 @@ function StaffApp() {
           const promo = getItemPromotion(item)
           const promoPrice = getPromoPrice(item)
           const isBOGO = promo?.type === 'bogo'
+          const hasAddons = item.has_addons === true
           
           return (
             <div
@@ -989,8 +1060,10 @@ function StaffApp() {
                 setSelectedItem(item)
                 setSelectedOption('')
                 setSelectedSize(null)
+                setSelectedAddons([])
                 setQuantity(1)
                 if (item.has_options) loadMenuOptions(item.id)
+                if (item.has_addons) loadAddons(item.id)
                 setShowItemModal(true)
               }}
               style={{
@@ -1027,6 +1100,19 @@ function StaffApp() {
                   zIndex: 5
                 }}>
                   ☕
+                </div>
+              )}
+              
+              {hasAddons && (
+                <div style={{
+                  position: 'absolute', top: '-8px', left: '-8px',
+                  background: '#8b5cf6', color: 'white',
+                  padding: '2px 8px', borderRadius: '20px',
+                  fontSize: '7px', fontWeight: 'bold',
+                  zIndex: 5,
+                  marginLeft: hasDrinkOpts ? '30px' : '0'
+                }}>
+                  ✨
                 </div>
               )}
               
@@ -1164,6 +1250,11 @@ function StaffApp() {
                       {item.name}
                       {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
                       {item.size && <span style={{ fontSize: '10px', color: '#8b5cf6', marginLeft: '4px' }}>[{item.size}]</span>}
+                      {item.addons && (
+                        <div style={{ fontSize: '9px', color: '#8b5cf6', fontWeight: 'normal', marginTop: '2px' }}>
+                          ✨ + {item.addons} <span style={{ color: priceColor }}>(+RM {item.addon_total?.toFixed(2) || '0.00'})</span>
+                        </div>
+                      )}
                     </div>
                     <div style={{ fontSize: '10px', color: textMuted }}>
                       x{item.quantity} × RM {item.price.toFixed(2)}
@@ -1286,7 +1377,7 @@ function StaffApp() {
             <div style={{ margin: '8px 0', padding: '8px', background: secondaryBg, borderRadius: '12px' }}>
               {order.items?.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '2px 0' }}>
-                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''}</span>
+                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''}{item.addons ? ` ✨${item.addons}` : ''}</span>
                   <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
@@ -1364,7 +1455,7 @@ function StaffApp() {
             <div style={{ margin: '8px 0', padding: '8px', background: secondaryBg, borderRadius: '12px' }}>
               {order.items?.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '2px 0' }}>
-                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''}</span>
+                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''}{item.addons ? ` ✨${item.addons}` : ''}</span>
                   <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
@@ -1451,7 +1542,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== ITEM MODAL - WITH STOCK DISPLAY =====
+  // ===== ITEM MODAL - WITH STOCK DISPLAY & ADD-ONS =====
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
@@ -1460,7 +1551,10 @@ function StaffApp() {
     const hasSize = isSizeCategory(selectedItem)
     const drinkOpts = getDrinkOptionsForItem(selectedItem)
     const sizes = menuOptions
-    const price = getItemPrice(selectedItem, selectedOption, selectedSize)
+    const basePrice = getItemPrice(selectedItem, selectedOption, selectedSize)
+    const addonTotal = getAddonTotal()
+    const finalPrice = basePrice + addonTotal
+    const hasAddons = selectedItem.has_addons === true && menuAddons.length > 0
     
     return (
       <div style={{
@@ -1526,7 +1620,7 @@ function StaffApp() {
                 {sizes.map(size => {
                   const isOutOfStock = (size.stock || 0) <= 0
                   const isLowStock = (size.stock || 0) > 0 && (size.stock || 0) <= 5
-                  const finalPrice = getItemPrice(selectedItem, selectedOption, size)
+                  const sizePrice = getItemPrice(selectedItem, selectedOption, size)
                   
                   return (
                     <button
@@ -1560,10 +1654,9 @@ function StaffApp() {
                     >
                       <div>{size.option_name}</div>
                       <div style={{ fontSize: '12px', color: isOutOfStock ? '#94a3b8' : priceColor }}>
-                        RM {finalPrice.toFixed(2)}
+                        RM {sizePrice.toFixed(2)}
                       </div>
                       
-                      {/* ===== STOCK STATUS ===== */}
                       {isOutOfStock && (
                         <div style={{
                           fontSize: '9px',
@@ -1599,6 +1692,70 @@ function StaffApp() {
                           📦 {size.stock || 0}
                         </div>
                       )}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          
+          {/* ===== ADD-ON SECTION ===== */}
+          {hasAddons && (
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ 
+                color: textColor, 
+                fontWeight: 'bold', 
+                fontSize: '13px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                ✨ {t('addons')}
+                <span style={{ 
+                  fontSize: '10px', 
+                  color: textMuted, 
+                  fontWeight: 'normal' 
+                }}>
+                  ({t('addon_optional')}) +RM {addonTotal.toFixed(2)}
+                </span>
+              </label>
+              
+              <div style={{ 
+                display: 'flex', 
+                flexDirection: 'column', 
+                gap: '6px', 
+                marginTop: '6px',
+                maxHeight: '150px',
+                overflowY: 'auto'
+              }}>
+                {menuAddons.map(addon => {
+                  const isSelected = selectedAddons.includes(addon.id)
+                  return (
+                    <button
+                      key={addon.id}
+                      onClick={() => toggleAddon(addon.id)}
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        padding: '8px 14px',
+                        background: isSelected ? 'rgba(34,197,94,0.15)' : secondaryBg,
+                        border: isSelected ? `2px solid ${priceColor}` : `1px solid ${borderColor}`,
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        color: textColor,
+                        fontSize: '13px'
+                      }}
+                    >
+                      <span>{addon.name}</span>
+                      <span style={{ 
+                        color: priceColor, 
+                        fontWeight: 'bold',
+                        fontSize: '13px'
+                      }}>
+                        +RM {parseFloat(addon.price).toFixed(2)}
+                      </span>
                     </button>
                   )
                 })}
@@ -1650,10 +1807,18 @@ function StaffApp() {
                 fontSize: isMobile ? '13px' : '14px'
               }}
             >
-              ➕ {t('add_to_cart')} (RM {(price * quantity).toFixed(2)})
+              ➕ {t('add_to_cart')} (RM {(finalPrice * quantity).toFixed(2)})
             </button>
             <button
-              onClick={() => { setShowItemModal(false); setSelectedItem(null); setSelectedOption(''); setSelectedSize(null); setQuantity(1) }}
+              onClick={() => { 
+                setShowItemModal(false); 
+                setSelectedItem(null); 
+                setSelectedOption(''); 
+                setSelectedSize(null); 
+                setSelectedAddons([]);
+                setMenuAddons([]);
+                setQuantity(1) 
+              }}
               style={{
                 flex: 1,
                 padding: isMobile ? '12px' : '14px',
@@ -1818,7 +1983,7 @@ function StaffApp() {
           
           {currentReceiptOrder.items?.map((item, idx) => (
             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '4px 0', borderBottom: idx !== currentReceiptOrder.items.length-1 ? `1px solid ${borderColor}` : 'none' }}>
-              <span>{item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''} x{item.quantity}</span>
+              <span>{item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''}{item.addons ? ` ✨${item.addons}` : ''} x{item.quantity}</span>
               <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
             </div>
           ))}

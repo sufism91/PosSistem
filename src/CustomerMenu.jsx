@@ -40,6 +40,11 @@ function CustomerMenu() {
   const [selectedSizeItem, setSelectedSizeItem] = useState(null)
   const [menuOptions, setMenuOptions] = useState([])
   
+  // ===== ADD-ON STATE =====
+  const [menuAddons, setMenuAddons] = useState([])
+  const [selectedAddons, setSelectedAddons] = useState([])
+  const [showAddonModal, setShowAddonModal] = useState(false)
+  
   const [activePromos, setActivePromos] = useState([])
   const [promoItems, setPromoItems] = useState([])
 
@@ -115,6 +120,8 @@ function CustomerMenu() {
     out_of_stock: { en: 'Out of Stock', ms: 'Habis Stok' },
     low_stock: { en: 'Low Stock', ms: 'Stok Rendah' },
     stock_label: { en: 'Stock', ms: 'Stok' },
+    addons: { en: 'Add-Ons', ms: 'Tambahan' },
+    addon_optional: { en: '(optional)', ms: '(pilihan)' },
   }
 
   const translate = (key) => {
@@ -149,6 +156,7 @@ function CustomerMenu() {
   const successColor = '#22c55e'
   const dangerColor = '#ef4444'
   const primaryColor = '#3b82f6'
+  const priceColor = '#22c55e'
 
   const glassEffect = {
     background: cardBg,
@@ -312,7 +320,7 @@ function CustomerMenu() {
           if (item.menu_id) {
             const { data: menuItem } = await supabase
               .from('menu')
-              .select('price, image_url, description, has_options')
+              .select('price, image_url, description, has_options, has_addons')
               .eq('id', item.menu_id)
               .single()
             
@@ -322,7 +330,8 @@ function CustomerMenu() {
                 price: menuItem.price,
                 image_url: menuItem.image_url || item.image_url,
                 description: menuItem.description || item.description,
-                has_options: menuItem.has_options
+                has_options: menuItem.has_options,
+                has_addons: menuItem.has_addons
               })
             } else {
               syncedItems.push(item)
@@ -446,7 +455,54 @@ function CustomerMenu() {
     return data || []
   }
 
+  // ============================================================
+  // ===== LOAD ADD-ONS =====
+  // ============================================================
+  async function loadAddons(menuId) {
+    try {
+      const { data } = await supabase
+        .from('menu_addons')
+        .select('*')
+        .eq('menu_id', menuId)
+        .eq('is_active', true)
+        .order('sort_order')
+      setMenuAddons(data || [])
+      setSelectedAddons([])
+    } catch (err) {
+      console.error('Error loading addons:', err)
+      setMenuAddons([])
+    }
+  }
+
+  // ===== TOGGLE ADD-ON =====
+  const toggleAddon = (addonId) => {
+    setSelectedAddons(prev => {
+      if (prev.includes(addonId)) {
+        return prev.filter(id => id !== addonId)
+      } else {
+        return [...prev, addonId]
+      }
+    })
+  }
+
+  // ===== GET ADD-ON TOTAL =====
+  const getAddonTotal = () => {
+    return menuAddons
+      .filter(a => selectedAddons.includes(a.id))
+      .reduce((sum, a) => sum + parseFloat(a.price), 0)
+  }
+
+  // ===== GET ADD-ON NAMES =====
+  const getAddonNames = () => {
+    return menuAddons
+      .filter(a => selectedAddons.includes(a.id))
+      .map(a => a.name)
+      .join(', ')
+  }
+
+  // ============================================================
   // ===== CHECK STOCK SEBELUM ADD TO CART =====
+  // ============================================================
   async function checkOptionStock(optionId, quantity = 1) {
     try {
       const { data, error } = await supabase
@@ -473,6 +529,42 @@ function CustomerMenu() {
       console.error('Stock check exception:', err)
       return { available: false, stock: 0, error: err.message }
     }
+  }
+
+  // ============================================================
+  // ===== ADD TO CART WITH ADD-ONS =====
+  // ============================================================
+  const addToCartWithAddons = (item, option, size) => {
+    const basePrice = option 
+      ? (option.is_absolute_price ? option.price_adjustment : item.price + option.price_adjustment)
+      : item.price
+    
+    const addonTotal = getAddonTotal()
+    const finalPrice = basePrice + addonTotal
+    const addonNames = getAddonNames()
+    
+    const cartItem = {
+      id: `${item.id}_${option?.id || ''}_${Date.now()}`,
+      name: item.name,
+      price: finalPrice,
+      quantity: 1,
+      option_name: option?.option_name || null,
+      option_id: option?.id || null,
+      size_name: size?.option_name || null,
+      addons: addonNames,
+      addon_ids: [...selectedAddons],
+      addon_total: addonTotal,
+      category: item.category || 'Makanan'
+    }
+    
+    setCart([...cart, cartItem])
+    setShowSizeModal(false)
+    setShowAddonModal(false)
+    setSelectedSizeItem(null)
+    setSelectedAddons([])
+    setMenuAddons([])
+    setShowCart(true)
+    toast.success(`✓ ${item.name} ${translate('added')}`)
   }
 
   async function addToCartWithOption(item, option) {
@@ -576,19 +668,40 @@ function CustomerMenu() {
     toast.success(`✓ ${selectedDrink.name} (${optionLabel}) ${translate('added')}`)
   }
 
+  // ============================================================
+  // ===== ADD TO CART - WITH ADD-ON SUPPORT =====
+  // ============================================================
   const addToCart = (item) => {
     setClickedItemId(item.id)
     setTimeout(() => setClickedItemId(null), 250)
     
+    // Check if has size options
     if (item.has_options) {
       loadMenuOptions(item.id).then(options => {
         if (options && options.length > 0) {
           setSelectedSizeItem(item)
           setMenuOptions(options)
-          setShowSizeModal(true)
+          // Load add-ons if available
+          if (item.has_addons) {
+            loadAddons(item.id).then(() => {
+              setShowAddonModal(true)
+            })
+          } else {
+            setShowSizeModal(true)
+          }
         } else {
           addToCartDirect(item)
         }
+      })
+      return
+    }
+    
+    // Check if has add-ons (without size)
+    if (item.has_addons) {
+      loadAddons(item.id).then(() => {
+        setSelectedSizeItem(item)
+        setMenuOptions([])
+        setShowAddonModal(true)
       })
       return
     }
@@ -698,11 +811,9 @@ function CustomerMenu() {
       return
     }
     
-    // Cari item dalam cart
     const cartItem = cart.find(x => x.id === id)
     if (!cartItem) return
     
-    // Jika item ada option_id, check stock
     if (cartItem.option_id) {
       const stockCheck = await checkOptionStock(cartItem.option_id, newQuantity)
       
@@ -717,7 +828,6 @@ function CustomerMenu() {
       }
     }
     
-    // Update quantity
     setCart(cart.map(x => x.id === id ? { ...x, quantity: newQuantity } : x))
   }
 
@@ -740,7 +850,6 @@ function CustomerMenu() {
   const submitOrderConfirmed = async () => {
     setShowConfirmModal(false)
     
-    // ===== CHECK ALL STOCK SEBELUM PROSES =====
     for (const item of cart) {
       if (item.option_id) {
         const stockCheck = await checkOptionStock(item.option_id, item.quantity)
@@ -769,6 +878,9 @@ function CustomerMenu() {
       option_name: item.option_name || null,
       option_id: item.option_id || null,
       option_type: item.option_type || null,
+      addons: item.addons || null,
+      addon_ids: item.addon_ids || [],
+      addon_total: item.addon_total || 0,
       category: item.category || 'Makanan'
     }))
     
@@ -780,7 +892,6 @@ function CustomerMenu() {
     const tax = getTax()
 
     try {
-      // ===== INSERT ORDER =====
       const { data, error } = await supabase.from('customer_orders').insert([normalizeOrderForInsert({
         order_number: orderNumber,
         order_type: 'dine_in',
@@ -804,12 +915,10 @@ function CustomerMenu() {
         return
       }
 
-      // ===== KURANGKAN STOCK UNTUK SETIAP ITEM DENGAN OPTION =====
       let stockUpdateErrors = []
       
       for (const item of cart) {
         if (item.option_id) {
-          // Get current stock
           const { data: currentData } = await supabase
             .from('menu_options')
             .select('stock')
@@ -834,7 +943,6 @@ function CustomerMenu() {
       
       if (stockUpdateErrors.length > 0) {
         console.warn('Stock update errors:', stockUpdateErrors)
-        // Notify admin but don't block order
         toast.warning(`⚠️ ${stockUpdateErrors.length} item(s) had stock update issues. Please check inventory.`)
       }
 
@@ -901,8 +1009,6 @@ function CustomerMenu() {
   }
 
   const filteredMenu = getFilteredMenu()
-  
-  // ===== UBAH DI SINI - 1 COLUMN UNTUK MOBILE =====
   const menuGridCols = isMobile ? '1fr' : 'repeat(auto-fill, minmax(200px, 1fr))'
 
   // ============================================================
@@ -1139,6 +1245,7 @@ function CustomerMenu() {
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', position: 'relative' }}>
               {specialMenuItems.slice(0, isMobile ? 6 : 10).map((item, idx) => {
                 const hasSizeOptions = item.has_options === true
+                const hasAddons = item.has_addons === true
                 const isAdding = addingItem === `special_${item.id}`
                 
                 return (
@@ -1152,8 +1259,8 @@ function CustomerMenu() {
                       alignItems: 'center',
                       gap: '8px',
                       boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                      border: hasSizeOptions ? `2px solid ${accentColor}` : 'none',
-                      cursor: hasSizeOptions ? 'pointer' : 'default',
+                      border: (hasSizeOptions || hasAddons) ? `2px solid ${accentColor}` : 'none',
+                      cursor: (hasSizeOptions || hasAddons) ? 'pointer' : 'default',
                       transition: 'transform 0.2s'
                     }}
                     onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
@@ -1181,7 +1288,7 @@ function CustomerMenu() {
                       {item.name}
                     </span>
                     
-                    {hasSizeOptions ? (
+                    {hasSizeOptions && (
                       <span style={{ 
                         color: accentColor,
                         fontWeight: 'bold',
@@ -1192,7 +1299,20 @@ function CustomerMenu() {
                       }}>
                         📏 {translate('select_size_btn')}
                       </span>
-                    ) : (
+                    )}
+                    {hasAddons && (
+                      <span style={{ 
+                        color: '#8b5cf6',
+                        fontWeight: 'bold',
+                        fontSize: isMobile ? '9px' : '10px',
+                        background: '#f3e8ff',
+                        padding: '2px 8px',
+                        borderRadius: '20px'
+                      }}>
+                        ✨ Add-On
+                      </span>
+                    )}
+                    {!hasSizeOptions && !hasAddons && (
                       <span style={{ 
                         color: successColor,
                         fontWeight: 'bold',
@@ -1208,20 +1328,34 @@ function CustomerMenu() {
                     <button 
                       onClick={(e) => {
                         e.stopPropagation()
-                        if (hasSizeOptions && item.menu_id) {
-                          loadMenuOptions(item.menu_id).then(options => {
-                            if (options && options.length > 0) {
+                        if ((hasSizeOptions || hasAddons) && item.menu_id) {
+                          if (hasSizeOptions) {
+                            loadMenuOptions(item.menu_id).then(options => {
+                              if (options && options.length > 0) {
+                                setSelectedSizeItem({ ...item, id: item.menu_id, price: item.price })
+                                setMenuOptions(options)
+                                if (hasAddons) {
+                                  loadAddons(item.menu_id).then(() => {
+                                    setShowAddonModal(true)
+                                  })
+                                } else {
+                                  setShowSizeModal(true)
+                                }
+                              }
+                            })
+                          } else if (hasAddons) {
+                            loadAddons(item.menu_id).then(() => {
                               setSelectedSizeItem({ ...item, id: item.menu_id, price: item.price })
-                              setMenuOptions(options)
-                              setShowSizeModal(true)
-                            }
-                          })
+                              setMenuOptions([])
+                              setShowAddonModal(true)
+                            })
+                          }
                         } else {
                           addSpecialToCart(item)
                         }
                       }}
                       style={{ 
-                        background: isAdding ? successColor : (hasSizeOptions ? accentColor : successColor),
+                        background: isAdding ? successColor : ((hasSizeOptions || hasAddons) ? accentColor : successColor),
                         color: 'white',
                         border: 'none',
                         borderRadius: '30px',
@@ -1232,7 +1366,7 @@ function CustomerMenu() {
                         transition: 'all 0.2s'
                       }}
                     >
-                      {isAdding ? '✓' : (hasSizeOptions ? '📏' : '+')}
+                      {isAdding ? '✓' : ((hasSizeOptions || hasAddons) ? '📏' : '+')}
                     </button>
                   </div>
                 )
@@ -1381,6 +1515,7 @@ function CustomerMenu() {
               const isAdding = addingItem === item.id
               const isClicked = clickedItemId === item.id
               const hasSizeOptions = item.has_options === true
+              const hasAddons = item.has_addons === true
               const hasDescription = item.description && item.description.trim() !== ''
               
               return (
@@ -1460,6 +1595,23 @@ function CustomerMenu() {
                         zIndex: 5
                       }}>
                         📏
+                      </div>
+                    )}
+                    {hasAddons && (
+                      <div style={{ 
+                        position: 'absolute',
+                        top: '8px',
+                        left: hasSizeOptions ? '50px' : '8px',
+                        background: '#8b5cf6',
+                        color: 'white',
+                        fontSize: isMobile ? '8px' : '10px',
+                        padding: '3px 10px',
+                        borderRadius: '20px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 4px 12px rgba(139,92,246,0.3)',
+                        zIndex: 5
+                      }}>
+                        ✨
                       </div>
                     )}
                     {hasImage ? (
@@ -1568,7 +1720,7 @@ function CustomerMenu() {
                           </span>
                         )}
                       </div>
-                    ) : !isPromoItem && !hasSizeOptions && (
+                    ) : !isPromoItem && !hasSizeOptions && !hasAddons && (
                       <div style={{ 
                         fontSize: isMobile ? '18px' : '22px',
                         fontWeight: 'bold',
@@ -1579,28 +1731,28 @@ function CustomerMenu() {
                       </div>
                     )}
                     
-                    {hasSizeOptions && (
+                    {(hasSizeOptions || hasAddons) && (
                       <div style={{ 
                         fontSize: isMobile ? '12px' : '14px',
                         fontWeight: 'bold',
                         color: accentColor,
                         marginBottom: '4px'
                       }}>
-                        {translate('select_size_btn')}
+                        {hasSizeOptions ? '📏 ' + translate('select_size_btn') : '✨ ' + translate('addons')}
                       </div>
                     )}
                     
                     <div style={{ 
                       width: '100%',
                       padding: isMobile ? '10px' : '12px',
-                      background: isAdding ? successColor : (isPromoItem ? '#8b5cf6' : accentColor),
+                      background: isAdding ? successColor : (isPromoItem ? '#8b5cf6' : (hasSizeOptions || hasAddons ? accentColor : accentColor)),
                       color: 'white',
                       borderRadius: '40px',
                       fontWeight: 'bold',
                       fontSize: isMobile ? '13px' : '15px',
                       transition: 'all 0.2s'
                     }}>
-                      {isAdding ? translate('added') : (isPromoItem ? translate('buy_promo') : (hasSizeOptions ? translate('select_size_btn') : translate('add')))}
+                      {isAdding ? translate('added') : (isPromoItem ? translate('buy_promo') : ((hasSizeOptions || hasAddons) ? translate('select_size_btn') : translate('add')))}
                     </div>
                   </div>
                 </div>
@@ -1705,7 +1857,6 @@ function CustomerMenu() {
                   : (selectedSizeItem.price + opt.price_adjustment)
                 const isOutOfStock = (opt.stock || 0) <= 0
                 const isLowStock = (opt.stock || 0) > 0 && (opt.stock || 0) <= 5
-                const stockDisplay = isOutOfStock ? translate('out_of_stock') : `${translate('stock_label')}: ${opt.stock || 0}`
                 
                 return (
                   <button 
@@ -1786,6 +1937,235 @@ function CustomerMenu() {
             >
               ❌ {translate('cancel')}
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================================== */}
+      {/* ===== ADD-ON MODAL - WITH SIZE & ADD-ON ===== */}
+      {/* ========================================================== */}
+      {showAddonModal && selectedSizeItem && (
+        <div style={{ 
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 2000, animation: 'fadeIn 0.2s ease'
+        }}>
+          <div style={{ 
+            background: cardBg,
+            borderRadius: '24px',
+            padding: isMobile ? '20px' : '28px',
+            maxWidth: '380px',
+            width: '90%',
+            textAlign: 'center',
+            ...glassEffect,
+            animation: 'popIn 0.3s ease',
+            maxHeight: '90vh',
+            overflowY: 'auto'
+          }}>
+            <div style={{ fontSize: isMobile ? '36px' : '48px', marginBottom: '8px' }}>✨</div>
+            <h2 style={{ 
+              marginBottom: '6px',
+              fontSize: isMobile ? '18px' : '22px',
+              fontWeight: 'bold',
+              color: textColor
+            }}>
+              {selectedSizeItem.name}
+            </h2>
+            <p style={{ 
+              color: textMuted,
+              marginBottom: '16px',
+              fontSize: isMobile ? '12px' : '14px'
+            }}>
+              {translate('choose_size')} & {translate('addons')}
+            </p>
+            
+            {/* Size Options (if available) */}
+            {menuOptions.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px', display: 'block', marginBottom: '8px' }}>
+                  📏 {translate('select_size')}
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {menuOptions.map(opt => {
+                    const isOutOfStock = (opt.stock || 0) <= 0
+                    const finalPrice = opt.is_absolute_price 
+                      ? opt.price_adjustment
+                      : (selectedSizeItem.price + opt.price_adjustment)
+                    const isSelected = selectedSizeItem?.selectedOptionId === opt.id
+                    
+                    return (
+                      <button
+                        key={opt.id}
+                        onClick={() => {
+                          if (!isOutOfStock) {
+                            setSelectedSizeItem({ ...selectedSizeItem, selectedOptionId: opt.id })
+                          }
+                        }}
+                        disabled={isOutOfStock}
+                        style={{
+                          padding: '10px 16px',
+                          background: isOutOfStock ? '#e2e8f0' : (isSelected ? 'rgba(59,130,246,0.2)' : secondaryBg),
+                          border: isOutOfStock ? `2px solid ${dangerColor}` : (isSelected ? `2px solid ${primaryColor}` : `1px solid ${borderColor}`),
+                          borderRadius: '12px',
+                          cursor: isOutOfStock ? 'not-allowed' : 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          opacity: isOutOfStock ? 0.6 : 1,
+                          color: textColor
+                        }}
+                      >
+                        <span style={{ fontWeight: 'bold' }}>{opt.option_name}</span>
+                        <span style={{ color: priceColor, fontWeight: 'bold' }}>RM {finalPrice.toFixed(2)}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            
+            {/* Add-On Options */}
+            {menuAddons.length > 0 && (
+              <div style={{ marginBottom: '16px' }}>
+                <label style={{ 
+                  color: textColor, 
+                  fontWeight: 'bold', 
+                  fontSize: '13px', 
+                  display: 'block', 
+                  marginBottom: '8px' 
+                }}>
+                  ✨ {translate('addons')} {translate('addon_optional')}
+                  <span style={{ fontSize: '11px', color: textMuted, fontWeight: 'normal', marginLeft: '6px' }}>
+                    (+RM {getAddonTotal().toFixed(2)})
+                  </span>
+                </label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  {menuAddons.map(addon => {
+                    const isSelected = selectedAddons.includes(addon.id)
+                    return (
+                      <button
+                        key={addon.id}
+                        onClick={() => toggleAddon(addon.id)}
+                        style={{
+                          padding: '10px 16px',
+                          background: isSelected ? 'rgba(34,197,94,0.15)' : secondaryBg,
+                          border: isSelected ? `2px solid ${successColor}` : `1px solid ${borderColor}`,
+                          borderRadius: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          transition: 'all 0.2s',
+                          color: textColor
+                        }}
+                      >
+                        <span>{addon.name}</span>
+                        <span style={{ color: priceColor, fontWeight: 'bold' }}>
+                          +RM {parseFloat(addon.price).toFixed(2)}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            
+            {/* Total Price */}
+            {(() => {
+              const selectedSize = menuOptions.find(opt => opt.id === selectedSizeItem?.selectedOptionId)
+              const basePrice = selectedSize 
+                ? (selectedSize.is_absolute_price ? selectedSize.price_adjustment : selectedSizeItem.price + selectedSize.price_adjustment)
+                : selectedSizeItem.price
+              const addonTotal = getAddonTotal()
+              const finalPrice = basePrice + addonTotal
+              
+              return (
+                <div style={{ 
+                  padding: '10px 16px',
+                  background: secondaryBg,
+                  borderRadius: '12px',
+                  marginBottom: '16px',
+                  border: `1px solid ${borderColor}`
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: textColor }}>
+                    <span>{translate('subtotal')}:</span>
+                    <span>RM {finalPrice.toFixed(2)}</span>
+                  </div>
+                </div>
+              )
+            })()}
+            
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  const selectedSize = menuOptions.find(opt => opt.id === selectedSizeItem?.selectedOptionId)
+                  const basePrice = selectedSize 
+                    ? (selectedSize.is_absolute_price ? selectedSize.price_adjustment : selectedSizeItem.price + selectedSize.price_adjustment)
+                    : selectedSizeItem.price
+                  const addonTotal = getAddonTotal()
+                  const finalPrice = basePrice + addonTotal
+                  
+                  // Get selected option or null
+                  const selectedOption = menuOptions.find(opt => opt.id === selectedSizeItem?.selectedOptionId) || null
+                  
+                  const cartItem = {
+                    id: `${selectedSizeItem.id}_${selectedOption?.id || ''}_${Date.now()}`,
+                    name: selectedSizeItem.name,
+                    price: finalPrice,
+                    quantity: 1,
+                    option_name: selectedOption?.option_name || null,
+                    option_id: selectedOption?.id || null,
+                    addons: getAddonNames(),
+                    addon_ids: [...selectedAddons],
+                    addon_total: addonTotal,
+                    category: selectedSizeItem.category || 'Makanan'
+                  }
+                  
+                  setCart([...cart, cartItem])
+                  setShowAddonModal(false)
+                  setSelectedSizeItem(null)
+                  setSelectedAddons([])
+                  setMenuAddons([])
+                  setShowCart(true)
+                  toast.success(`✓ ${selectedSizeItem.name} ${translate('added')}`)
+                }}
+                style={{
+                  flex: 2,
+                  padding: isMobile ? '12px' : '14px',
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '40px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: isMobile ? '13px' : '14px'
+                }}
+              >
+                🛒 {translate('add_to_cart')}
+              </button>
+              <button
+                onClick={() => {
+                  setShowAddonModal(false)
+                  setSelectedSizeItem(null)
+                  setSelectedAddons([])
+                  setMenuAddons([])
+                }}
+                style={{
+                  flex: 1,
+                  padding: isMobile ? '12px' : '14px',
+                  background: '#64748b',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '40px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: isMobile ? '13px' : '14px'
+                }}
+              >
+                {translate('cancel')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1952,7 +2332,7 @@ function CustomerMenu() {
       )}
 
       {/* ========================================================== */}
-      {/* CART DRAWER - WITH STOCK WARNING */}
+      {/* CART DRAWER - WITH STOCK WARNING & ADD-ON DISPLAY */}
       {/* ========================================================== */}
       {showCart && (
         <div style={{ 
@@ -2060,6 +2440,17 @@ function CustomerMenu() {
                           }}>
                             ({item.option_name})
                           </span>
+                        )}
+                        {/* ===== ADD-ON DISPLAY IN CART ===== */}
+                        {item.addons && (
+                          <div style={{ 
+                            fontSize: '9px', 
+                            color: '#8b5cf6', 
+                            fontWeight: 'normal',
+                            marginTop: '2px'
+                          }}>
+                            ✨ + {item.addons} <span style={{ color: successColor }}>(+RM {item.addon_total?.toFixed(2) || '0.00'})</span>
+                          </div>
                         )}
                       </div>
                       <div style={{ 

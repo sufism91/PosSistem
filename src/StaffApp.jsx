@@ -130,6 +130,8 @@ function StaffApp() {
       no_addons: { en: 'No add-ons available', ms: 'Tiada tambahan' },
       base_price: { en: 'Base Price', ms: 'Harga Asal' },
       from_base_price: { en: 'from base price', ms: 'dari harga asal' },
+      you_save: { en: 'You Save', ms: 'Anda Jimat' },
+      promo_detail: { en: 'Promotion Detail', ms: 'Butiran Promosi' },
     }
     if (!translations[key]) return key
     return language === 'en' ? translations[key].en : translations[key].ms
@@ -442,6 +444,7 @@ function StaffApp() {
         .or(`start_date.is.null,start_date.lte.${now}`)
         .or(`end_date.is.null,end_date.gte.${now}`)
       setPromotions(data || [])
+      console.log('✅ Promotions loaded:', data?.length || 0, 'active promotions')
     } catch (err) { console.error('Error loading promotions:', err) }
   }
 
@@ -594,13 +597,24 @@ function StaffApp() {
   }
 
   function getItemPromotion(item) {
+    if (!item) return null
     for (const promo of promotions) {
       if (promo.type === 'bogo') {
         const trigger = promo.trigger_items?.[0]
-        if (trigger && item.id === trigger.id) return { type: 'bogo', trigger, free: promo.free_items?.[0], promo }
+        if (trigger && item.id === trigger.id) return { 
+          type: 'bogo', 
+          trigger: trigger, 
+          free: promo.free_items?.[0], 
+          promo 
+        }
       } else if (promo.type === 'bundle' || promo.type === 'set_menu') {
         const found = (promo.bundle_items || []).find(i => i.id === item.id)
-        if (found) return { type: promo.type, bundleItems: promo.bundle_items, bundlePrice: promo.bundle_price, promo }
+        if (found) return { 
+          type: promo.type, 
+          bundleItems: promo.bundle_items, 
+          bundlePrice: promo.bundle_price, 
+          promo 
+        }
       }
     }
     return null
@@ -637,8 +651,6 @@ function StaffApp() {
   // ============================================================
   const cleanCategoryName = (name) => {
     if (!name) return name
-    // Remove everything in parentheses including the parentheses
-    // e.g: "Nasi (Makanan)" → "Nasi"
     return name.replace(/ \(.*\)$/, '').trim()
   }
 
@@ -662,7 +674,6 @@ function StaffApp() {
         const isParent = selectedCat.parent_id === null || selectedCat.parent_id === undefined
         
         if (isParent) {
-          // Get all sub-categories under this parent
           const subCategoryNames = categories
             .filter(c => c.parent_id === selectedCat.id)
             .map(c => c.name)
@@ -670,7 +681,6 @@ function StaffApp() {
           const allRelated = [selectedCategory, ...subCategoryNames]
           filtered = filtered.filter(item => allRelated.includes(item.category))
         } else {
-          // If it's a sub-category, only show that category
           filtered = filtered.filter(item => item.category === selectedCategory)
         }
       } else {
@@ -684,7 +694,6 @@ function StaffApp() {
       )
     }
     
-    // ⭐ SORT BY CATEGORY ORDER (from categories table) - MACAM MANAGE MENU
     return filtered.sort((a, b) => {
       const catOrderA = categories.findIndex(c => c.name === a.category)
       const catOrderB = categories.findIndex(c => c.name === b.category)
@@ -696,7 +705,6 @@ function StaffApp() {
         return orderA - orderB
       }
       
-      // Within same category, sort by sort_order
       return (a.sort_order || 0) - (b.sort_order || 0)
     })
   }
@@ -709,17 +717,14 @@ function StaffApp() {
     
     const grouped = {}
     
-    // Get all categories in order
     const orderedCategories = getSortedCategories().map(cat => cat.name)
     
-    // Initialize groups for all categories
     orderedCategories.forEach(catName => {
       grouped[catName] = []
     })
     
     grouped['Lain-lain'] = []
     
-    // Group items
     menuItems.forEach(item => {
       const catName = item.category || 'Lain-lain'
       if (grouped[catName]) {
@@ -729,7 +734,6 @@ function StaffApp() {
       }
     })
     
-    // Remove empty groups
     Object.keys(grouped).forEach(key => {
       if (grouped[key].length === 0) {
         delete grouped[key]
@@ -953,9 +957,6 @@ function StaffApp() {
       
       toast.success(`✅ ${t('order_sent')} #${orderNumber}`)
       
-      // ============================================================
-      // ===== PRINT RECEIPT USING USE RECEIPT HOOK =====
-      // ============================================================
       if (data && data.length > 0 && receiptSettings) {
         const order = data[0]
         try {
@@ -983,15 +984,12 @@ function StaffApp() {
             paid_amount: getGrandTotal()
           })
           
-          // Print using hook
           await printReceipt(receiptText)
           console.log('✅ Receipt printed successfully from StaffApp')
         } catch (receiptError) {
           console.error('Error printing receipt:', receiptError)
-          // Don't show error to user, order already sent
         }
       }
-      // ============================================================
       
       setCart([])
       setCustomerName('')
@@ -1077,7 +1075,6 @@ function StaffApp() {
   // ===== PRINT RECEIPT - UPDATED WITH USE RECEIPT HOOK =====
   // ============================================================
   const printReceiptLegacy = (order) => {
-    // Gunakan hook untuk print
     if (receiptSettings) {
       try {
         const receiptText = generateReceipt({
@@ -1094,7 +1091,6 @@ function StaffApp() {
         console.log('✅ Receipt printed successfully from StaffApp (legacy)')
       } catch (err) {
         console.error('Error printing receipt:', err)
-        // Fallback to old method
         fallbackPrintReceipt(order)
       }
     } else {
@@ -1102,7 +1098,6 @@ function StaffApp() {
     }
   }
 
-  // ===== FALLBACK: Original print method if hook fails =====
   const fallbackPrintReceipt = (order) => {
     const total = Number(order.total || order.grand_total || 0).toFixed(2)
     const items = order.items || []
@@ -1175,10 +1170,8 @@ function StaffApp() {
   // RENDER CATEGORY TABS - Sorted like ManageMenu, clean names
   // ============================================================
   const renderCategoryTabs = () => {
-    // Get all categories sorted by sort_order (macam ManageMenu)
     const sortedCategories = getSortedCategories()
     
-    // Count items per category
     const getCategoryCount = (catName) => {
       return menu.filter(item => item.category === catName).length
     }
@@ -1194,7 +1187,6 @@ function StaffApp() {
         scrollbarWidth: 'none',
         msOverflowStyle: 'none'
       }}>
-        {/* ALL button */}
         <button
           onClick={() => setSelectedCategory('All')}
           style={{
@@ -1223,12 +1215,10 @@ function StaffApp() {
           </span>
         </button>
         
-        {/* Category buttons in sort_order */}
         {sortedCategories.map(cat => {
           const count = getCategoryCount(cat.name)
           if (count === 0) return null
           
-          // 🔥 CLEAN NAME - remove "(Makanan)" etc
           const displayName = cleanCategoryName(cat.name)
           
           return (
@@ -1267,7 +1257,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RENDER MENU ITEM CARD
+  // RENDER MENU ITEM CARD - WITH PROMO DISPLAY
   // ============================================================
   const renderMenuItemCard = (item) => {
     const hasDrinkOpts = getDrinkOptionsForItem(item).length > 0
@@ -1277,6 +1267,21 @@ function StaffApp() {
     const isBOGO = promo?.type === 'bogo'
     const hasAddons = item.has_addons === true
     const hasSizeOptions = item.has_options === true
+    
+    // Get promo details for tooltip
+    let promoDetail = ''
+    if (promo) {
+      if (promo.type === 'bogo') {
+        promoDetail = `🎁 Beli ${promo.trigger?.name} dapat ${promo.free?.name} PERCUMA!`
+      } else if (promo.type === 'set_menu' || promo.type === 'bundle') {
+        const items = promo.bundleItems?.map(i => i.name).join(' + ') || ''
+        const originalTotal = promo.bundleItems?.reduce((sum, i) => sum + i.price, 0) || 0
+        const savings = originalTotal - (promo.bundlePrice || 0)
+        promoDetail = `📦 ${items} → RM ${promo.bundlePrice} (Jimat RM ${savings.toFixed(2)})`
+      }
+    }
+    
+    const hasDiscount = promoPrice !== null && promoPrice !== item.price
     
     return (
       <div
@@ -1298,21 +1303,46 @@ function StaffApp() {
           textAlign: 'center',
           cursor: 'pointer',
           transition: 'transform 0.2s, box-shadow 0.2s',
-          position: 'relative'
+          position: 'relative',
+          border: hasDiscount ? `2px solid ${promoColor}` : 'none'
         }}
         onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
         onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
       >
+        {/* ===== PROMO BADGE - BIGGER & CLEARER ===== */}
         {promo && (
-          <div style={{
-            position: 'absolute', top: '-8px', right: '-8px',
-            background: promoColor, color: 'white',
-            padding: '2px 10px', borderRadius: '20px',
-            fontSize: '8px', fontWeight: 'bold',
-            boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
-            zIndex: 5
-          }}>
-            {promo.type === 'bogo' ? '🎁 BOGO' : '🔥 ' + t('promo')}
+          <div 
+            style={{
+              position: 'absolute', 
+              top: '-6px', 
+              right: '-6px',
+              background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+              color: 'white',
+              padding: isMobile ? '3px 12px' : '4px 16px',
+              borderRadius: '20px',
+              fontSize: isMobile ? '9px' : '11px',
+              fontWeight: 'bold',
+              boxShadow: '0 4px 16px rgba(239,68,68,0.4)',
+              zIndex: 10,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              animation: 'pulse 1.5s ease-in-out infinite'
+            }}
+            title={promoDetail}
+          >
+            {isBOGO ? '🎁 BOGO' : '🔥 PROMO'}
+            {isBOGO && (
+              <span style={{
+                fontSize: '7px',
+                background: 'rgba(255,255,255,0.2)',
+                padding: '1px 6px',
+                borderRadius: '10px',
+                marginLeft: '2px'
+              }}>
+                1+1
+              </span>
+            )}
           </div>
         )}
         
@@ -1376,6 +1406,7 @@ function StaffApp() {
           {item.name}
         </div>
         
+        {/* ===== HARGA DENGAN PROMO - JELAS ===== */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -1383,17 +1414,48 @@ function StaffApp() {
           gap: '6px',
           flexWrap: 'wrap'
         }}>
-          {promoPrice !== null && promoPrice !== item.price ? (
+          {hasDiscount ? (
             <>
-              <span style={{ color: promoColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
+              {/* Harga Promosi - BESAR & MERAH */}
+              <span style={{ 
+                color: promoColor, 
+                fontWeight: 'bold', 
+                fontSize: isMobile ? '16px' : '18px',
+                background: 'rgba(239,68,68,0.08)',
+                padding: '2px 8px',
+                borderRadius: '6px'
+              }}>
                 RM {promoPrice.toFixed(2)}
               </span>
-              <span style={{ color: textMuted, fontSize: isMobile ? '9px' : '10px', textDecoration: 'line-through' }}>
+              {/* Harga Asal - CORET */}
+              <span style={{ 
+                color: textMuted, 
+                fontSize: isMobile ? '10px' : '11px', 
+                textDecoration: 'line-through' 
+              }}>
                 RM {item.price.toFixed(2)}
               </span>
+              {/* Jimat badge */}
+              <span style={{
+                background: '#22c55e',
+                color: 'white',
+                padding: '1px 6px',
+                borderRadius: '10px',
+                fontSize: isMobile ? '7px' : '8px',
+                fontWeight: 'bold'
+              }}>
+                Jimat RM {(item.price - promoPrice).toFixed(2)}
+              </span>
               {isBOGO && (
-                <span style={{ background: promoColor, color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '7px', fontWeight: 'bold' }}>
-                  BOGO
+                <span style={{ 
+                  background: promoColor, 
+                  color: 'white', 
+                  padding: '1px 8px', 
+                  borderRadius: '10px', 
+                  fontSize: isMobile ? '7px' : '8px', 
+                  fontWeight: 'bold' 
+                }}>
+                  🎁 FREE 1
                 </span>
               )}
             </>
@@ -1429,6 +1491,25 @@ function StaffApp() {
             </span>
           )}
         </div>
+        
+        {/* ===== PROMO TOOLTIP / DETAIL ===== */}
+        {promo && (
+          <div style={{
+            marginTop: '4px',
+            fontSize: isMobile ? '8px' : '9px',
+            color: promoColor,
+            background: 'rgba(239,68,68,0.06)',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            border: '1px solid rgba(239,68,68,0.1)'
+          }}>
+            {isBOGO ? (
+              <span>🎁 {promo.trigger?.name} → {promo.free?.name} PERCUMA!</span>
+            ) : (
+              <span>📦 Bundle: RM {promo.bundlePrice}</span>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -1449,7 +1530,6 @@ function StaffApp() {
     
     const cols = isMobile ? 2 : (isTablet ? 3 : 4)
     
-    // ===== GROUPED VIEW UNTUK "All" =====
     if (selectedCategory === 'All') {
       const grouped = getGroupedMenuByCategory(filteredMenu)
       if (!grouped || Object.keys(grouped).length === 0) {
@@ -1460,13 +1540,11 @@ function StaffApp() {
         )
       }
       
-      // Get category order for sorting
       const getCategoryOrder = (catName) => {
         const found = categories.find(c => c.name === catName)
         return found?.sort_order ?? 999
       }
       
-      // Sort categories by sort_order
       const sortedCategoryNames = Object.keys(grouped).sort((a, b) => {
         return getCategoryOrder(a) - getCategoryOrder(b)
       })
@@ -1479,7 +1557,6 @@ function StaffApp() {
         
         return (
           <div key={categoryName} style={{ marginBottom: '24px' }}>
-            {/* Category Header */}
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -1510,7 +1587,6 @@ function StaffApp() {
               </span>
             </div>
             
-            {/* Items Grid */}
             <div style={{
               display: 'grid',
               gridTemplateColumns: `repeat(${cols}, 1fr)`,
@@ -1523,7 +1599,6 @@ function StaffApp() {
       })
     }
     
-    // ===== NORMAL VIEW UNTUK KATEGORI TERTENTU =====
     return (
       <div style={{
         display: 'grid',
@@ -1897,7 +1972,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== ITEM MODAL - WITH STOCK DISPLAY & ADD-ONS =====
+  // ===== ITEM MODAL - WITH STOCK DISPLAY & ADD-ONS & PROMO =====
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
@@ -1910,6 +1985,22 @@ function StaffApp() {
     const addonTotal = getAddonTotal()
     const finalPrice = basePrice + addonTotal
     const hasAddons = selectedItem.has_addons === true && menuAddons.length > 0
+    const promo = getItemPromotion(selectedItem)
+    const promoPrice = getPromoPrice(selectedItem)
+    const hasDiscount = promoPrice !== null && promoPrice !== selectedItem.price
+    
+    // Get promo detail
+    let promoDetail = ''
+    if (promo) {
+      if (promo.type === 'bogo') {
+        promoDetail = `🎁 Beli ${promo.trigger?.name} dapat ${promo.free?.name} PERCUMA!`
+      } else if (promo.type === 'set_menu' || promo.type === 'bundle') {
+        const items = promo.bundleItems?.map(i => i.name).join(' + ') || ''
+        const originalTotal = promo.bundleItems?.reduce((sum, i) => sum + i.price, 0) || 0
+        const savings = originalTotal - (promo.bundlePrice || 0)
+        promoDetail = `📦 ${items} → RM ${promo.bundlePrice} (Jimat RM ${savings.toFixed(2)})`
+      }
+    }
     
     return (
       <div style={{
@@ -1940,14 +2031,56 @@ function StaffApp() {
             {selectedItem.name}
           </h2>
           
-          {/* ===== HARGA ASAL ===== */}
+          {/* ===== PROMO DETAILS DI MODAL ===== */}
+          {promo && (
+            <div style={{
+              background: 'rgba(239,68,68,0.08)',
+              border: `1px solid ${promoColor}`,
+              borderRadius: '10px',
+              padding: '8px 12px',
+              marginBottom: '12px',
+              textAlign: 'center'
+            }}>
+              <span style={{ color: promoColor, fontWeight: 'bold', fontSize: '13px' }}>
+                {promoDetail}
+              </span>
+            </div>
+          )}
+          
+          {/* ===== HARGA DI MODAL ===== */}
           <div style={{ 
             fontSize: isMobile ? '20px' : '24px',
             fontWeight: 'bold',
-            color: priceColor,
-            marginBottom: '12px'
+            color: hasDiscount ? promoColor : priceColor,
+            marginBottom: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px'
           }}>
-            RM {basePrice.toFixed(2)}
+            {hasDiscount ? (
+              <>
+                <span>RM {promoPrice.toFixed(2)}</span>
+                <span style={{ 
+                  fontSize: isMobile ? '14px' : '16px', 
+                  color: textMuted, 
+                  textDecoration: 'line-through' 
+                }}>
+                  RM {selectedItem.price.toFixed(2)}
+                </span>
+                <span style={{
+                  fontSize: isMobile ? '11px' : '12px',
+                  background: '#22c55e',
+                  color: 'white',
+                  padding: '2px 10px',
+                  borderRadius: '20px'
+                }}>
+                  Jimat RM {(selectedItem.price - promoPrice).toFixed(2)}
+                </span>
+              </>
+            ) : (
+              <span>RM {basePrice.toFixed(2)}</span>
+            )}
           </div>
           
           {isDrink && drinkOpts.length > 0 && (
@@ -2064,7 +2197,6 @@ function StaffApp() {
             </div>
           )}
           
-          {/* ===== ADD-ON SECTION ===== */}
           {hasAddons && (
             <div style={{ marginBottom: '14px' }}>
               <label style={{ 
@@ -2510,6 +2642,10 @@ function StaffApp() {
           {`
             .spinner { width: 40px; height: 40px; border: 3px solid rgba(59,130,246,0.15); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
             @keyframes spin { to { transform: rotate(360deg); } }
+            @keyframes pulse {
+              0%, 100% { transform: scale(1); }
+              50% { transform: scale(1.05); }
+            }
             ::-webkit-scrollbar { width: 6px; height: 6px; }
             ::-webkit-scrollbar-track { background: ${darkMode ? '#1a1a2e' : '#e2e8f0'}; border-radius: 10px; }
             ::-webkit-scrollbar-thumb { background: ${darkMode ? '#3d3d5c' : '#94a3b8'}; border-radius: 10px; }

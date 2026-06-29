@@ -632,57 +632,94 @@ function StaffApp() {
     return parseFloat(basePrice) || 0
   }
 
-  const getCategories = () => ['All', ...categories.map(c => c.name)]
+  // ============================================================
+  // ===== CLEAN CATEGORY NAME - Remove "(Makanan)" etc =====
+  // ============================================================
+  const cleanCategoryName = (name) => {
+    if (!name) return name
+    // Remove everything in parentheses including the parentheses
+    // e.g: "Nasi (Makanan)" → "Nasi"
+    return name.replace(/ \(.*\)$/, '').trim()
+  }
 
+  // ============================================================
+  // ===== GET SORTED CATEGORIES (Macam ManageMenu) =====
+  // ============================================================
+  const getSortedCategories = () => {
+    return [...categories].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+  }
+
+  // ============================================================
+  // ===== GET FILTERED MENU - Sorted by category order =====
+  // ============================================================
   const getFilteredMenu = () => {
     let filtered = [...menu]
+    
     if (selectedCategory !== 'All') {
       const selectedCat = categories.find(c => c.name === selectedCategory)
+      
       if (selectedCat) {
         const isParent = selectedCat.parent_id === null || selectedCat.parent_id === undefined
+        
         if (isParent) {
-          const subCats = categories.filter(c => c.parent_id === selectedCat.id).map(c => c.name)
-          const allRelated = [selectedCategory, ...subCats]
+          // Get all sub-categories under this parent
+          const subCategoryNames = categories
+            .filter(c => c.parent_id === selectedCat.id)
+            .map(c => c.name)
+          
+          const allRelated = [selectedCategory, ...subCategoryNames]
           filtered = filtered.filter(item => allRelated.includes(item.category))
         } else {
+          // If it's a sub-category, only show that category
           filtered = filtered.filter(item => item.category === selectedCategory)
         }
       } else {
         filtered = filtered.filter(item => item.category === selectedCategory)
       }
     }
+    
     if (searchTerm) {
-      filtered = filtered.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
+      filtered = filtered.filter(item => 
+        item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      )
     }
-    return filtered
-  }
-
-  const getCategoryIcon = (cat) => {
-    if (!cat || cat === 'All') return '📋'
-    const found = categories.find(c => c.name === cat)
-    if (found?.icon) return found.icon
-    const icons = { 'Makanan': '🍚', 'Minuman': '🥤', 'SUP': '🍜', 'Jus': '🧃', 'Teh': '🍵', 'Kopi': '☕' }
-    return icons[cat] || '📂'
+    
+    // ⭐ SORT BY CATEGORY ORDER (from categories table) - MACAM MANAGE MENU
+    return filtered.sort((a, b) => {
+      const catOrderA = categories.findIndex(c => c.name === a.category)
+      const catOrderB = categories.findIndex(c => c.name === b.category)
+      
+      const orderA = catOrderA === -1 ? 999 : catOrderA
+      const orderB = catOrderB === -1 ? 999 : catOrderB
+      
+      if (orderA !== orderB) {
+        return orderA - orderB
+      }
+      
+      // Within same category, sort by sort_order
+      return (a.sort_order || 0) - (b.sort_order || 0)
+    })
   }
 
   // ============================================================
-  // ===== GROUP MENU BY CATEGORY FOR "All" =====
+  // ===== GROUP MENU BY CATEGORY - With proper sorting =====
   // ============================================================
   const getGroupedMenuByCategory = (menuItems) => {
     if (selectedCategory !== 'All') return null
     
     const grouped = {}
     
-    const orderedCategories = categories
-      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-      .map(cat => cat.name)
+    // Get all categories in order
+    const orderedCategories = getSortedCategories().map(cat => cat.name)
     
+    // Initialize groups for all categories
     orderedCategories.forEach(catName => {
       grouped[catName] = []
     })
     
     grouped['Lain-lain'] = []
     
+    // Group items
     menuItems.forEach(item => {
       const catName = item.category || 'Lain-lain'
       if (grouped[catName]) {
@@ -692,6 +729,7 @@ function StaffApp() {
       }
     })
     
+    // Remove empty groups
     Object.keys(grouped).forEach(key => {
       if (grouped[key].length === 0) {
         delete grouped[key]
@@ -703,7 +741,8 @@ function StaffApp() {
 
   const getCategoryGroupIcon = (catName) => {
     if (catName === 'Lain-lain') return '📂'
-    const found = categories.find(c => c.name === catName)
+    const cleanName = cleanCategoryName(catName)
+    const found = categories.find(c => c.name === catName || cleanName === c.name)
     return found?.icon || '📂'
   }
 
@@ -1131,33 +1170,271 @@ function StaffApp() {
   // ============================================================
   // ===== RENDER FUNCTIONS =====
   // ============================================================
-  const renderCategoryTabs = () => (
-    <div style={{ display: 'flex', gap: '6px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '4px' }}>
-      {getCategories().map(cat => (
-        <button
-          key={cat}
-          onClick={() => setSelectedCategory(cat)}
-          style={{
-            padding: isMobile ? '6px 14px' : '8px 20px',
-            background: selectedCategory === cat ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
-            color: selectedCategory === cat ? 'white' : textColor,
-            border: selectedCategory === cat ? 'none' : `1px solid ${borderColor}`,
-            borderRadius: '30px',
-            cursor: 'pointer',
-            fontWeight: selectedCategory === cat ? 'bold' : '500',
-            fontSize: isMobile ? '11px' : '13px',
-            whiteSpace: 'nowrap',
-            transition: 'all 0.2s'
-          }}
-        >
-          {cat === 'All' ? '📋 ' + t('all_categories') : getCategoryIcon(cat) + ' ' + cat}
-        </button>
-      ))}
-    </div>
-  )
 
   // ============================================================
-  // ===== RENDER MENU ITEMS - WITH GROUP BY CATEGORY =====
+  // RENDER CATEGORY TABS - Sorted like ManageMenu, clean names
+  // ============================================================
+  const renderCategoryTabs = () => {
+    // Get all categories sorted by sort_order (macam ManageMenu)
+    const sortedCategories = getSortedCategories()
+    
+    // Count items per category
+    const getCategoryCount = (catName) => {
+      return menu.filter(item => item.category === catName).length
+    }
+    
+    return (
+      <div style={{ 
+        display: 'flex', 
+        gap: '6px', 
+        flexWrap: 'nowrap', 
+        overflowX: 'auto', 
+        paddingBottom: '4px',
+        WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none'
+      }}>
+        {/* ALL button */}
+        <button
+          onClick={() => setSelectedCategory('All')}
+          style={{
+            padding: isMobile ? '6px 14px' : '8px 20px',
+            background: selectedCategory === 'All' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
+            color: selectedCategory === 'All' ? 'white' : textColor,
+            border: selectedCategory === 'All' ? 'none' : `1px solid ${borderColor}`,
+            borderRadius: '30px',
+            cursor: 'pointer',
+            fontWeight: selectedCategory === 'All' ? 'bold' : '500',
+            fontSize: isMobile ? '11px' : '13px',
+            whiteSpace: 'nowrap',
+            transition: 'all 0.2s',
+            flexShrink: 0
+          }}
+        >
+          📋 {t('all_categories')}
+          <span style={{
+            marginLeft: '4px',
+            fontSize: '9px',
+            background: selectedCategory === 'All' ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+            padding: '1px 6px',
+            borderRadius: '10px'
+          }}>
+            {menu.length}
+          </span>
+        </button>
+        
+        {/* Category buttons in sort_order */}
+        {sortedCategories.map(cat => {
+          const count = getCategoryCount(cat.name)
+          if (count === 0) return null
+          
+          // 🔥 CLEAN NAME - remove "(Makanan)" etc
+          const displayName = cleanCategoryName(cat.name)
+          
+          return (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.name)}
+              style={{
+                padding: isMobile ? '6px 14px' : '8px 20px',
+                background: selectedCategory === cat.name ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent',
+                color: selectedCategory === cat.name ? 'white' : textColor,
+                border: selectedCategory === cat.name ? 'none' : `1px solid ${borderColor}`,
+                borderRadius: '30px',
+                cursor: 'pointer',
+                fontWeight: selectedCategory === cat.name ? 'bold' : '500',
+                fontSize: isMobile ? '11px' : '13px',
+                whiteSpace: 'nowrap',
+                transition: 'all 0.2s',
+                flexShrink: 0
+              }}
+            >
+              {cat.icon || '📂'} {displayName}
+              <span style={{
+                marginLeft: '4px',
+                fontSize: '9px',
+                background: selectedCategory === cat.name ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.1)',
+                padding: '1px 6px',
+                borderRadius: '10px'
+              }}>
+                {count}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
+  // ============================================================
+  // RENDER MENU ITEM CARD
+  // ============================================================
+  const renderMenuItemCard = (item) => {
+    const hasDrinkOpts = getDrinkOptionsForItem(item).length > 0
+    const hasImage = item.image_url && item.image_url.trim() !== ''
+    const promo = getItemPromotion(item)
+    const promoPrice = getPromoPrice(item)
+    const isBOGO = promo?.type === 'bogo'
+    const hasAddons = item.has_addons === true
+    const hasSizeOptions = item.has_options === true
+    
+    return (
+      <div
+        key={item.id}
+        onClick={() => {
+          setSelectedItem(item)
+          setSelectedOption('')
+          setSelectedSize(null)
+          setSelectedAddons([])
+          setQuantity(1)
+          if (item.has_options) loadMenuOptions(item.id)
+          if (item.has_addons) loadAddons(item.id)
+          setShowItemModal(true)
+        }}
+        style={{
+          ...glassEffect,
+          borderRadius: '16px',
+          padding: isMobile ? '12px' : '16px',
+          textAlign: 'center',
+          cursor: 'pointer',
+          transition: 'transform 0.2s, box-shadow 0.2s',
+          position: 'relative'
+        }}
+        onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
+        onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+      >
+        {promo && (
+          <div style={{
+            position: 'absolute', top: '-8px', right: '-8px',
+            background: promoColor, color: 'white',
+            padding: '2px 10px', borderRadius: '20px',
+            fontSize: '8px', fontWeight: 'bold',
+            boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
+            zIndex: 5
+          }}>
+            {promo.type === 'bogo' ? '🎁 BOGO' : '🔥 ' + t('promo')}
+          </div>
+        )}
+        
+        {hasDrinkOpts && (
+          <div style={{
+            position: 'absolute', top: '-8px', left: '-8px',
+            background: '#3b82f6', color: 'white',
+            padding: '2px 8px', borderRadius: '20px',
+            fontSize: '7px', fontWeight: 'bold',
+            zIndex: 5
+          }}>
+            ☕
+          </div>
+        )}
+        
+        {hasAddons && (
+          <div style={{
+            position: 'absolute', top: '-8px', left: '-8px',
+            background: '#8b5cf6', color: 'white',
+            padding: '2px 8px', borderRadius: '20px',
+            fontSize: '7px', fontWeight: 'bold',
+            zIndex: 5,
+            marginLeft: hasDrinkOpts ? '30px' : '0'
+          }}>
+            ✨
+          </div>
+        )}
+        
+        {hasImage ? (
+          <img
+            src={item.image_url}
+            alt={item.name}
+            style={{
+              width: '100%',
+              height: isMobile ? '70px' : '90px',
+              maxWidth: '120px',
+              objectFit: 'contain',
+              borderRadius: '12px',
+              margin: '0 auto 8px auto',
+              display: 'block',
+              backgroundColor: '#fff',
+              padding: '4px'
+            }}
+            onError={(e) => { e.currentTarget.style.display = 'none' }}
+          />
+        ) : (
+          <div style={{ fontSize: isMobile ? '32px' : '40px', marginBottom: '4px' }}>
+            {isDrinkCategory(item.category) ? '🥤' : '🍽️'}
+          </div>
+        )}
+        
+        <div style={{
+          fontWeight: 'bold',
+          color: textColor,
+          fontSize: isMobile ? '11px' : '13px',
+          marginBottom: '2px',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis'
+        }}>
+          {item.name}
+        </div>
+        
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '6px',
+          flexWrap: 'wrap'
+        }}>
+          {promoPrice !== null && promoPrice !== item.price ? (
+            <>
+              <span style={{ color: promoColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
+                RM {promoPrice.toFixed(2)}
+              </span>
+              <span style={{ color: textMuted, fontSize: isMobile ? '9px' : '10px', textDecoration: 'line-through' }}>
+                RM {item.price.toFixed(2)}
+              </span>
+              {isBOGO && (
+                <span style={{ background: promoColor, color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '7px', fontWeight: 'bold' }}>
+                  BOGO
+                </span>
+              )}
+            </>
+          ) : (
+            <span style={{ color: priceColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
+              RM {item.price.toFixed(2)}
+            </span>
+          )}
+          
+          {hasAddons && (
+            <span style={{
+              background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+              color: 'white',
+              padding: '1px 8px',
+              borderRadius: '12px',
+              fontSize: isMobile ? '7px' : '9px',
+              fontWeight: 'bold'
+            }}>
+              ✨ Add-On
+            </span>
+          )}
+          
+          {hasSizeOptions && (
+            <span style={{
+              background: '#f59e0b',
+              color: 'white',
+              padding: '1px 8px',
+              borderRadius: '12px',
+              fontSize: isMobile ? '7px' : '9px',
+              fontWeight: 'bold'
+            }}>
+              📏 Size
+            </span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  // ============================================================
+  // RENDER MENU ITEMS - Grouped by category
   // ============================================================
   const renderMenuItems = () => {
     const filteredMenu = getFilteredMenu()
@@ -1183,9 +1460,22 @@ function StaffApp() {
         )
       }
       
-      return Object.entries(grouped).map(([categoryName, items]) => {
+      // Get category order for sorting
+      const getCategoryOrder = (catName) => {
+        const found = categories.find(c => c.name === catName)
+        return found?.sort_order ?? 999
+      }
+      
+      // Sort categories by sort_order
+      const sortedCategoryNames = Object.keys(grouped).sort((a, b) => {
+        return getCategoryOrder(a) - getCategoryOrder(b)
+      })
+      
+      return sortedCategoryNames.map((categoryName) => {
+        const items = grouped[categoryName]
         const catIcon = getCategoryGroupIcon(categoryName)
         const itemCount = items.length
+        const cleanName = cleanCategoryName(categoryName)
         
         return (
           <div key={categoryName} style={{ marginBottom: '24px' }}>
@@ -1207,7 +1497,7 @@ function StaffApp() {
                 fontSize: isMobile ? '13px' : '15px', 
                 color: textColor 
               }}>
-                {categoryName}
+                {cleanName}
               </span>
               <span style={{
                 fontSize: '10px',
@@ -1226,170 +1516,7 @@ function StaffApp() {
               gridTemplateColumns: `repeat(${cols}, 1fr)`,
               gap: isMobile ? '10px' : '14px'
             }}>
-              {items.map(item => {
-                const hasDrinkOpts = getDrinkOptionsForItem(item).length > 0
-                const hasImage = item.image_url && item.image_url.trim() !== ''
-                const promo = getItemPromotion(item)
-                const promoPrice = getPromoPrice(item)
-                const isBOGO = promo?.type === 'bogo'
-                const hasAddons = item.has_addons === true
-                const hasSizeOptions = item.has_options === true
-                
-                return (
-                  <div
-                    key={item.id}
-                    onClick={() => {
-                      setSelectedItem(item)
-                      setSelectedOption('')
-                      setSelectedSize(null)
-                      setSelectedAddons([])
-                      setQuantity(1)
-                      if (item.has_options) loadMenuOptions(item.id)
-                      if (item.has_addons) loadAddons(item.id)
-                      setShowItemModal(true)
-                    }}
-                    style={{
-                      ...glassEffect,
-                      borderRadius: '16px',
-                      padding: isMobile ? '12px' : '16px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      transition: 'transform 0.2s, box-shadow 0.2s',
-                      position: 'relative'
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                  >
-                    {promo && (
-                      <div style={{
-                        position: 'absolute', top: '-8px', right: '-8px',
-                        background: promoColor, color: 'white',
-                        padding: '2px 10px', borderRadius: '20px',
-                        fontSize: '8px', fontWeight: 'bold',
-                        boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
-                        zIndex: 5
-                      }}>
-                        {promo.type === 'bogo' ? '🎁 BOGO' : '🔥 ' + t('promo')}
-                      </div>
-                    )}
-                    
-                    {hasDrinkOpts && (
-                      <div style={{
-                        position: 'absolute', top: '-8px', left: '-8px',
-                        background: '#3b82f6', color: 'white',
-                        padding: '2px 8px', borderRadius: '20px',
-                        fontSize: '7px', fontWeight: 'bold',
-                        zIndex: 5
-                      }}>
-                        ☕
-                      </div>
-                    )}
-                    
-                    {hasAddons && (
-                      <div style={{
-                        position: 'absolute', top: '-8px', left: '-8px',
-                        background: '#8b5cf6', color: 'white',
-                        padding: '2px 8px', borderRadius: '20px',
-                        fontSize: '7px', fontWeight: 'bold',
-                        zIndex: 5,
-                        marginLeft: hasDrinkOpts ? '30px' : '0'
-                      }}>
-                        ✨
-                      </div>
-                    )}
-                    
-                    {hasImage ? (
-                      <img
-                        src={item.image_url}
-                        alt={item.name}
-                        style={{
-                          width: '100%',
-                          height: isMobile ? '70px' : '90px',
-                          maxWidth: '120px',
-                          objectFit: 'contain',
-                          borderRadius: '12px',
-                          margin: '0 auto 8px auto',
-                          display: 'block',
-                          backgroundColor: '#fff',
-                          padding: '4px'
-                        }}
-                        onError={(e) => { e.currentTarget.style.display = 'none' }}
-                      />
-                    ) : (
-                      <div style={{ fontSize: isMobile ? '32px' : '40px', marginBottom: '4px' }}>
-                        {isDrinkCategory(item.category) ? '🥤' : '🍽️'}
-                      </div>
-                    )}
-                    
-                    <div style={{
-                      fontWeight: 'bold',
-                      color: textColor,
-                      fontSize: isMobile ? '11px' : '13px',
-                      marginBottom: '2px',
-                      whiteSpace: 'nowrap',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis'
-                    }}>
-                      {item.name}
-                    </div>
-                    
-                    {/* ===== HARGA ASAL + BADGES ===== */}
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                      flexWrap: 'wrap'
-                    }}>
-                      {promoPrice !== null && promoPrice !== item.price ? (
-                        <>
-                          <span style={{ color: promoColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
-                            RM {promoPrice.toFixed(2)}
-                          </span>
-                          <span style={{ color: textMuted, fontSize: isMobile ? '9px' : '10px', textDecoration: 'line-through' }}>
-                            RM {item.price.toFixed(2)}
-                          </span>
-                          {isBOGO && (
-                            <span style={{ background: promoColor, color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '7px', fontWeight: 'bold' }}>
-                              BOGO
-                            </span>
-                          )}
-                        </>
-                      ) : (
-                        <span style={{ color: priceColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
-                          RM {item.price.toFixed(2)}
-                        </span>
-                      )}
-                      
-                      {hasAddons && (
-                        <span style={{
-                          background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-                          color: 'white',
-                          padding: '1px 8px',
-                          borderRadius: '12px',
-                          fontSize: isMobile ? '7px' : '9px',
-                          fontWeight: 'bold'
-                        }}>
-                          ✨ Add-On
-                        </span>
-                      )}
-                      
-                      {hasSizeOptions && (
-                        <span style={{
-                          background: '#f59e0b',
-                          color: 'white',
-                          padding: '1px 8px',
-                          borderRadius: '12px',
-                          fontSize: isMobile ? '7px' : '9px',
-                          fontWeight: 'bold'
-                        }}>
-                          📏 Size
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+              {items.map(item => renderMenuItemCard(item))}
             </div>
           </div>
         )
@@ -1403,169 +1530,7 @@ function StaffApp() {
         gridTemplateColumns: `repeat(${cols}, 1fr)`,
         gap: isMobile ? '10px' : '14px'
       }}>
-        {filteredMenu.map(item => {
-          const hasDrinkOpts = getDrinkOptionsForItem(item).length > 0
-          const hasImage = item.image_url && item.image_url.trim() !== ''
-          const promo = getItemPromotion(item)
-          const promoPrice = getPromoPrice(item)
-          const isBOGO = promo?.type === 'bogo'
-          const hasAddons = item.has_addons === true
-          const hasSizeOptions = item.has_options === true
-          
-          return (
-            <div
-              key={item.id}
-              onClick={() => {
-                setSelectedItem(item)
-                setSelectedOption('')
-                setSelectedSize(null)
-                setSelectedAddons([])
-                setQuantity(1)
-                if (item.has_options) loadMenuOptions(item.id)
-                if (item.has_addons) loadAddons(item.id)
-                setShowItemModal(true)
-              }}
-              style={{
-                ...glassEffect,
-                borderRadius: '16px',
-                padding: isMobile ? '12px' : '16px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                transition: 'transform 0.2s, box-shadow 0.2s',
-                position: 'relative'
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-            >
-              {promo && (
-                <div style={{
-                  position: 'absolute', top: '-8px', right: '-8px',
-                  background: promoColor, color: 'white',
-                  padding: '2px 10px', borderRadius: '20px',
-                  fontSize: '8px', fontWeight: 'bold',
-                  boxShadow: '0 4px 12px rgba(239,68,68,0.3)',
-                  zIndex: 5
-                }}>
-                  {promo.type === 'bogo' ? '🎁 BOGO' : '🔥 ' + t('promo')}
-                </div>
-              )}
-              
-              {hasDrinkOpts && (
-                <div style={{
-                  position: 'absolute', top: '-8px', left: '-8px',
-                  background: '#3b82f6', color: 'white',
-                  padding: '2px 8px', borderRadius: '20px',
-                  fontSize: '7px', fontWeight: 'bold',
-                  zIndex: 5
-                }}>
-                  ☕
-                </div>
-              )}
-              
-              {hasAddons && (
-                <div style={{
-                  position: 'absolute', top: '-8px', left: '-8px',
-                  background: '#8b5cf6', color: 'white',
-                  padding: '2px 8px', borderRadius: '20px',
-                  fontSize: '7px', fontWeight: 'bold',
-                  zIndex: 5,
-                  marginLeft: hasDrinkOpts ? '30px' : '0'
-                }}>
-                  ✨
-                </div>
-              )}
-              
-              {hasImage ? (
-                <img
-                  src={item.image_url}
-                  alt={item.name}
-                  style={{
-                    width: '100%',
-                    height: isMobile ? '70px' : '90px',
-                    maxWidth: '120px',
-                    objectFit: 'contain',
-                    borderRadius: '12px',
-                    margin: '0 auto 8px auto',
-                    display: 'block',
-                    backgroundColor: '#fff',
-                    padding: '4px'
-                  }}
-                  onError={(e) => { e.currentTarget.style.display = 'none' }}
-                />
-              ) : (
-                <div style={{ fontSize: isMobile ? '32px' : '40px', marginBottom: '4px' }}>
-                  {isDrinkCategory(item.category) ? '🥤' : '🍽️'}
-                </div>
-              )}
-              
-              <div style={{
-                fontWeight: 'bold',
-                color: textColor,
-                fontSize: isMobile ? '11px' : '13px',
-                marginBottom: '2px',
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}>
-                {item.name}
-              </div>
-              
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                flexWrap: 'wrap'
-              }}>
-                {promoPrice !== null && promoPrice !== item.price ? (
-                  <>
-                    <span style={{ color: promoColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
-                      RM {promoPrice.toFixed(2)}
-                    </span>
-                    <span style={{ color: textMuted, fontSize: isMobile ? '9px' : '10px', textDecoration: 'line-through' }}>
-                      RM {item.price.toFixed(2)}
-                    </span>
-                    {isBOGO && (
-                      <span style={{ background: promoColor, color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '7px', fontWeight: 'bold' }}>
-                        BOGO
-                      </span>
-                    )}
-                  </>
-                ) : (
-                  <span style={{ color: priceColor, fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px' }}>
-                    RM {item.price.toFixed(2)}
-                  </span>
-                )}
-                
-                {hasAddons && (
-                  <span style={{
-                    background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
-                    color: 'white',
-                    padding: '1px 8px',
-                    borderRadius: '12px',
-                    fontSize: isMobile ? '7px' : '9px',
-                    fontWeight: 'bold'
-                  }}>
-                    ✨ Add-On
-                  </span>
-                )}
-                
-                {hasSizeOptions && (
-                  <span style={{
-                    background: '#f59e0b',
-                    color: 'white',
-                    padding: '1px 8px',
-                    borderRadius: '12px',
-                    fontSize: isMobile ? '7px' : '9px',
-                    fontWeight: 'bold'
-                  }}>
-                    📏 Size
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
+        {filteredMenu.map(item => renderMenuItemCard(item))}
       </div>
     )
   }

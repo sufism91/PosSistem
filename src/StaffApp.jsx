@@ -888,7 +888,7 @@ function StaffApp() {
   const getCartItemCount = () => cart.reduce((sum, item) => sum + item.quantity, 0)
 
   // ============================================================
-  // ADD TO CART - WITH STOCK CHECK & ADD-ONS
+  // ADD TO CART - WITH STOCK CHECK & ADD-ONS & BUNDLE FIX
   // ============================================================
   const addToCart = async () => {
     if (!selectedItem) { toast.error(t('please_select_item')); return }
@@ -945,13 +945,14 @@ function StaffApp() {
       addon_total: addonTotal
     }
     
-    // Check if this item is part of a bundle
+    // Check if this item completes a bundle
     const tempCart = [...cart, tempCartItem]
     const bundleCheck = getBundlePromoForCart(tempCart)
+    let isBundleItem = false
+    let bundleName = null
+    let bundlePriceValue = null
     
     // If this item completes a bundle, adjust price
-    let finalCartItem = { ...tempCartItem }
-    
     if (bundleCheck) {
       const bundleItemIds = bundleCheck.bundleItems.map(i => i.id)
       const isInBundle = bundleItemIds.includes(selectedItem.id)
@@ -961,11 +962,9 @@ function StaffApp() {
         const bundleItemCount = bundleCheck.bundleItems.length
         const perItemPrice = bundleCheck.bundlePrice / bundleItemCount
         finalPrice = perItemPrice + addonTotal
-        finalCartItem.price = finalPrice
-        finalCartItem.subtotal = finalPrice * quantity
-        finalCartItem.isBundleItem = true
-        finalCartItem.bundleName = bundleCheck.promo.name
-        finalCartItem.bundlePrice = bundleCheck.bundlePrice
+        isBundleItem = true
+        bundleName = bundleCheck.promo.name
+        bundlePriceValue = bundleCheck.bundlePrice
         
         // Show bundle toast
         setTimeout(() => {
@@ -980,18 +979,28 @@ function StaffApp() {
     const promo = getItemPromotion(selectedItem)
     
     const cartItem = {
-      ...finalCartItem,
+      id: selectedItem.id,
+      name: selectedItem.name,
+      category: selectedItem.category,
+      option: selectedOption || null,
+      size: selectedSize?.option_name || null,
+      size_id: selectedSize?.id || null,
       price: finalPrice,
+      basePrice: basePrice,
+      originalPrice: selectedItem.price,
+      quantity: quantity,
       subtotal: finalPrice * quantity,
+      image_url: selectedItem.image_url,
+      notes: selectedItem.notes || '',
       isFree: isFree,
       promoType: promo?.type || null,
       promoName: promo?.promo?.name || null,
       addons: addonNames,
       addon_ids: [...selectedAddons],
       addon_total: addonTotal,
-      isBundleItem: finalCartItem.isBundleItem || false,
-      bundleName: finalCartItem.bundleName || null,
-      bundlePrice: finalCartItem.bundlePrice || null
+      isBundleItem: isBundleItem,
+      bundleName: bundleName,
+      bundlePrice: bundlePriceValue
     }
     
     const existingIndex = cart.findIndex(c => 
@@ -1006,6 +1015,9 @@ function StaffApp() {
       newCart = [...cart]
       newCart[existingIndex].quantity += quantity
       newCart[existingIndex].subtotal = newCart[existingIndex].price * newCart[existingIndex].quantity
+      newCart[existingIndex].isBundleItem = isBundleItem
+      newCart[existingIndex].bundleName = bundleName
+      newCart[existingIndex].bundlePrice = bundlePriceValue
     } else {
       newCart = [...cart, cartItem]
     }
@@ -1042,7 +1054,10 @@ function StaffApp() {
       const bundleAfterRemove = getBundlePromoForCart(newCart)
       if (!bundleAfterRemove) {
         // Bundle is broken, inform user
-        toast.info('📦 Bundle promo telah dilumpuhkan kerana item dikeluarkan')
+        const hadBundle = cart.some(item => item.isBundleItem)
+        if (hadBundle) {
+          toast.info('📦 Bundle promo telah dilumpuhkan kerana item dikeluarkan')
+        }
       }
     }, 200)
   }
@@ -1116,16 +1131,11 @@ function StaffApp() {
       status: ORDER_STATUS.NEW,
       order_status: ORDER_STATUS.NEW,
       payment_status: PAYMENT_STATUS.UNPAID,
-      notes: cart.map(item => item.notes).filter(n => n).join(', '),
-      has_bundle: hasBundle,
-      bundle_promo: hasBundle ? {
-        name: bundleInCart.promo.name,
-        bundle_price: bundleInCart.bundlePrice,
-        original_price: bundleInCart.totalOriginalPrice,
-        savings: bundleInCart.savings,
-        items: bundleInCart.bundleItems.map(i => i.name)
-      } : null
+      notes: cart.map(item => item.notes).filter(n => n).join(', ')
     }
+    
+    // Only add bundle fields if they exist in the order data (will be handled by normalizeOrderForInsert)
+    // The normalizeOrderForInsert function will handle these fields
     
     try {
       const { data, error } = await supabase.from('customer_orders').insert([normalizeOrderForInsert(orderData)]).select()

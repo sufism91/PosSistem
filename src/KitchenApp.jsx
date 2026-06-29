@@ -660,12 +660,31 @@ function KitchenApp() {
               padding: '6px 0', 
               color: textColor,
               borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none',
-              alignItems: 'center'
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '4px'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                 <span style={{ fontSize: isMobile ? '12px' : '13px' }}>
                   {item.quantity}x {item.name}
                 </span>
+                
+                {/* ===== TAMBAHAN: PAPARAN ADD-ON ===== */}
+                {item.addons && (
+                  <span style={{ 
+                    fontSize: isMobile ? '9px' : '10px', 
+                    color: '#8b5cf6',
+                    background: 'rgba(139,92,246,0.15)',
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontWeight: 'bold',
+                    border: '1px solid rgba(139,92,246,0.2)'
+                  }}>
+                    ✨ {item.addons}
+                  </span>
+                )}
+                {/* ======================================== */}
+                
                 {item.option_type && (
                   <span style={{ 
                     fontSize: isMobile ? '8px' : '9px', 

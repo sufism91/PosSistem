@@ -1,8 +1,12 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useState, useEffect, Suspense, lazy } from 'react'
-import { ThemeProvider, useTheme } from './context/ThemeContext'  // 👈 Tambah useTheme
-import { LanguageProvider, useLanguage } from './context/LanguageContext'  // 👈 Tambah useLanguage
+import { ThemeProvider, useTheme } from './context/ThemeContext'
+import { LanguageProvider, useLanguage } from './context/LanguageContext'
+import { supabase } from './lib/supabase'
 import toast from 'react-hot-toast'
+
+// ===== IMPORT SYSTEM LOGS =====
+import { logActivity, LOG_ACTIONS } from './utils/systemLogs'
 
 // Lazy load components for better performance
 const StaffApp = lazy(() => import('./StaffApp'))
@@ -69,7 +73,7 @@ function LoadingSpinner() {
 // ============================================================
 function AppWrapper() {
   const { darkMode } = useTheme()
-  const { language } = useLanguage()  // 👈 Tambah ini
+  const { language } = useLanguage()
   const location = useLocation()
   const [isMobile, setIsMobile] = useState(false)
 
@@ -87,6 +91,316 @@ function AppWrapper() {
   useEffect(() => {
     console.log(`📍 Page: ${location.pathname}`)
   }, [location])
+
+  // ============================================================
+  // ============================================================
+  // TELEGRAM NOTIFICATION - REALTIME (FULLY FIXED)
+  // ============================================================
+  // ============================================================
+  useEffect(() => {
+    let isMounted = true
+    let subscription = null
+    let lastOrderId = null
+    let lastOrderTime = 0
+
+    // Function to send Telegram notification
+    async function sendTelegramNotification(order) {
+      // ===== CEK DUPLIKAT =====
+      if (order.id === lastOrderId && Date.now() - lastOrderTime < 3000) {
+        console.log('⚠️ Duplicate order detected, skipping Telegram...')
+        return
+      }
+      
+      lastOrderId = order.id
+      lastOrderTime = Date.now()
+      
+      try {
+        console.log('📨 Sending Telegram notification for order:', order.id)
+        
+        const { data: settings, error } = await supabase
+          .from('settings')
+          .select('key, value')
+          .in('key', [
+            'telegram_enabled',
+            'telegram_bot_token', 
+            'telegram_chat_id',
+            'telegram_notify_new_order'
+          ])
+
+        if (error) {
+          console.error('Error getting settings:', error)
+          return
+        }
+
+        const config = {}
+        settings.forEach(item => {
+          if (['telegram_enabled', 'telegram_notify_new_order'].includes(item.key)) {
+            config[item.key] = item.value === 'true'
+          } else {
+            config[item.key] = item.value
+          }
+        })
+
+        if (!config.telegram_enabled || !config.telegram_notify_new_order) {
+          console.log('Telegram notification disabled')
+          return
+        }
+
+        if (!config.telegram_bot_token || !config.telegram_chat_id) {
+          console.log('Telegram token or chat ID missing')
+          return
+        }
+
+        const orderItems = order.items || []
+        
+        // ===== FORMAT ITEM DENGAN SEMUA DETAIL =====
+        let itemList = ''
+        let hasItems = false
+        
+        if (orderItems.length > 0) {
+          // Group items untuk promosi
+          const promoItems = orderItems.filter(item => item.is_promo_item === true)
+          const regularItems = orderItems.filter(item => !item.is_promo_item && !item.is_free)
+          const freeItems = orderItems.filter(item => item.is_free === true)
+          
+          // ===== 1. REGULAR ITEMS =====
+          if (regularItems.length > 0) {
+            itemList += '  📌 <b>Item Pesanan:</b>\n'
+            regularItems.forEach(item => {
+              let line = `  • ${item.name}`
+              
+              // Option (Panas/Sejuk/Bungkus)
+              if (item.option_name || item.option) {
+                const opt = item.option_name || item.option
+                const emoji = opt === 'Panas' ? '🔥' : opt === 'Sejuk' ? '🧊' : opt === 'Bungkus' ? '📦' : ''
+                line += ` ${emoji}(${opt})`
+              }
+              
+              // Size
+              if (item.size || item.size_name) {
+                line += ` [${item.size || item.size_name}]`
+              }
+              
+              // Quantity & Price
+              const qty = item.quantity || 1
+              const price = item.price || 0
+              line += `\n    x${qty} = RM ${(price * qty).toFixed(2)}`
+              
+              // ===== ADD-ON =====
+              if (item.addons) {
+                let addonText = item.addons
+                if (Array.isArray(item.addons)) {
+                  addonText = item.addons.join(', ')
+                }
+                const addonPrice = item.addon_total || 0
+                if (addonPrice > 0) {
+                  line += `\n    ✨ Add-On: ${addonText} (+RM ${addonPrice.toFixed(2)})`
+                } else {
+                  line += `\n    ✨ Add-On: ${addonText}`
+                }
+              }
+              
+              itemList += line + '\n'
+            })
+            hasItems = true
+          }
+          
+          // ===== 2. PROMO BUNDLE/SET ITEMS =====
+          const promoBundleItems = orderItems.filter(item => 
+            item.is_promo_item === true && 
+            (item.promo_type === 'bundle' || item.promo_type === 'set_menu')
+          )
+          
+          if (promoBundleItems.length > 0) {
+            if (hasItems) itemList += '\n'
+            itemList += '  🏷️ <b>Promosi Bundle/Set:</b>\n'
+            
+            // Group by promo_name
+            const promoGroups = {}
+            promoBundleItems.forEach(item => {
+              const key = item.promo_name || 'Promo'
+              if (!promoGroups[key]) promoGroups[key] = []
+              promoGroups[key].push(item)
+            })
+            
+            Object.entries(promoGroups).forEach(([promoName, items]) => {
+              const promoItem = items.find(i => i.price > 0) || items[0]
+              const totalPrice = promoItem.price || 0
+              
+              itemList += `  • ${promoName}\n`
+              items.forEach(item => {
+                itemList += `    - ${item.name}`
+                if (item.original_price) {
+                  itemList += ` (RM ${item.original_price.toFixed(2)})`
+                }
+                itemList += '\n'
+              })
+              itemList += `    💰 Harga Promo: RM ${totalPrice.toFixed(2)}\n`
+            })
+            hasItems = true
+          }
+          
+          // ===== 3. FREE ITEMS (BOGO) =====
+          if (freeItems.length > 0) {
+            if (hasItems) itemList += '\n'
+            itemList += '  🎁 <b>Item Percuma (BOGO):</b>\n'
+            freeItems.forEach(item => {
+              let line = `  • ${item.name}`
+              if (item.promo_name) {
+                line += ` (${item.promo_name})`
+              }
+              line += `\n    🆓 PERCUMA!`
+              if (item.original_price) {
+                line += ` (Asal RM ${item.original_price.toFixed(2)})`
+              }
+              itemList += line + '\n'
+            })
+            hasItems = true
+          }
+          
+          // ===== 4. TRIGGER ITEMS FOR BOGO =====
+          const triggerItems = orderItems.filter(item => 
+            item.is_promo_item === true && 
+            item.promo_type === 'bogo' && 
+            !item.is_free
+          )
+          
+          if (triggerItems.length > 0) {
+            if (hasItems) itemList += '\n'
+            itemList += '  🛒 <b>Item Dibeli (BOGO):</b>\n'
+            triggerItems.forEach(item => {
+              let line = `  • ${item.name}`
+              if (item.promo_name) {
+                line += ` (${item.promo_name})`
+              }
+              const qty = item.quantity || 1
+              const price = item.price || 0
+              line += `\n    x${qty} = RM ${(price * qty).toFixed(2)}`
+              itemList += line + '\n'
+            })
+            hasItems = true
+          }
+          
+          // ===== 5. OTHER PROMO ITEMS =====
+          const otherPromoItems = orderItems.filter(item => 
+            item.is_promo_item === true && 
+            !item.promo_type && 
+            item.promo_name
+          )
+          
+          if (otherPromoItems.length > 0) {
+            if (hasItems) itemList += '\n'
+            itemList += '  🏷️ <b>Promosi Lain:</b>\n'
+            otherPromoItems.forEach(item => {
+              let line = `  • ${item.name}`
+              if (item.promo_name) {
+                line += ` (${item.promo_name})`
+              }
+              const qty = item.quantity || 1
+              const price = item.price || 0
+              line += `\n    x${qty} = RM ${(price * qty).toFixed(2)}`
+              if (item.original_price) {
+                line += ` (Asal RM ${(item.original_price * qty).toFixed(2)})`
+              }
+              itemList += line + '\n'
+            })
+            hasItems = true
+          }
+          
+          if (!hasItems) {
+            itemList = '  • Tiada item'
+          }
+          
+        } else {
+          itemList = '  • Tiada item'
+        }
+
+        // ===== GRAND TOTAL =====
+        const totalAmount = order.total || order.total_amount || 0
+
+        const message = `
+🆕 <b>PESANAN BARU!</b>
+━━━━━━━━━━━━━━━━━━━━━
+
+🧾 <b>Order #:</b> ${order.order_number || order.id || 'N/A'}
+👤 <b>Pelanggan:</b> ${order.customer_name || 'Walk-in'}
+🪑 <b>Meja:</b> ${order.table_number || 'N/A'}
+📋 <b>Item:</b>
+${itemList}
+━━━━━━━━━━━━━━━━━━━━━
+💰 <b>JUMLAH:</b> RM ${totalAmount.toFixed(2)}
+⏰ <b>Masa:</b> ${new Date().toLocaleString('ms-MY', { hour12: false })}
+📌 <b>Status:</b> ${order.status || order.order_status || 'Menunggu'}
+
+━━━━━━━━━━━━━━━━━━━━━
+🔗 Sila semak di sistem POS.
+        `
+
+        console.log('📨 Sending to Telegram...')
+        console.log('Message:', message)
+
+        const response = await fetch(
+          `https://api.telegram.org/bot${config.telegram_bot_token}/sendMessage`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              chat_id: config.telegram_chat_id,
+              text: message,
+              parse_mode: 'HTML',
+            }),
+          }
+        )
+
+        const result = await response.json()
+
+        if (result.ok) {
+          console.log('✅ Telegram notification sent successfully!')
+          await logActivity(LOG_ACTIONS.ORDER_CREATED, `Order #${order.order_number || order.id} created`, 'System')
+        } else {
+          console.error('❌ Telegram error:', result.description)
+        }
+      } catch (error) {
+        console.error('❌ Send notification error:', error)
+      }
+    }
+
+    // Subscribe to new orders (REALTIME) - SEKALI JE
+    if (isMounted) {
+      subscription = supabase
+        .channel('telegram-orders-channel')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'customer_orders',
+          },
+          async (payload) => {
+            if (!isMounted) return
+            console.log('🆕 New order detected!', payload.new.id)
+            await sendTelegramNotification(payload.new)
+          }
+        )
+        .subscribe((status) => {
+          console.log('📡 Telegram subscription status:', status)
+        })
+    }
+
+    // Cleanup
+    return () => {
+      console.log('🔌 Unsubscribing from Telegram channel')
+      isMounted = false
+      if (subscription) {
+        subscription.unsubscribe()
+      }
+    }
+  }, []) // ← Kosong = jalan SEKALI je!
+  // ============================================================
+  // ============================================================
+  // END TELEGRAM NOTIFICATION
+  // ============================================================
+  // ============================================================
 
   // ============================================================
   // COMPLETE TRANSLATIONS FOR APP

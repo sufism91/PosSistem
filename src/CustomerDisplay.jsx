@@ -6,6 +6,9 @@ import { supabase } from './lib/supabase'
 import { PAYMENT_STATUS } from './lib/orderWorkflow'
 import { generateReceiptHTML } from './lib/receipt'
 
+// ===== IMPORT USE RECEIPT HOOK =====
+import { useReceipt } from './hooks/useReceipt'
+
 // Helper functions for Malaysia time (UTC+8)
 const formatMalaysiaDate = (date) => {
   return date.toLocaleDateString('en-MY', { 
@@ -40,6 +43,15 @@ const formatOrderTime = (utcDateString) => {
 function CustomerDisplay() {
   const { darkMode, toggleDarkMode } = useTheme()
   const { language, setLanguage } = useLanguage()
+  
+  // ===== USE RECEIPT HOOK =====
+  const { 
+    settings: receiptSettings, 
+    loading: receiptLoading, 
+    generateReceipt, 
+    printReceipt,
+    reload: reloadReceipt 
+  } = useReceipt()
   
   // ============================================================
   // STATE
@@ -339,6 +351,7 @@ function CustomerDisplay() {
   // ============================================================
   useEffect(() => {
     loadAllData()
+    reloadReceipt()
 
     const liveChannel = supabase
       .channel('customer_display_live')
@@ -366,6 +379,7 @@ function CustomerDisplay() {
         loadBusinessHours()
         loadPrintSettings()
         loadSelectedMenu()
+        reloadReceipt()
       })
       .subscribe()
 
@@ -617,7 +631,7 @@ function CustomerDisplay() {
   }
 
   // ============================================================
-  // PAYMENT & PRINT FUNCTIONS
+  // ===== PAYMENT & PRINT FUNCTIONS =====
   // ============================================================
   async function markAsPaid(order) {
     const subtotal = parseFloat(order.subtotal || order.total || 0)
@@ -652,26 +666,46 @@ function CustomerDisplay() {
     setSelectedOrder(null)
     toast.success(`✅ ${t2('payment_received')} RM ${grandTotal.toFixed(2)}!`)
     
-    if (printSettings.auto_print) {
+    // ===== PRINT RECEIPT USING USE RECEIPT HOOK =====
+    const receiptOrder = { 
+      ...order, 
+      payment_method: paymentMethod, 
+      paid_at: new Date().toISOString(), 
+      subtotal, 
+      service_charge: serviceCharge, 
+      tax, 
+      grand_total: grandTotal 
+    }
+    
+    if (receiptSettings) {
       try {
-        const receiptOrder = { 
-          ...order, 
-          payment_method: paymentMethod, 
-          paid_at: new Date().toISOString(), 
-          subtotal, 
-          service_charge: serviceCharge, 
-          tax, 
-          grand_total: grandTotal 
-        }
-        setTimeout(() => {
-          printReceiptDirect(receiptOrder)
-        }, 500)
-      } catch (err) {
-        console.error('Auto print error:', err)
+        const receiptText = generateReceipt({
+          ...receiptOrder,
+          order_number: order.order_number || `ORD-${order.id}`,
+          customer_name: order.customer_name || 'Guest',
+          table_number: order.table_number || null,
+          order_type: order.order_type || 'dine_in',
+          staff_name: 'System',
+          items: order.items || [],
+          subtotal: subtotal,
+          service_charge: serviceCharge,
+          tax: tax,
+          total: grandTotal,
+          payment_method: paymentMethod,
+          paid_amount: grandTotal
+        })
+        await printReceipt(receiptText)
+        console.log('✅ Receipt printed successfully from CustomerDisplay')
+      } catch (receiptError) {
+        console.error('Error printing receipt with hook:', receiptError)
+        printReceiptDirect(receiptOrder)
       }
+    } else {
+      printReceiptDirect(receiptOrder)
     }
   }
 
+  // ===== ORIGINAL PRINT METHOD (FALLBACK) =====
   const printReceiptDirect = (order) => {
     const method = order.payment_method || paymentMethod || 'cash'
     
@@ -684,17 +718,50 @@ function CustomerDisplay() {
     })
     
     const printWindow = window.open('', '_blank', 'width=400,height=600')
-    printWindow.document.write(receiptHTML)
-    printWindow.document.close()
+    if (printWindow) {
+      printWindow.document.write(receiptHTML)
+      printWindow.document.close()
+    }
   }
 
-  const printReceipt = (order) => {
-    printReceiptDirect(order)
+  // ===== PRINT RECEIPT WITH HOOK (RENAME TO AVOID CONFLICT) =====
+  const printReceiptWithHook = (order) => {
+    if (receiptSettings) {
+      try {
+        const subtotal = order.subtotal || order.total || 0
+        const serviceCharge = order.service_charge || (subtotal * (serviceChargePercent / 100))
+        const tax = order.tax || (subtotal * (taxPercent / 100))
+        const grandTotal = order.grand_total || (subtotal + serviceCharge + tax)
+        
+        const receiptText = generateReceipt({
+          ...order,
+          order_number: order.order_number || `ORD-${order.id}`,
+          customer_name: order.customer_name || 'Guest',
+          table_number: order.table_number || null,
+          order_type: order.order_type || 'dine_in',
+          staff_name: 'System',
+          items: order.items || [],
+          subtotal: subtotal,
+          service_charge: serviceCharge,
+          tax: tax,
+          total: grandTotal,
+          payment_method: order.payment_method || paymentMethod || 'cash',
+          paid_amount: grandTotal
+        })
+        printReceipt(receiptText)
+        console.log('✅ Receipt printed successfully from CustomerDisplay (view)')
+      } catch (err) {
+        console.error('Error printing receipt:', err)
+        printReceiptDirect(order)
+      }
+    } else {
+      printReceiptDirect(order)
+    }
   }
 
   const printAllReceipts = () => {
     if (tableOrders.length === 0) { toast.error(t2('no_orders')); return }
-    tableOrders.forEach(order => printReceipt(order))
+    tableOrders.forEach(order => printReceiptWithHook(order))
     toast.success(t2('btn_print') + '...')
   }
 
@@ -761,7 +828,6 @@ function CustomerDisplay() {
         alignItems: 'center',
         flexShrink: 0
       }}>
-        {/* Left: Clock & Status */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           <div style={{ 
             background: 'linear-gradient(135deg, #2563eb, #1d4ed8)', 
@@ -812,7 +878,6 @@ function CustomerDisplay() {
           </div>
         </div>
 
-        {/* Center: Logo */}
         <div style={{ 
           display: 'flex', 
           alignItems: 'center', 
@@ -869,7 +934,6 @@ function CustomerDisplay() {
           </div>
         </div>
 
-        {/* Right: Controls */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
           <button 
             onClick={toggleDarkMode} 
@@ -1358,7 +1422,6 @@ function CustomerDisplay() {
                     e.currentTarget.style.boxShadow = darkMode ? '0 4px 16px rgba(0,0,0,0.2)' : '0 4px 16px rgba(0,0,0,0.06)'
                   }}
                 >
-                  {/* Promo Badge */}
                   {promo && (
                     <div style={{
                       position: 'absolute',
@@ -1379,7 +1442,6 @@ function CustomerDisplay() {
                     </div>
                   )}
                   
-                  {/* Image - TAK ZOOM IN */}
                   {hasImage ? (
                     <img 
                       src={item.image_url} 
@@ -1427,7 +1489,6 @@ function CustomerDisplay() {
                     </div>
                   )}
                   
-                  {/* Price */}
                   <div style={{ 
                     color: darkMode ? '#4ade80' : '#22c55e', 
                     fontWeight: 'bold', 
@@ -1447,7 +1508,6 @@ function CustomerDisplay() {
                     )}
                   </div>
                   
-                  {/* Drink Options */}
                   {hasDrinkOptions && (
                     <div style={{
                       marginTop: '8px',
@@ -1593,9 +1653,7 @@ function CustomerDisplay() {
         )}
       </div>
 
-      {/* ========================================================== */}
-      {/* MENU SELECTOR MODAL */}
-      {/* ========================================================== */}
+      {/* ===== MENU SELECTOR MODAL ===== */}
       {showMenuSelector && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
@@ -1642,7 +1700,6 @@ function CustomerDisplay() {
               </button>
             </div>
             
-            {/* Select All Toggle */}
             <div style={{ 
               marginBottom: '14px',
               padding: '10px 14px',
@@ -1672,7 +1729,6 @@ function CustomerDisplay() {
               </button>
             </div>
             
-            {/* Menu Items */}
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)', 
@@ -1771,7 +1827,6 @@ function CustomerDisplay() {
               })}
             </div>
             
-            {/* Actions */}
             <div style={{ display: 'flex', gap: '10px' }}>
               <button
                 onClick={saveSelectedMenu}
@@ -1811,9 +1866,7 @@ function CustomerDisplay() {
         </div>
       )}
 
-      {/* ========================================================== */}
-      {/* BILLING MODAL */}
-      {/* ========================================================== */}
+      {/* ===== BILLING MODAL ===== */}
       {showBillingModal && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
@@ -1863,7 +1916,6 @@ function CustomerDisplay() {
               </button>
             </div>
 
-            {/* Order Type Filters */}
             <div style={{ 
               display: 'flex', 
               gap: '10px', 
@@ -1902,7 +1954,6 @@ function CustomerDisplay() {
               </button>
             </div>
 
-            {/* Table Selection Grid */}
             <div style={{ marginBottom: '20px' }}>
               <div style={{ 
                 fontWeight: 'bold', 
@@ -1938,7 +1989,6 @@ function CustomerDisplay() {
               </div>
             </div>
 
-            {/* Orders List */}
             {selectedTable && (
               <div>
                 <div style={{ 
@@ -1981,7 +2031,6 @@ function CustomerDisplay() {
                   )}
                 </div>
 
-                {/* Search Orders */}
                 <div style={{ position: 'relative', marginBottom: '16px' }}>
                   <span style={{ 
                     position: 'absolute', 
@@ -2011,7 +2060,6 @@ function CustomerDisplay() {
                   />
                 </div>
 
-                {/* Orders */}
                 {filteredOrders.length === 0 ? (
                   <div style={{ 
                     textAlign: 'center', 
@@ -2135,7 +2183,7 @@ function CustomerDisplay() {
                           justifyContent: 'flex-end' 
                         }}>
                           <button 
-                            onClick={() => printReceipt(order)} 
+                            onClick={() => printReceiptWithHook(order)} 
                             style={{ 
                               background: '#0ea5e9', 
                               color: 'white', 
@@ -2181,9 +2229,7 @@ function CustomerDisplay() {
         </div>
       )}
 
-      {/* ========================================================== */}
-      {/* PAYMENT MODAL */}
-      {/* ========================================================== */}
+      {/* ===== PAYMENT MODAL ===== */}
       {showPaymentModal && selectedOrder && (
         <div style={{ 
           position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
@@ -2348,9 +2394,7 @@ function CustomerDisplay() {
         </div>
       )}
       
-      {/* ========================================================== */}
-      {/* STYLES */}
-      {/* ========================================================== */}
+      {/* ===== STYLES ===== */}
       <style>
         {`
           .spinner { 

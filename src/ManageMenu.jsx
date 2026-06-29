@@ -243,8 +243,8 @@ function ManageMenu() {
   // ============================================================
   const translations = {
     manage_menu: { en: 'Manage Menu', ms: 'Urus Menu' },
-    manage_menu_sub: { en: 'Drag & drop to reorder menu items', ms: 'Seret & lepas untuk susun menu' },
-    drag_hint: { en: 'Drag to reorder', ms: 'Seret untuk susun' },
+    manage_menu_sub: { en: 'Menu items sorted by category order', ms: 'Item menu disusun mengikut urutan kategori' },
+    drag_hint: { en: 'Drag to reorder within category', ms: 'Seret untuk susun dalam kategori' },
     regular_menu: { en: 'Regular Menu', ms: 'Menu Biasa' },
     special_menu: { en: 'Special Menu', ms: 'Menu Istimewa' },
     promotions: { en: 'Promotions', ms: 'Promosi' },
@@ -359,7 +359,7 @@ function ManageMenu() {
     takeaway_label: { en: 'Takeaway', ms: 'Bungkus' },
     upload_image: { en: 'Upload Image', ms: 'Muat Naik Gambar' },
     drink_image: { en: 'Drink Image', ms: 'Gambar Minuman' },
-    manage_addons: { en: '✨ Add-On', ms: '✨ Tambahan' },
+    manage_addons: { en: '✨ Add-On', ms: 'Tambahan' },
     enable_addons: { en: 'Enable Add-On', ms: 'Aktifkan Tambahan' },
     addon_list: { en: 'Add-On List', ms: 'Senarai Tambahan' },
     add_new_addon: { en: 'Add New Add-On', ms: 'Tambah Tambahan Baru' },
@@ -367,7 +367,11 @@ function ManageMenu() {
     addon_name: { en: 'Add-On Name', ms: 'Nama Tambahan' },
     addon_price: { en: 'Price', ms: 'Harga' },
     addon_category: { en: 'Category', ms: 'Kategori' },
-    group_label: { en: 'items', ms: 'item' },
+    reset_order: { en: 'Reset Order by Category', ms: 'Reset Urutan mengikut Kategori' },
+    reset_order_confirm: { en: 'Reset all menu order by category?', ms: 'Reset semua urutan menu mengikut kategori?' },
+    original_price: { en: 'Original Price', ms: 'Harga Asal' },
+    promo_price_label: { en: 'Promo Price', ms: 'Harga Promosi' },
+    you_save: { en: 'You Save', ms: 'Anda Jimat' },
   }
 
   const translate = (key) => {
@@ -389,7 +393,7 @@ function ManageMenu() {
   const inputText = darkMode ? '#e8edf5' : '#1e293b'
   const glassBorder = darkMode ? 'rgba(71, 85, 105, 0.2)' : 'rgba(203, 213, 225, 0.4)'
   const priceColor = '#22c55e'
-  const accentColor = '#f59e0b'
+  const promoColor = '#ef4444'
   
   const glassEffect = {
     background: cardBg,
@@ -400,9 +404,6 @@ function ManageMenu() {
       : '0 8px 32px rgba(0, 0, 0, 0.06)'
   }
 
-  // ============================================================
-  // MODAL STYLES
-  // ============================================================
   const modalOverlayStyle = {
     position: 'fixed',
     top: 0,
@@ -662,6 +663,56 @@ function ManageMenu() {
   }
 
   // ============================================================
+  // RESET ORDER BY CATEGORY
+  // ============================================================
+  async function resetMenuOrderByCategory() {
+    if (!window.confirm(translate('reset_order_confirm'))) return
+    
+    setLoading(true)
+    
+    try {
+      const { data: allMenu, error } = await supabase
+        .from('menu')
+        .select('*')
+        .order('category')
+        .order('name')
+      
+      if (error) throw error
+      if (!allMenu || allMenu.length === 0) {
+        setLoading(false)
+        return
+      }
+      
+      let order = 0
+      let currentCategory = ''
+      
+      for (const item of allMenu) {
+        if (item.category !== currentCategory) {
+          currentCategory = item.category
+          order = 0
+        }
+        
+        await supabase
+          .from('menu')
+          .update({ sort_order: order })
+          .eq('id', item.id)
+        
+        order++
+      }
+      
+      await loadMenu()
+      setMessage('✅ ' + translate('order_updated'))
+      setTimeout(() => setMessage(''), 2000)
+    } catch (err) {
+      console.error('Error resetting order:', err)
+      setMessage(`❌ Error: ${err.message}`)
+      setTimeout(() => setMessage(''), 2000)
+    }
+    
+    setLoading(false)
+  }
+
+  // ============================================================
   // SPECIAL MENU FUNCTIONS
   // ============================================================
   
@@ -868,7 +919,7 @@ function ManageMenu() {
       setSpecialFormData({ name: '', price: '', stock: '', image_url: '', image_file: null, description: '' })
       loadSpecialMenu()
       loadMenu()
-      loadAvailableMenu()
+      loadAvailableMenu() 
     }
     setTimeout(() => setMessage(''), 2000)
   }
@@ -1443,57 +1494,14 @@ function ManageMenu() {
   // CATEGORY HELPERS
   // ============================================================
   const getCategoriesForFilter = () => {
-    return ['All', ...categories
+    return categories
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
       .map(cat => cat.name)
-    ]
   }
 
   const getCategoryIcon = (catName) => {
-    if (catName === 'All') return '🍽️'
+    if (catName === 'all') return '🍽️'
     if (catName === 'Minuman') return '🥤'
-    const found = categories.find(c => c.name === catName)
-    return found?.icon || '📂'
-  }
-
-  // ============================================================
-  // ===== GROUP MENU BY CATEGORY FOR "ALL" VIEW =====
-  // ============================================================
-  const getGroupedMenuByCategory = (menuItems) => {
-    if (activeCategory !== 'all') return null
-    
-    const grouped = {}
-    
-    const orderedCategories = categories
-      .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
-      .map(cat => cat.name)
-    
-    orderedCategories.forEach(catName => {
-      grouped[catName] = []
-    })
-    
-    grouped['Lain-lain'] = []
-    
-    menuItems.forEach(item => {
-      const catName = item.category || 'Lain-lain'
-      if (grouped[catName]) {
-        grouped[catName].push(item)
-      } else {
-        grouped['Lain-lain'].push(item)
-      }
-    })
-    
-    Object.keys(grouped).forEach(key => {
-      if (grouped[key].length === 0) {
-        delete grouped[key]
-      }
-    })
-    
-    return grouped
-  }
-
-  const getCategoryGroupIcon = (catName) => {
-    if (catName === 'Lain-lain') return '📂'
     const found = categories.find(c => c.name === catName)
     return found?.icon || '📂'
   }
@@ -1568,19 +1576,19 @@ function ManageMenu() {
     
     setIsDragging(true)
     
-    const allInCategory = activeCategory === 'all' 
+    const allItems = activeCategory === 'all' 
       ? [...menu] 
       : menu.filter(item => item.category === activeCategory)
     
-    const oldIndex = allInCategory.findIndex(item => item.id === active.id)
-    const newIndex = allInCategory.findIndex(item => item.id === over.id)
+    const oldIndex = allItems.findIndex(item => item.id === active.id)
+    const newIndex = allItems.findIndex(item => item.id === over.id)
     
     if (oldIndex === -1 || newIndex === -1) {
       setIsDragging(false)
       return
     }
     
-    const newOrder = arrayMove(allInCategory, oldIndex, newIndex)
+    const newOrder = arrayMove(allItems, oldIndex, newIndex)
     
     const updates = newOrder.map((item, index) => ({
       id: item.id,
@@ -1642,8 +1650,11 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // PROMOTIONS FUNCTIONS
   // ============================================================
+  // PROMOTIONS FUNCTIONS - FIXED
+  // ============================================================
+  // ============================================================
+  
   async function loadPromotions() {
     try {
       const { data, error } = await supabase
@@ -1736,83 +1747,204 @@ function ManageMenu() {
     setShowEditPromoModal(true)
   }
 
+  // ============================================================
+  // DELETE PROMO IMAGE - FIXED
+  // ============================================================
+  async function deletePromoImage(imageUrl, promoId) {
+    if (!imageUrl) return
+    if (!window.confirm(translate('confirm_delete_image'))) return
+    
+    try {
+      // Delete from storage
+      const fileName = imageUrl.split('/').pop()
+      const { error: storageError } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .remove([fileName])
+      
+      if (storageError) {
+        console.error('Storage delete error:', storageError)
+        setMessage(`❌ ${translate('image_delete_fail')}`)
+        setTimeout(() => setMessage(''), 2000)
+        return
+      }
+      
+      // Update promotion - remove image_url
+      const { error: updateError } = await supabase
+        .from('promotions')
+        .update({ image_url: null })
+        .eq('id', promoId)
+      
+      if (updateError) {
+        console.error('Update error:', updateError)
+        setMessage(`❌ ${translate('image_delete_fail')}`)
+        setTimeout(() => setMessage(''), 2000)
+        return
+      }
+      
+      setMessage(translate('image_deleted'))
+      loadPromotions()
+      setTimeout(() => setMessage(''), 2000)
+      
+    } catch (err) {
+      console.error('Delete image error:', err)
+      setMessage(`❌ ${translate('image_delete_fail')}`)
+      setTimeout(() => setMessage(''), 2000)
+    }
+  }
+
+  // ============================================================
+  // ADD PROMOTION - FIXED
+  // ============================================================
   async function addPromotion() {
-    if (!promoFormData.name) {
+    // 1. Validate name
+    if (!promoFormData.name || promoFormData.name.trim() === '') {
       setMessage(`⚠️ ${translate('promo_name')} ${translate('required')}`)
+      setTimeout(() => setMessage(''), 3000)
       return
     }
     
+    // 2. Upload image if any
     let imageUrl = promoFormData.image_url
     if (promoFormData.image_file) {
       const uploadedUrl = await uploadImage(promoFormData.image_file, 'promo')
       if (uploadedUrl) imageUrl = uploadedUrl
     }
     
-    let promoData = {}
-    
-    if (promoFormData.type === 'bogo') {
-      const triggerItem = availableMenuItems.find(i => i.id === promoFormData.trigger_item_id)
-      const freeItem = availableMenuItems.find(i => i.id === promoFormData.free_item_id)
+    try {
+      let promoData = {}
       
-      promoData = {
-        name: promoFormData.name,
-        type: 'bogo',
-        trigger_items: [{ 
-          id: triggerItem?.id, 
-          name: triggerItem?.name, 
-          price: triggerItem?.price, 
-          category: triggerItem?.category 
-        }],
-        free_items: [{ 
-          id: freeItem?.id, 
-          name: freeItem?.name, 
-          price: freeItem?.price, 
-          category: freeItem?.category 
-        }],
-        start_date: promoFormData.start_date || null,
-        end_date: promoFormData.end_date || null,
-        is_active: promoFormData.is_active,
-        image_url: imageUrl || null
-      }
-    } else {
-      const bundleItems = promoFormData.selected_bundle_items.map(itemId => {
-        const item = availableMenuItems.find(i => i.id === itemId)
-        return { 
-          id: item?.id, 
-          name: item?.name, 
-          price: item?.price, 
-          category: item?.category 
+      if (promoFormData.type === 'bogo') {
+        // Validate BOGO items
+        if (!promoFormData.trigger_item_id) {
+          setMessage(`⚠️ Sila pilih ${translate('trigger_item')}`)
+          setTimeout(() => setMessage(''), 3000)
+          return
         }
-      })
-      
-      promoData = {
-        name: promoFormData.name,
-        type: promoFormData.type,
-        bundle_items: bundleItems,
-        bundle_price: parseFloat(promoFormData.bundle_price) || 0,
-        start_date: promoFormData.start_date || null,
-        end_date: promoFormData.end_date || null,
-        is_active: promoFormData.is_active,
-        image_url: imageUrl || null
+        if (!promoFormData.free_item_id) {
+          setMessage(`⚠️ Sila pilih ${translate('free_item')}`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        const triggerItem = availableMenuItems.find(i => i.id === promoFormData.trigger_item_id)
+        const freeItem = availableMenuItems.find(i => i.id === promoFormData.free_item_id)
+        
+        if (!triggerItem || !freeItem) {
+          setMessage(`❌ Item tidak dijumpai!`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        promoData = {
+          name: promoFormData.name.trim(),
+          type: 'bogo',
+          trigger_items: [{ 
+            id: triggerItem.id, 
+            name: triggerItem.name, 
+            price: triggerItem.price, 
+            category: triggerItem.category 
+          }],
+          free_items: [{ 
+            id: freeItem.id, 
+            name: freeItem.name, 
+            price: freeItem.price, 
+            category: freeItem.category 
+          }],
+          start_date: promoFormData.start_date || null,
+          end_date: promoFormData.end_date || null,
+          is_active: promoFormData.is_active !== false,
+          image_url: imageUrl || null
+        }
+        
+      } else {
+        // Bundle / Set Menu - VALIDATION
+        if (promoFormData.selected_bundle_items.length < 2) {
+          setMessage(`⚠️ Sila pilih sekurang-kurangnya 2 item untuk bundle`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        if (!promoFormData.bundle_price || parseFloat(promoFormData.bundle_price) <= 0) {
+          setMessage(`⚠️ Sila masukkan harga promosi yang sah`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        const bundleItems = promoFormData.selected_bundle_items
+          .map(itemId => {
+            const item = availableMenuItems.find(i => i.id === itemId)
+            return item ? { 
+              id: item.id, 
+              name: item.name, 
+              price: item.price, 
+              category: item.category 
+            } : null
+          })
+          .filter(item => item !== null)
+        
+        if (bundleItems.length === 0) {
+          setMessage(`❌ Tiada item dipilih!`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        promoData = {
+          name: promoFormData.name.trim(),
+          type: promoFormData.type,
+          bundle_items: bundleItems,
+          bundle_price: parseFloat(promoFormData.bundle_price) || 0,
+          start_date: promoFormData.start_date || null,
+          end_date: promoFormData.end_date || null,
+          is_active: promoFormData.is_active !== false,
+          image_url: imageUrl || null
+        }
       }
-    }
-    
-    const { error } = await supabase.from('promotions').insert([promoData])
-    
-    if (error) {
-      setMessage(`❌ ${translate('error')}: ${error.message}`)
-    } else {
+      
+      console.log('📤 Inserting promotion:', JSON.stringify(promoData, null, 2))
+      
+      const { data, error } = await supabase
+        .from('promotions')
+        .insert([promoData])
+      
+      if (error) {
+        console.error('❌ Supabase error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        })
+        
+        let errorMsg = error.message
+        if (error.details) errorMsg += `\nDetails: ${error.details}`
+        if (error.hint) errorMsg += `\nHint: ${error.hint}`
+        
+        setMessage(`❌ ${translate('error')}: ${errorMsg}`)
+        setTimeout(() => setMessage(''), 5000)
+        return
+      }
+      
+      console.log('✅ Promotion inserted:', data)
       setMessage(translate('promo_added'))
       setShowAddPromoModal(false)
       resetPromoForm()
       loadPromotions()
+      loadAvailableMenu()
+      setTimeout(() => setMessage(''), 2000)
+      
+    } catch (err) {
+      console.error('❌ Exception in addPromotion:', err)
+      setMessage(`❌ Error: ${err.message}`)
+      setTimeout(() => setMessage(''), 3000)
     }
-    setTimeout(() => setMessage(''), 2000)
   }
 
+  // ============================================================
+  // UPDATE PROMOTION - FIXED
+  // ============================================================
   async function updatePromotion() {
-    if (!promoFormData.name) {
+    if (!promoFormData.name || promoFormData.name.trim() === '') {
       setMessage(`⚠️ ${translate('promo_name')} ${translate('required')}`)
+      setTimeout(() => setMessage(''), 3000)
       return
     }
     
@@ -1822,70 +1954,122 @@ function ManageMenu() {
       if (uploadedUrl) imageUrl = uploadedUrl
     }
     
-    let promoData = {}
-    
-    if (promoFormData.type === 'bogo') {
-      const triggerItem = availableMenuItems.find(i => i.id === promoFormData.trigger_item_id)
-      const freeItem = availableMenuItems.find(i => i.id === promoFormData.free_item_id)
+    try {
+      let promoData = {}
       
-      promoData = {
-        name: promoFormData.name,
-        type: 'bogo',
-        trigger_items: [{ 
-          id: triggerItem?.id, 
-          name: triggerItem?.name, 
-          price: triggerItem?.price, 
-          category: triggerItem?.category 
-        }],
-        free_items: [{ 
-          id: freeItem?.id, 
-          name: freeItem?.name, 
-          price: freeItem?.price, 
-          category: freeItem?.category 
-        }],
-        start_date: promoFormData.start_date || null,
-        end_date: promoFormData.end_date || null,
-        is_active: promoFormData.is_active,
-        image_url: imageUrl || null
-      }
-    } else {
-      const bundleItems = promoFormData.selected_bundle_items.map(itemId => {
-        const item = availableMenuItems.find(i => i.id === itemId)
-        return { 
-          id: item?.id, 
-          name: item?.name, 
-          price: item?.price, 
-          category: item?.category 
+      if (promoFormData.type === 'bogo') {
+        if (!promoFormData.trigger_item_id) {
+          setMessage(`⚠️ Sila pilih ${translate('trigger_item')}`)
+          setTimeout(() => setMessage(''), 3000)
+          return
         }
-      })
-      
-      promoData = {
-        name: promoFormData.name,
-        type: promoFormData.type,
-        bundle_items: bundleItems,
-        bundle_price: parseFloat(promoFormData.bundle_price) || 0,
-        start_date: promoFormData.start_date || null,
-        end_date: promoFormData.end_date || null,
-        is_active: promoFormData.is_active,
-        image_url: imageUrl || null
+        if (!promoFormData.free_item_id) {
+          setMessage(`⚠️ Sila pilih ${translate('free_item')}`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        const triggerItem = availableMenuItems.find(i => i.id === promoFormData.trigger_item_id)
+        const freeItem = availableMenuItems.find(i => i.id === promoFormData.free_item_id)
+        
+        if (!triggerItem || !freeItem) {
+          setMessage(`❌ Item tidak dijumpai!`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        promoData = {
+          name: promoFormData.name.trim(),
+          type: 'bogo',
+          trigger_items: [{ 
+            id: triggerItem.id, 
+            name: triggerItem.name, 
+            price: triggerItem.price, 
+            category: triggerItem.category 
+          }],
+          free_items: [{ 
+            id: freeItem.id, 
+            name: freeItem.name, 
+            price: freeItem.price, 
+            category: freeItem.category 
+          }],
+          start_date: promoFormData.start_date || null,
+          end_date: promoFormData.end_date || null,
+          is_active: promoFormData.is_active !== false,
+          image_url: imageUrl || null
+        }
+        
+      } else {
+        if (promoFormData.selected_bundle_items.length < 2) {
+          setMessage(`⚠️ Sila pilih sekurang-kurangnya 2 item untuk bundle`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        if (!promoFormData.bundle_price || parseFloat(promoFormData.bundle_price) <= 0) {
+          setMessage(`⚠️ Sila masukkan harga promosi yang sah`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        const bundleItems = promoFormData.selected_bundle_items
+          .map(itemId => {
+            const item = availableMenuItems.find(i => i.id === itemId)
+            return item ? { 
+              id: item.id, 
+              name: item.name, 
+              price: item.price, 
+              category: item.category 
+            } : null
+          })
+          .filter(item => item !== null)
+        
+        if (bundleItems.length === 0) {
+          setMessage(`❌ Tiada item dipilih!`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        promoData = {
+          name: promoFormData.name.trim(),
+          type: promoFormData.type,
+          bundle_items: bundleItems,
+          bundle_price: parseFloat(promoFormData.bundle_price) || 0,
+          start_date: promoFormData.start_date || null,
+          end_date: promoFormData.end_date || null,
+          is_active: promoFormData.is_active !== false,
+          image_url: imageUrl || null
+        }
       }
-    }
-    
-    const { error } = await supabase
-      .from('promotions')
-      .update(promoData)
-      .eq('id', selectedPromo.id)
-    
-    if (error) {
-      setMessage(`❌ ${translate('error')}: ${error.message}`)
-    } else {
+      
+      console.log('📤 Updating promotion:', JSON.stringify(promoData, null, 2))
+      
+      const { data, error } = await supabase
+        .from('promotions')
+        .update(promoData)
+        .eq('id', selectedPromo.id)
+      
+      if (error) {
+        console.error('❌ Supabase error:', error)
+        setMessage(`❌ ${translate('error')}: ${error.message}`)
+        setTimeout(() => setMessage(''), 3000)
+        return
+      }
+      
+      console.log('✅ Promotion updated:', data)
       setMessage(translate('promo_updated'))
       setShowEditPromoModal(false)
       setSelectedPromo(null)
       resetPromoForm()
       loadPromotions()
+      loadAvailableMenu()
+      setTimeout(() => setMessage(''), 2000)
+      
+    } catch (err) {
+      console.error('❌ Exception in updatePromotion:', err)
+      setMessage(`❌ Error: ${err.message}`)
+      setTimeout(() => setMessage(''), 3000)
     }
-    setTimeout(() => setMessage(''), 2000)
   }
 
   async function deletePromotion(id, name) {
@@ -1971,53 +2155,60 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // CATEGORIES FOR FILTER & FILTERED MENU
+  // ⭐⭐⭐ MAIN SORTING LOGIC ⭐⭐⭐
   // ============================================================
+  const getCategoryOrder = (categoryName) => {
+    const catIndex = categories.findIndex(c => c.name === categoryName)
+    return catIndex === -1 ? 999 : catIndex
+  }
+
   const categoriesForFilter = getCategoriesForFilter()
   
-  const filteredMenu = menu.filter(item => {
-    let matchCategory = false
-    
-    if (activeCategory === 'all') {
-      matchCategory = true
-    } else {
-      const selectedCat = categories.find(c => c.name === activeCategory)
+  const filteredMenu = menu
+    .filter(item => {
+      let matchCategory = false
       
-      if (selectedCat) {
-        const isParent = selectedCat.parent_id === null || selectedCat.parent_id === undefined
+      if (activeCategory === 'all') {
+        matchCategory = true
+      } else {
+        const selectedCat = categories.find(c => c.name === activeCategory)
         
-        if (isParent) {
-          const subCategoryNames = categories
-            .filter(c => c.parent_id === selectedCat.id)
-            .map(c => c.name)
-          const allRelatedCategories = [activeCategory, ...subCategoryNames]
-          matchCategory = allRelatedCategories.includes(item.category)
+        if (selectedCat) {
+          const isParent = selectedCat.parent_id === null || selectedCat.parent_id === undefined
+          
+          if (isParent) {
+            const subCategoryNames = categories
+              .filter(c => c.parent_id === selectedCat.id)
+              .map(c => c.name)
+            const allRelatedCategories = [activeCategory, ...subCategoryNames]
+            matchCategory = allRelatedCategories.includes(item.category)
+          } else {
+            matchCategory = item.category === activeCategory
+          }
         } else {
           matchCategory = item.category === activeCategory
         }
-      } else {
-        matchCategory = item.category === activeCategory
       }
-    }
-    
-    const matchSearch = item.name.toLowerCase().includes(searchMenuTerm.toLowerCase())
-    return matchCategory && matchSearch
-  })
+      
+      const matchSearch = item.name.toLowerCase().includes(searchMenuTerm.toLowerCase())
+      return matchCategory && matchSearch
+    })
+    .sort((a, b) => {
+      const catOrderA = getCategoryOrder(a.category)
+      const catOrderB = getCategoryOrder(b.category)
+      
+      if (catOrderA !== catOrderB) {
+        return catOrderA - catOrderB
+      }
+      
+      return (a.sort_order || 0) - (b.sort_order || 0)
+    })
   
   const totalItems = filteredMenu.length
   const totalPages = Math.ceil(totalItems / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const endIndex = startIndex + itemsPerPage
-  
-  // Untuk "All" - tunjuk SEMUA, untuk kategori lain - guna pagination
-  const getCurrentItems = () => {
-    if (activeCategory === 'all') {
-      return filteredMenu
-    }
-    return filteredMenu.slice(startIndex, endIndex)
-  }
-  
-  const currentItems = getCurrentItems()
+  const currentItems = filteredMenu.slice(startIndex, endIndex)
 
   const getStockColor = (stock) => {
     if (stock <= 0) return '#ef4444'
@@ -2035,9 +2226,7 @@ function ManageMenu() {
   // PAGINATION COMPONENT
   // ============================================================
   const PaginationComponent = () => {
-    // Tak tunjuk pagination untuk "All"
-    if (activeCategory === 'all' || totalPages <= 1) return null
-    
+    if (totalPages <= 1) return null
     const pageNumbers = []
     for (let i = 1; i <= Math.min(totalPages, 5); i++) pageNumbers.push(i)
     if (totalPages > 5) pageNumbers.push('...', totalPages)
@@ -2273,54 +2462,77 @@ function ManageMenu() {
           </button>
         </div>
 
-        {/* REGULAR TAB */}
+        {/* ============================================================
+            REGULAR TAB
+            ============================================================ */}
         {activeTab === 'regular' && (
           <>
             <div style={{ 
               display: 'flex', 
-              justifyContent: 'flex-end', 
+              justifyContent: 'space-between', 
+              alignItems: 'center',
               gap: '10px', 
               marginBottom: '20px', 
               flexWrap: 'wrap' 
             }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button 
+                  onClick={() => setShowAddModal(true)} 
+                  style={{ 
+                    background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
+                    color: 'white', 
+                    padding: isMobile ? '10px 18px' : '12px 24px', 
+                    border: 'none', 
+                    borderRadius: '40px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold', 
+                    fontSize: isMobile ? '13px' : '14px', 
+                    boxShadow: '0 4px 15px rgba(34,197,94,0.3)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {translate('add_menu')}
+                </button>
+                <button 
+                  onClick={() => {
+                    setShowDrinkModal(true)
+                    setNewDrinkImagePanas(null)
+                    setNewDrinkImageSejuk(null)
+                    setNewDrinkImageBungkus(null)
+                  }} 
+                  style={{ 
+                    background: 'linear-gradient(135deg, #06b6d4, #0891b2)', 
+                    color: 'white', 
+                    padding: isMobile ? '10px 18px' : '12px 24px', 
+                    border: 'none', 
+                    borderRadius: '40px', 
+                    cursor: 'pointer', 
+                    fontWeight: 'bold', 
+                    fontSize: isMobile ? '13px' : '14px', 
+                    boxShadow: '0 4px 15px rgba(6,182,212,0.3)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {translate('add_drink')}
+                </button>
+              </div>
+              
               <button 
-                onClick={() => setShowAddModal(true)} 
-                style={{ 
-                  background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
-                  color: 'white', 
-                  padding: isMobile ? '10px 18px' : '12px 24px', 
-                  border: 'none', 
-                  borderRadius: '40px', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold', 
-                  fontSize: isMobile ? '13px' : '14px', 
-                  boxShadow: '0 4px 15px rgba(34,197,94,0.3)',
+                onClick={resetMenuOrderByCategory}
+                style={{
+                  background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                  color: 'white',
+                  padding: isMobile ? '8px 16px' : '10px 22px',
+                  border: 'none',
+                  borderRadius: '40px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: isMobile ? '12px' : '13px',
+                  boxShadow: '0 4px 15px rgba(139,92,246,0.3)',
                   transition: 'all 0.2s'
                 }}
               >
-                {translate('add_menu')}
-              </button>
-              <button 
-                onClick={() => {
-                  setShowDrinkModal(true)
-                  setNewDrinkImagePanas(null)
-                  setNewDrinkImageSejuk(null)
-                  setNewDrinkImageBungkus(null)
-                }} 
-                style={{ 
-                  background: 'linear-gradient(135deg, #06b6d4, #0891b2)', 
-                  color: 'white', 
-                  padding: isMobile ? '10px 18px' : '12px 24px', 
-                  border: 'none', 
-                  borderRadius: '40px', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold', 
-                  fontSize: isMobile ? '13px' : '14px', 
-                  boxShadow: '0 4px 15px rgba(6,182,212,0.3)',
-                  transition: 'all 0.2s'
-                }}
-              >
-                {translate('add_drink')}
+                🔄 {translate('reset_order')}
               </button>
             </div>
 
@@ -2461,746 +2673,487 @@ function ManageMenu() {
               </div>
             ) : (
               <>
-                {activeCategory === 'all' ? (
-                  // ===== GROUPED VIEW UNTUK "ALL" =====
-                  (() => {
-                    const grouped = getGroupedMenuByCategory(filteredMenu)
-                    if (!grouped || Object.keys(grouped).length === 0) {
-                      return (
-                        <div style={{ textAlign: 'center', padding: '40px', color: textMuted }}>
-                          {translate('no_menu')}
-                        </div>
-                      )
-                    }
-                    
-                    return Object.entries(grouped).map(([categoryName, items]) => {
-                      const catIcon = getCategoryGroupIcon(categoryName)
-                      const itemCount = items.length
-                      
-                      return (
-                        <div key={categoryName} style={{ marginBottom: '28px' }}>
-                          {/* Category Header */}
-                          <div style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '10px',
-                            marginBottom: '12px',
-                            padding: '10px 16px',
-                            background: darkMode ? 'rgba(255,255,255,0.05)' : '#f8fafc',
-                            borderRadius: '12px',
-                            border: `1px solid ${borderColor}`,
-                            borderLeft: `4px solid ${accentColor}`
-                          }}>
-                            <span style={{ fontSize: '20px' }}>{catIcon}</span>
-                            <span style={{ 
-                              fontWeight: 'bold', 
-                              fontSize: isMobile ? '14px' : '16px', 
-                              color: textColor 
-                            }}>
-                              {categoryName}
-                            </span>
-                            <span style={{
-                              fontSize: '11px',
-                              color: textMuted,
-                              background: secondaryBg,
-                              padding: '2px 12px',
-                              borderRadius: '20px'
-                            }}>
-                              {itemCount} {translate('group_label')}
-                            </span>
-                          </div>
-                          
-                          {/* Items Grid */}
-                          <DndContext
-                            sensors={menuSensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleMenuDragEnd}
-                          >
-                            <SortableContext
-                              items={items.map(item => item.id)}
-                              strategy={verticalListSortingStrategy}
+                <div style={{ 
+                  fontSize: isMobile ? '11px' : '13px', 
+                  color: textMuted, 
+                  marginBottom: '12px',
+                  padding: '8px 16px',
+                  background: secondaryBg,
+                  borderRadius: '10px',
+                  border: `1px solid ${borderColor}`
+                }}>
+                  📋 {filteredMenu.length} {translate('items')} • 
+                  {activeCategory === 'all' 
+                    ? ` ${categoriesForFilter.length} ${translate('categories')}` 
+                    : ` ${translate('category')}: ${activeCategory}`}
+                </div>
+
+                <DndContext
+                  sensors={menuSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={handleMenuDragEnd}
+                >
+                  <SortableContext
+                    items={currentItems.map(item => item.id)}
+                    strategy={verticalListSortingStrategy}
+                  >
+                    <div style={{ 
+                      display: 'grid', 
+                      gridTemplateColumns: menuGridCols, 
+                      gap: isMobile ? '14px' : '20px' 
+                    }}>
+                      {currentItems.map(item => {
+                        const drinkOpts = drinkOptions.filter(opt => opt.drink_name === item.name)
+                        const hasDrinkOptions = drinkOpts.length > 0
+                        const stockColor = getStockColor(item.stock || 0)
+                        const stockStatus = getStockText(item.stock || 0)
+                        const hasImage = item.image_url && item.image_url !== null && item.image_url !== ''
+                        const hasDescription = item.description && item.description.trim() !== ''
+                        const hasAddons = item.has_addons === true
+                        
+                        const catOrder = getCategoryOrder(item.category)
+                        const categoryDisplay = categories.find(c => c.name === item.category)
+                        
+                        return (
+                          <SortableMenuItem key={item.id} item={item}>
+                            <div 
+                              className="card-hover"
+                              style={{ 
+                                ...glassEffect, 
+                                borderRadius: '16px', 
+                                padding: isMobile ? '14px' : '20px',
+                                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                                cursor: 'default',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                gap: '10px',
+                                position: 'relative'
+                              }}
                             >
-                              <div style={{ 
-                                display: 'grid', 
-                                gridTemplateColumns: menuGridCols, 
-                                gap: isMobile ? '14px' : '20px' 
+                              <div style={{
+                                position: 'absolute',
+                                top: '8px',
+                                left: '8px',
+                                fontSize: '9px',
+                                background: darkMode ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.08)',
+                                color: '#3b82f6',
+                                padding: '2px 10px',
+                                borderRadius: '12px',
+                                fontWeight: 'bold',
+                                border: `1px solid ${darkMode ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.15)'}`
                               }}>
-                                {items.map(item => {
-                                  const drinkOpts = drinkOptions.filter(opt => opt.drink_name === item.name)
-                                  const hasDrinkOptions = drinkOpts.length > 0
-                                  const stockColor = getStockColor(item.stock || 0)
-                                  const stockStatus = getStockText(item.stock || 0)
-                                  const hasImage = item.image_url && item.image_url !== null && item.image_url !== ''
-                                  const hasDescription = item.description && item.description.trim() !== ''
-                                  const hasAddons = item.has_addons === true
-                                  
-                                  return (
-                                    <SortableMenuItem key={item.id} item={item}>
-                                      <div 
-                                        className="card-hover"
-                                        style={{ 
-                                          ...glassEffect, 
-                                          borderRadius: '16px', 
-                                          padding: isMobile ? '14px' : '20px',
-                                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                                          cursor: 'default',
-                                          display: 'flex',
-                                          flexDirection: 'column',
-                                          gap: '10px',
-                                          position: 'relative'
-                                        }}
-                                      >
-                                        <div style={{ 
-                                          display: 'flex', 
-                                          gap: '14px', 
-                                          alignItems: 'center',
-                                          flexDirection: isMobile ? 'column' : 'row'
-                                        }}>
-                                          <div style={{ flexShrink: 0 }}>
-                                            {hasImage ? (
-                                              <div style={{ position: 'relative' }}>
-                                                <img 
-                                                  src={item.image_url} 
-                                                  alt={item.name} 
-                                                  style={{ 
-                                                    width: isMobile ? '64px' : '72px', 
-                                                    height: isMobile ? '64px' : '72px', 
-                                                    objectFit: 'cover', 
-                                                    borderRadius: '12px',
-                                                    border: `1px solid ${borderColor}`
-                                                  }} 
-                                                />
-                                                <button 
-                                                  onClick={() => deleteImage(item.image_url, item.id)} 
-                                                  style={{ 
-                                                    position: 'absolute', 
-                                                    top: '-6px', 
-                                                    right: '-6px', 
-                                                    background: '#ef4444', 
-                                                    color: 'white', 
-                                                    borderRadius: '50%', 
-                                                    width: '20px', 
-                                                    height: '20px', 
-                                                    fontSize: '10px', 
-                                                    cursor: 'pointer', 
-                                                    border: 'none',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    transition: 'all 0.2s'
-                                                  }}
-                                                >
-                                                  ✕
-                                                </button>
-                                              </div>
-                                            ) : (
-                                              <div style={{ 
-                                                width: isMobile ? '64px' : '72px', 
-                                                height: isMobile ? '64px' : '72px', 
-                                                background: secondaryBg, 
-                                                borderRadius: '12px', 
-                                                display: 'flex', 
-                                                alignItems: 'center', 
-                                                justifyContent: 'center', 
-                                                fontSize: isMobile ? '30px' : '34px',
-                                                border: `1px solid ${borderColor}`
-                                              }}>
-                                                {item.category === 'Makanan' ? '🍚' : '🥤'}
-                                              </div>
-                                            )}
-                                          </div>
-
-                                          <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div style={{ 
-                                              fontWeight: 'bold', 
-                                              fontSize: isMobile ? '15px' : '17px', 
-                                              color: textColor,
-                                              whiteSpace: 'nowrap',
-                                              overflow: 'hidden',
-                                              textOverflow: 'ellipsis'
-                                            }}>
-                                              {item.name}
-                                            </div>
-                                            <div style={{ 
-                                              color: '#22c55e', 
-                                              fontWeight: 'bold', 
-                                              fontSize: isMobile ? '15px' : '17px' 
-                                            }}>
-                                              RM {item.price}
-                                            </div>
-                                            <div style={{ 
-                                              fontSize: isMobile ? '11px' : '12px', 
-                                              color: textMuted,
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              gap: '6px',
-                                              flexWrap: 'wrap'
-                                            }}>
-                                              <span>{item.category}</span>
-                                              {item.has_options && (
-                                                <span style={{ 
-                                                  background: '#8b5cf6', 
-                                                  color: 'white', 
-                                                  padding: '2px 10px', 
-                                                  borderRadius: '12px', 
-                                                  fontSize: '9px',
-                                                  fontWeight: 'bold'
-                                                }}>
-                                                  ⚙️ Size
-                                                </span>
-                                              )}
-                                              {hasAddons && (
-                                                <span style={{ 
-                                                  background: '#8b5cf6', 
-                                                  color: 'white', 
-                                                  padding: '2px 10px', 
-                                                  borderRadius: '12px', 
-                                                  fontSize: '9px',
-                                                  fontWeight: 'bold'
-                                                }}>
-                                                  ✨ Add-On
-                                                </span>
-                                              )}
-                                              {hasDrinkOptions && (
-                                                <span style={{ 
-                                                  background: '#06b6d4', 
-                                                  color: 'white', 
-                                                  padding: '2px 10px', 
-                                                  borderRadius: '12px', 
-                                                  fontSize: '9px',
-                                                  fontWeight: 'bold'
-                                                }}>
-                                                  ☕ {drinkOpts.length} opt
-                                                </span>
-                                              )}
-                                            </div>
-                                            {hasDescription && (
-                                              <div style={{ 
-                                                fontSize: isMobile ? '11px' : '12px', 
-                                                color: textMuted,
-                                                marginTop: '4px',
-                                                fontStyle: 'italic',
-                                                background: secondaryBg,
-                                                padding: '4px 10px',
-                                                borderRadius: '8px',
-                                                border: `1px solid ${borderColor}`
-                                              }}>
-                                                📝 {item.description}
-                                              </div>
-                                            )}
-                                          </div>
-
-                                          <div style={{ 
-                                            display: 'flex', 
-                                            flexDirection: 'column', 
-                                            alignItems: 'center',
-                                            gap: '6px',
-                                            flexShrink: 0
-                                          }}>
-                                            <div style={{ 
-                                              background: stockColor, 
-                                              color: 'white', 
-                                              padding: '4px 10px', 
-                                              borderRadius: '20px', 
-                                              fontSize: isMobile ? '10px' : '11px',
-                                              textAlign: 'center',
-                                              fontWeight: 'bold',
-                                              minWidth: '60px'
-                                            }}>
-                                              {translate('stock')}: {item.stock || 0}
-                                              <span style={{ 
-                                                background: 'rgba(255,255,255,0.25)', 
-                                                padding: '1px 6px', 
-                                                borderRadius: '12px', 
-                                                marginLeft: '4px',
-                                                fontSize: '8px'
-                                              }}>
-                                                {stockStatus}
-                                              </span>
-                                            </div>
-                                            
-                                            <div style={{ 
-                                              display: 'flex', 
-                                              gap: '4px', 
-                                              flexWrap: 'wrap',
-                                              justifyContent: 'center'
-                                            }}>
-                                              <button onClick={() => quickEditStock(item)} style={{ background: '#06b6d4', color: 'white', padding: '4px 8px', border: 'none', borderRadius: '16px', cursor: 'pointer', fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold' }} title={translate('stock')}>📦</button>
-                                              <button onClick={() => openEditModal(item)} style={{ background: '#f59e0b', color: 'white', padding: '4px 8px', border: 'none', borderRadius: '16px', cursor: 'pointer', fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold' }} title={translate('edit')}>✏️</button>
-                                              <button onClick={() => { setSelectedMenuForOptions(item); loadMenuOptions(item.id); setShowOptionsModal(true); }} style={{ background: '#8b5cf6', color: 'white', padding: '4px 8px', border: 'none', borderRadius: '16px', cursor: 'pointer', fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold' }} title={translate('size_options')}>⚙️</button>
-                                              <button onClick={() => { setSelectedMenuForAddon(item); loadAddons(item.id); setShowAddonModal(true); }} style={{ background: hasAddons ? '#8b5cf6' : '#94a3b8', color: 'white', padding: '4px 8px', border: 'none', borderRadius: '16px', cursor: 'pointer', fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold' }} title={hasAddons ? translate('manage_addons') : translate('enable_addons')}>✨</button>
-                                              <button onClick={() => deleteMenuItem(item.id, item.name)} style={{ background: '#ef4444', color: 'white', padding: '4px 8px', border: 'none', borderRadius: '16px', cursor: 'pointer', fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold' }} title={translate('delete')}>🗑️</button>
-                                            </div>
-                                          </div>
-                                        </div>
-
-                                        {hasDrinkOptions && (
-                                          <div style={{ 
-                                            marginTop: '4px', 
-                                            paddingTop: '12px', 
-                                            borderTop: `1px solid ${borderColor}`,
-                                            display: 'flex',
-                                            justifyContent: 'center',
-                                            gap: isMobile ? '8px' : '12px',
-                                            flexWrap: 'wrap',
-                                            background: secondaryBg,
-                                            borderRadius: '12px',
-                                            padding: '10px'
-                                          }}>
-                                            {drinkOpts.map(opt => {
-                                              const key = `${item.name}_${opt.option_type}`
-                                              const currentPrice = drinkPriceEdits[key] !== undefined ? drinkPriceEdits[key] : opt.price
-                                              const emoji = opt.option_type === 'Panas' ? '🔥' : opt.option_type === 'Sejuk' ? '🧊' : '📦'
-                                              const label = opt.option_type === 'Panas' ? translate('hot') : opt.option_type === 'Sejuk' ? translate('cold') : translate('takeaway')
-                                              
-                                              return (
-                                                <div key={opt.id} style={{ 
-                                                  display: 'flex', 
-                                                  alignItems: 'center', 
-                                                  gap: '4px',
-                                                  background: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
-                                                  padding: '4px 8px',
-                                                  borderRadius: '10px',
-                                                  border: `1px solid ${borderColor}`
-                                                }}>
-                                                  {opt.image_url ? (
-                                                    <img 
-                                                      src={opt.image_url} 
-                                                      alt={opt.option_type} 
-                                                      style={{ 
-                                                        width: '28px', 
-                                                        height: '28px', 
-                                                        objectFit: 'cover', 
-                                                        borderRadius: '6px',
-                                                        border: `1px solid ${borderColor}`
-                                                      }} 
-                                                    />
-                                                  ) : (
-                                                    <span style={{ fontSize: isMobile ? '14px' : '16px' }}>{emoji}</span>
-                                                  )}
-                                                  <span style={{ fontSize: isMobile ? '8px' : '9px', color: textMuted, minWidth: '30px' }}>
-                                                    {label}
-                                                  </span>
-                                                  <input 
-                                                    type="number" 
-                                                    step="0.01" 
-                                                    value={currentPrice} 
-                                                    onChange={(e) => handleDrinkPriceChange(item.name, opt.option_type, e.target.value)} 
-                                                    style={{ 
-                                                      width: isMobile ? '50px' : '60px', 
-                                                      padding: '3px 4px', 
-                                                      borderRadius: '6px', 
-                                                      border: `1px solid ${inputBorder}`, 
-                                                      background: inputBg, 
-                                                      color: inputText, 
-                                                      fontSize: isMobile ? '10px' : '11px',
-                                                      textAlign: 'center'
-                                                    }} 
-                                                  />
-                                                  <button 
-                                                    onClick={() => handleDrinkPriceSave(item.name, opt.option_type)} 
-                                                    style={{ 
-                                                      background: '#22c55e', 
-                                                      color: 'white', 
-                                                      padding: '2px 8px', 
-                                                      border: 'none', 
-                                                      borderRadius: '12px', 
-                                                      cursor: 'pointer', 
-                                                      fontSize: isMobile ? '9px' : '10px',
-                                                      fontWeight: 'bold',
-                                                      transition: 'all 0.2s',
-                                                      minWidth: '24px'
-                                                    }}
-                                                    title={translate('save')}
-                                                  >
-                                                    ✓
-                                                  </button>
-                                                  <button 
-                                                    onClick={() => deleteDrinkOption(item.name, opt.option_type)} 
-                                                    style={{ 
-                                                      background: '#ef4444', 
-                                                      color: 'white', 
-                                                      padding: '2px 6px', 
-                                                      border: 'none', 
-                                                      borderRadius: '12px', 
-                                                      cursor: 'pointer', 
-                                                      fontSize: isMobile ? '9px' : '10px',
-                                                      fontWeight: 'bold',
-                                                      transition: 'all 0.2s'
-                                                    }}
-                                                    title="Delete option"
-                                                  >
-                                                    ✕
-                                                  </button>
-                                                </div>
-                                              )
-                                            })}
-                                          </div>
-                                        )}
-                                      </div>
-                                    </SortableMenuItem>
-                                  )
-                                })}
+                                {categoryDisplay?.icon || '📂'} {item.category}
+                                <span style={{ 
+                                  marginLeft: '4px',
+                                  fontSize: '8px',
+                                  opacity: 0.5
+                                }}>
+                                  #{catOrder + 1}
+                                </span>
                               </div>
-                            </SortableContext>
-                          </DndContext>
-                        </div>
-                      )
-                    })
-                  })()
-                ) : (
-                  // ===== NORMAL VIEW UNTUK KATEGORI TERTENTU =====
-                  <>
-                    <DndContext
-                      sensors={menuSensors}
-                      collisionDetection={closestCenter}
-                      onDragEnd={handleMenuDragEnd}
-                    >
-                      <SortableContext
-                        items={currentItems.map(item => item.id)}
-                        strategy={verticalListSortingStrategy}
-                      >
-                        <div style={{ 
-                          display: 'grid', 
-                          gridTemplateColumns: menuGridCols, 
-                          gap: isMobile ? '14px' : '20px' 
-                        }}>
-                          {currentItems.map(item => {
-                            const drinkOpts = drinkOptions.filter(opt => opt.drink_name === item.name)
-                            const hasDrinkOptions = drinkOpts.length > 0
-                            const stockColor = getStockColor(item.stock || 0)
-                            const stockStatus = getStockText(item.stock || 0)
-                            const hasImage = item.image_url && item.image_url !== null && item.image_url !== ''
-                            const hasDescription = item.description && item.description.trim() !== ''
-                            const hasAddons = item.has_addons === true
-                            
-                            return (
-                              <SortableMenuItem key={item.id} item={item}>
-                                <div 
-                                  className="card-hover"
-                                  style={{ 
-                                    ...glassEffect, 
-                                    borderRadius: '16px', 
-                                    padding: isMobile ? '14px' : '20px',
-                                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    cursor: 'default',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '10px',
-                                    position: 'relative'
-                                  }}
-                                >
-                                  <div style={{ 
-                                    display: 'flex', 
-                                    gap: '14px', 
-                                    alignItems: 'center',
-                                    flexDirection: isMobile ? 'column' : 'row'
-                                  }}>
-                                    <div style={{ flexShrink: 0 }}>
-                                      {hasImage ? (
-                                        <div style={{ position: 'relative' }}>
-                                          <img 
-                                            src={item.image_url} 
-                                            alt={item.name} 
-                                            style={{ 
-                                              width: isMobile ? '64px' : '72px', 
-                                              height: isMobile ? '64px' : '72px', 
-                                              objectFit: 'cover', 
-                                              borderRadius: '12px',
-                                              border: `1px solid ${borderColor}`
-                                            }} 
-                                          />
-                                          <button 
-                                            onClick={() => deleteImage(item.image_url, item.id)} 
-                                            style={{ 
-                                              position: 'absolute', 
-                                              top: '-6px', 
-                                              right: '-6px', 
-                                              background: '#ef4444', 
-                                              color: 'white', 
-                                              borderRadius: '50%', 
-                                              width: '20px', 
-                                              height: '20px', 
-                                              fontSize: '10px', 
-                                              cursor: 'pointer', 
-                                              border: 'none',
-                                              display: 'flex',
-                                              alignItems: 'center',
-                                              justifyContent: 'center',
-                                              transition: 'all 0.2s'
-                                            }}
-                                          >
-                                            ✕
-                                          </button>
-                                        </div>
-                                      ) : (
-                                        <div style={{ 
+
+                              <div style={{ 
+                                display: 'flex', 
+                                gap: '14px', 
+                                alignItems: 'center',
+                                flexDirection: isMobile ? 'column' : 'row',
+                                marginTop: '20px'
+                              }}>
+                                <div style={{ flexShrink: 0 }}>
+                                  {hasImage ? (
+                                    <div style={{ position: 'relative' }}>
+                                      <img 
+                                        src={item.image_url} 
+                                        alt={item.name} 
+                                        style={{ 
                                           width: isMobile ? '64px' : '72px', 
                                           height: isMobile ? '64px' : '72px', 
-                                          background: secondaryBg, 
-                                          borderRadius: '12px', 
-                                          display: 'flex', 
-                                          alignItems: 'center', 
-                                          justifyContent: 'center', 
-                                          fontSize: isMobile ? '30px' : '34px',
+                                          objectFit: 'cover', 
+                                          borderRadius: '12px',
                                           border: `1px solid ${borderColor}`
-                                        }}>
-                                          {item.category === 'Makanan' ? '🍚' : '🥤'}
-                                        </div>
-                                      )}
+                                        }} 
+                                      />
+                                      <button 
+                                        onClick={() => deleteImage(item.image_url, item.id)} 
+                                        style={{ 
+                                          position: 'absolute', 
+                                          top: '-6px', 
+                                          right: '-6px', 
+                                          background: '#ef4444', 
+                                          color: 'white', 
+                                          borderRadius: '50%', 
+                                          width: '20px', 
+                                          height: '20px', 
+                                          fontSize: '10px', 
+                                          cursor: 'pointer', 
+                                          border: 'none',
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          justifyContent: 'center',
+                                          transition: 'all 0.2s'
+                                        }}
+                                      >
+                                        ✕
+                                      </button>
                                     </div>
-
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                      <div style={{ 
-                                        fontWeight: 'bold', 
-                                        fontSize: isMobile ? '15px' : '17px', 
-                                        color: textColor,
-                                        whiteSpace: 'nowrap',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis'
-                                      }}>
-                                        {item.name}
-                                      </div>
-                                      <div style={{ 
-                                        color: '#22c55e', 
-                                        fontWeight: 'bold', 
-                                        fontSize: isMobile ? '15px' : '17px' 
-                                      }}>
-                                        RM {item.price}
-                                      </div>
-                                      <div style={{ 
-                                        fontSize: isMobile ? '11px' : '12px', 
-                                        color: textMuted,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '6px',
-                                        flexWrap: 'wrap'
-                                      }}>
-                                        <span>{item.category}</span>
-                                        {item.has_options && (
-                                          <span style={{ 
-                                            background: '#8b5cf6', 
-                                            color: 'white', 
-                                            padding: '2px 10px', 
-                                            borderRadius: '12px', 
-                                            fontSize: '9px',
-                                            fontWeight: 'bold'
-                                          }}>
-                                            ⚙️ Size
-                                          </span>
-                                        )}
-                                        {hasAddons && (
-                                          <span style={{ 
-                                            background: '#8b5cf6', 
-                                            color: 'white', 
-                                            padding: '2px 10px', 
-                                            borderRadius: '12px', 
-                                            fontSize: '9px',
-                                            fontWeight: 'bold'
-                                          }}>
-                                            ✨ Add-On
-                                          </span>
-                                        )}
-                                        {hasDrinkOptions && (
-                                          <span style={{ 
-                                            background: '#06b6d4', 
-                                            color: 'white', 
-                                            padding: '2px 10px', 
-                                            borderRadius: '12px', 
-                                            fontSize: '9px',
-                                            fontWeight: 'bold'
-                                          }}>
-                                            ☕ {drinkOpts.length} opt
-                                          </span>
-                                        )}
-                                      </div>
-                                      {hasDescription && (
-                                        <div style={{ 
-                                          fontSize: isMobile ? '11px' : '12px', 
-                                          color: textMuted,
-                                          marginTop: '4px',
-                                          fontStyle: 'italic',
-                                          background: secondaryBg,
-                                          padding: '4px 10px',
-                                          borderRadius: '8px',
-                                          border: `1px solid ${borderColor}`
-                                        }}>
-                                          📝 {item.description}
-                                        </div>
-                                      )}
-                                    </div>
-
+                                  ) : (
                                     <div style={{ 
+                                      width: isMobile ? '64px' : '72px', 
+                                      height: isMobile ? '64px' : '72px', 
+                                      background: secondaryBg, 
+                                      borderRadius: '12px', 
                                       display: 'flex', 
-                                      flexDirection: 'column', 
-                                      alignItems: 'center',
-                                      gap: '6px',
-                                      flexShrink: 0
+                                      alignItems: 'center', 
+                                      justifyContent: 'center', 
+                                      fontSize: isMobile ? '30px' : '34px',
+                                      border: `1px solid ${borderColor}`
                                     }}>
-                                      <div style={{ 
-                                        background: stockColor, 
-                                        color: 'white', 
-                                        padding: '4px 10px', 
-                                        borderRadius: '20px', 
-                                        fontSize: isMobile ? '10px' : '11px',
-                                        textAlign: 'center',
-                                        fontWeight: 'bold',
-                                        minWidth: '60px'
-                                      }}>
-                                        {translate('stock')}: {item.stock || 0}
-                                        <span style={{ 
-                                          background: 'rgba(255,255,255,0.25)', 
-                                          padding: '1px 6px', 
-                                          borderRadius: '12px', 
-                                          marginLeft: '4px',
-                                          fontSize: '8px'
-                                        }}>
-                                          {stockStatus}
-                                        </span>
-                                      </div>
-                                      
-                                      <div style={{ 
-                                        display: 'flex', 
-                                        gap: '4px', 
-                                        flexWrap: 'wrap',
-                                        justifyContent: 'center'
-                                      }}>
-                                        <button onClick={() => quickEditStock(item)} style={{ background: '#06b6d4', color: 'white', padding: '4px 8px', border: 'none', borderRadius: '16px', cursor: 'pointer', fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold' }} title={translate('stock')}>📦</button>
-                                        <button onClick={() => openEditModal(item)} style={{ background: '#f59e0b', color: 'white', padding: '4px 8px', border: 'none', borderRadius: '16px', cursor: 'pointer', fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold' }} title={translate('edit')}>✏️</button>
-                                        <button onClick={() => { setSelectedMenuForOptions(item); loadMenuOptions(item.id); setShowOptionsModal(true); }} style={{ background: '#8b5cf6', color: 'white', padding: '4px 8px', border: 'none', borderRadius: '16px', cursor: 'pointer', fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold' }} title={translate('size_options')}>⚙️</button>
-                                        <button onClick={() => { setSelectedMenuForAddon(item); loadAddons(item.id); setShowAddonModal(true); }} style={{ background: hasAddons ? '#8b5cf6' : '#94a3b8', color: 'white', padding: '4px 8px', border: 'none', borderRadius: '16px', cursor: 'pointer', fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold' }} title={hasAddons ? translate('manage_addons') : translate('enable_addons')}>✨</button>
-                                        <button onClick={() => deleteMenuItem(item.id, item.name)} style={{ background: '#ef4444', color: 'white', padding: '4px 8px', border: 'none', borderRadius: '16px', cursor: 'pointer', fontSize: isMobile ? '9px' : '10px', fontWeight: 'bold' }} title={translate('delete')}>🗑️</button>
-                                      </div>
-                                    </div>
-                                  </div>
-
-                                  {hasDrinkOptions && (
-                                    <div style={{ 
-                                      marginTop: '4px', 
-                                      paddingTop: '12px', 
-                                      borderTop: `1px solid ${borderColor}`,
-                                      display: 'flex',
-                                      justifyContent: 'center',
-                                      gap: isMobile ? '8px' : '12px',
-                                      flexWrap: 'wrap',
-                                      background: secondaryBg,
-                                      borderRadius: '12px',
-                                      padding: '10px'
-                                    }}>
-                                      {drinkOpts.map(opt => {
-                                        const key = `${item.name}_${opt.option_type}`
-                                        const currentPrice = drinkPriceEdits[key] !== undefined ? drinkPriceEdits[key] : opt.price
-                                        const emoji = opt.option_type === 'Panas' ? '🔥' : opt.option_type === 'Sejuk' ? '🧊' : '📦'
-                                        const label = opt.option_type === 'Panas' ? translate('hot') : opt.option_type === 'Sejuk' ? translate('cold') : translate('takeaway')
-                                        
-                                        return (
-                                          <div key={opt.id} style={{ 
-                                            display: 'flex', 
-                                            alignItems: 'center', 
-                                            gap: '4px',
-                                            background: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
-                                            padding: '4px 8px',
-                                            borderRadius: '10px',
-                                            border: `1px solid ${borderColor}`
-                                          }}>
-                                            {opt.image_url ? (
-                                              <img 
-                                                src={opt.image_url} 
-                                                alt={opt.option_type} 
-                                                style={{ 
-                                                  width: '28px', 
-                                                  height: '28px', 
-                                                  objectFit: 'cover', 
-                                                  borderRadius: '6px',
-                                                  border: `1px solid ${borderColor}`
-                                                }} 
-                                              />
-                                            ) : (
-                                              <span style={{ fontSize: isMobile ? '14px' : '16px' }}>{emoji}</span>
-                                            )}
-                                            <span style={{ fontSize: isMobile ? '8px' : '9px', color: textMuted, minWidth: '30px' }}>
-                                              {label}
-                                            </span>
-                                            <input 
-                                              type="number" 
-                                              step="0.01" 
-                                              value={currentPrice} 
-                                              onChange={(e) => handleDrinkPriceChange(item.name, opt.option_type, e.target.value)} 
-                                              style={{ 
-                                                width: isMobile ? '50px' : '60px', 
-                                                padding: '3px 4px', 
-                                                borderRadius: '6px', 
-                                                border: `1px solid ${inputBorder}`, 
-                                                background: inputBg, 
-                                                color: inputText, 
-                                                fontSize: isMobile ? '10px' : '11px',
-                                                textAlign: 'center'
-                                              }} 
-                                            />
-                                            <button 
-                                              onClick={() => handleDrinkPriceSave(item.name, opt.option_type)} 
-                                              style={{ 
-                                                background: '#22c55e', 
-                                                color: 'white', 
-                                                padding: '2px 8px', 
-                                                border: 'none', 
-                                                borderRadius: '12px', 
-                                                cursor: 'pointer', 
-                                                fontSize: isMobile ? '9px' : '10px',
-                                                fontWeight: 'bold',
-                                                transition: 'all 0.2s',
-                                                minWidth: '24px'
-                                              }}
-                                              title={translate('save')}
-                                            >
-                                              ✓
-                                            </button>
-                                            <button 
-                                              onClick={() => deleteDrinkOption(item.name, opt.option_type)} 
-                                              style={{ 
-                                                background: '#ef4444', 
-                                                color: 'white', 
-                                                padding: '2px 6px', 
-                                                border: 'none', 
-                                                borderRadius: '12px', 
-                                                cursor: 'pointer', 
-                                                fontSize: isMobile ? '9px' : '10px',
-                                                fontWeight: 'bold',
-                                                transition: 'all 0.2s'
-                                              }}
-                                              title="Delete option"
-                                            >
-                                              ✕
-                                            </button>
-                                          </div>
-                                        )
-                                      })}
+                                      {item.category === 'Makanan' ? '🍚' : '🥤'}
                                     </div>
                                   )}
                                 </div>
-                              </SortableMenuItem>
-                            )
-                          })}
-                        </div>
-                      </SortableContext>
-                    </DndContext>
-                    <PaginationComponent />
-                    <div style={{ 
-                      textAlign: 'center', 
-                      marginTop: '16px', 
-                      fontSize: isMobile ? '12px' : '13px', 
-                      color: textMuted 
-                    }}>
-                      {translate('showing')} {startIndex + 1}-{Math.min(endIndex, totalItems)} {translate('of')} {totalItems} {translate('items')}
+
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ 
+                                    fontWeight: 'bold', 
+                                    fontSize: isMobile ? '15px' : '17px', 
+                                    color: textColor,
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                  }}>
+                                    {item.name}
+                                  </div>
+                                  <div style={{ 
+                                    color: '#22c55e', 
+                                    fontWeight: 'bold', 
+                                    fontSize: isMobile ? '15px' : '17px' 
+                                  }}>
+                                    RM {item.price}
+                                  </div>
+                                  <div style={{ 
+                                    fontSize: isMobile ? '11px' : '12px', 
+                                    color: textMuted,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    flexWrap: 'wrap'
+                                  }}>
+                                    <span>{item.category}</span>
+                                    {item.has_options && (
+                                      <span style={{ 
+                                        background: '#8b5cf6', 
+                                        color: 'white', 
+                                        padding: '2px 10px', 
+                                        borderRadius: '12px', 
+                                        fontSize: '9px',
+                                        fontWeight: 'bold'
+                                      }}>
+                                        ⚙️ Size
+                                      </span>
+                                    )}
+                                    {hasAddons && (
+                                      <span style={{ 
+                                        background: '#8b5cf6', 
+                                        color: 'white', 
+                                        padding: '2px 10px', 
+                                        borderRadius: '12px', 
+                                        fontSize: '9px',
+                                        fontWeight: 'bold'
+                                      }}>
+                                        ✨ Add-On
+                                      </span>
+                                    )}
+                                    {hasDrinkOptions && (
+                                      <span style={{ 
+                                        background: '#06b6d4', 
+                                        color: 'white', 
+                                        padding: '2px 10px', 
+                                        borderRadius: '12px', 
+                                        fontSize: '9px',
+                                        fontWeight: 'bold'
+                                      }}>
+                                        ☕ {drinkOpts.length} opt
+                                      </span>
+                                    )}
+                                  </div>
+                                  {hasDescription && (
+                                    <div style={{ 
+                                      fontSize: isMobile ? '11px' : '12px', 
+                                      color: textMuted,
+                                      marginTop: '4px',
+                                      fontStyle: 'italic',
+                                      background: secondaryBg,
+                                      padding: '4px 10px',
+                                      borderRadius: '8px',
+                                      border: `1px solid ${borderColor}`
+                                    }}>
+                                      📝 {item.description}
+                                    </div>
+                                  )}
+                                </div>
+
+                                <div style={{ 
+                                  display: 'flex', 
+                                  flexDirection: 'column', 
+                                  alignItems: 'center',
+                                  gap: '6px',
+                                  flexShrink: 0
+                                }}>
+                                  <div style={{ 
+                                    background: stockColor, 
+                                    color: 'white', 
+                                    padding: '4px 10px', 
+                                    borderRadius: '20px', 
+                                    fontSize: isMobile ? '10px' : '11px',
+                                    textAlign: 'center',
+                                    fontWeight: 'bold',
+                                    minWidth: '60px'
+                                  }}>
+                                    {translate('stock')}: {item.stock || 0}
+                                    <span style={{ 
+                                      background: 'rgba(255,255,255,0.25)', 
+                                      padding: '1px 6px', 
+                                      borderRadius: '12px', 
+                                      marginLeft: '4px',
+                                      fontSize: '8px'
+                                    }}>
+                                      {stockStatus}
+                                    </span>
+                                  </div>
+                                  
+                                  <div style={{ 
+                                    display: 'flex', 
+                                    gap: '4px', 
+                                    flexWrap: 'wrap',
+                                    justifyContent: 'center'
+                                  }}>
+                                    <button 
+                                      onClick={() => quickEditStock(item)} 
+                                      style={{ 
+                                        background: '#06b6d4', 
+                                        color: 'white', 
+                                        padding: '4px 8px', 
+                                        border: 'none', 
+                                        borderRadius: '16px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={translate('stock')}
+                                    >
+                                      📦
+                                    </button>
+                                    <button 
+                                      onClick={() => openEditModal(item)} 
+                                      style={{  
+                                        background: '#f59e0b',   
+                                        color: 'white', 
+                                        padding: '4px 8px',  
+                                        border: 'none',  
+                                        borderRadius: '16px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={translate('edit')}
+                                    >
+                                      ✏️
+                                    </button>
+                                    <button 
+                                      onClick={() => { 
+                                        setSelectedMenuForOptions(item); 
+                                        loadMenuOptions(item.id); 
+                                        setShowOptionsModal(true); 
+                                      }} 
+                                      style={{ 
+                                        background: '#8b5cf6', 
+                                        color: 'white', 
+                                        padding: '4px 8px', 
+                                        border: 'none', 
+                                        borderRadius: '16px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={translate('size_options')}
+                                    >
+                                      ⚙️
+                                    </button>
+                                    <button 
+                                      onClick={() => { 
+                                        setSelectedMenuForAddon(item); 
+                                        loadAddons(item.id); 
+                                        setShowAddonModal(true); 
+                                      }} 
+                                      style={{ 
+                                        background: hasAddons ? '#8b5cf6' : '#94a3b8', 
+                                        color: 'white', 
+                                        padding: '4px 8px', 
+                                        border: 'none', 
+                                        borderRadius: '16px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={hasAddons ? translate('manage_addons') : translate('enable_addons')}
+                                    >
+                                      ✨
+                                    </button>
+                                    <button 
+                                      onClick={() => deleteMenuItem(item.id, item.name)} 
+                                      style={{ 
+                                        background: '#ef4444', 
+                                        color: 'white', 
+                                        padding: '4px 8px', 
+                                        border: 'none', 
+                                        borderRadius: '16px', 
+                                        cursor: 'pointer', 
+                                        fontSize: isMobile ? '9px' : '10px',
+                                        fontWeight: 'bold',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      title={translate('delete')}
+                                    >
+                                      🗑️
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {hasDrinkOptions && (
+                                <div style={{ 
+                                  marginTop: '4px', 
+                                  paddingTop: '12px', 
+                                  borderTop: `1px solid ${borderColor}`,
+                                  display: 'flex',
+                                  justifyContent: 'center',
+                                  gap: isMobile ? '8px' : '12px',
+                                  flexWrap: 'wrap',
+                                  background: secondaryBg,
+                                  borderRadius: '12px',
+                                  padding: '10px'
+                                }}>
+                                  {drinkOpts.map(opt => {
+                                    const key = `${item.name}_${opt.option_type}`
+                                    const currentPrice = drinkPriceEdits[key] !== undefined ? drinkPriceEdits[key] : opt.price
+                                    const emoji = opt.option_type === 'Panas' ? '🔥' : opt.option_type === 'Sejuk' ? '🧊' : '📦'
+                                    const label = opt.option_type === 'Panas' ? translate('hot') : opt.option_type === 'Sejuk' ? translate('cold') : translate('takeaway')
+                                    
+                                    return (
+                                      <div key={opt.id} style={{ 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        gap: '4px',
+                                        background: darkMode ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.5)',
+                                        padding: '4px 8px',
+                                        borderRadius: '10px',
+                                        border: `1px solid ${borderColor}`
+                                      }}>
+                                        {opt.image_url ? (
+                                          <img 
+                                            src={opt.image_url} 
+                                            alt={opt.option_type} 
+                                            style={{ 
+                                              width: '28px', 
+                                              height: '28px', 
+                                              objectFit: 'cover', 
+                                              borderRadius: '6px',
+                                              border: `1px solid ${borderColor}`
+                                            }} 
+                                          />
+                                        ) : (
+                                          <span style={{ fontSize: isMobile ? '14px' : '16px' }}>{emoji}</span>
+                                        )}
+                                        <span style={{ fontSize: isMobile ? '8px' : '9px', color: textMuted, minWidth: '30px' }}>
+                                          {label}
+                                        </span>
+                                        <input 
+                                          type="number" 
+                                          step="0.01" 
+                                          value={currentPrice} 
+                                          onChange={(e) => handleDrinkPriceChange(item.name, opt.option_type, e.target.value)} 
+                                          style={{ 
+                                            width: isMobile ? '50px' : '60px', 
+                                            padding: '3px 4px', 
+                                            borderRadius: '6px', 
+                                            border: `1px solid ${inputBorder}`, 
+                                            background: inputBg, 
+                                            color: inputText, 
+                                            fontSize: isMobile ? '10px' : '11px',
+                                            textAlign: 'center'
+                                          }} 
+                                        />
+                                        <button 
+                                          onClick={() => handleDrinkPriceSave(item.name, opt.option_type)} 
+                                          style={{ 
+                                            background: '#22c55e', 
+                                            color: 'white', 
+                                            padding: '2px 8px', 
+                                            border: 'none', 
+                                            borderRadius: '12px', 
+                                            cursor: 'pointer', 
+                                            fontSize: isMobile ? '9px' : '10px',
+                                            fontWeight: 'bold',
+                                            transition: 'all 0.2s',
+                                            minWidth: '24px'
+                                          }}
+                                          title={translate('save')}
+                                        >
+                                          ✓
+                                        </button>
+                                        <button 
+                                          onClick={() => deleteDrinkOption(item.name, opt.option_type)} 
+                                          style={{ 
+                                            background: '#ef4444', 
+                                            color: 'white', 
+                                            padding: '2px 6px', 
+                                            border: 'none', 
+                                            borderRadius: '12px', 
+                                            cursor: 'pointer', 
+                                            fontSize: isMobile ? '9px' : '10px',
+                                            fontWeight: 'bold',
+                                            transition: 'all 0.2s'
+                                          }}
+                                          title="Delete option"
+                                        >
+                                          ✕
+                                        </button>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </SortableMenuItem>
+                        )
+                      })}
                     </div>
-                  </>
-                )}
+                  </SortableContext>
+                </DndContext>
+                
+                <PaginationComponent />
+                
+                <div style={{ 
+                  textAlign: 'center', 
+                  marginTop: '16px', 
+                  fontSize: isMobile ? '12px' : '13px', 
+                  color: textMuted 
+                }}>
+                  {translate('showing')} {startIndex + 1}-{Math.min(endIndex, totalItems)} {translate('of')} {totalItems} {translate('items')}
+                </div>
               </>
             )}
           </>
         )}
 
-        {/* SPECIAL TAB - SAMA MACAM SEBELUM */}
+        {/* ============================================================
+            SPECIAL TAB
+            ============================================================ */}
         {activeTab === 'special' && (
           <div>
             <div style={{ 
@@ -3434,7 +3387,9 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* PROMOTIONS TAB */}
+        {/* ============================================================
+            PROMOTIONS TAB - FIXED
+            ============================================================ */}
         {activeTab === 'promotions' && (
           <div>
             <div style={{ 
@@ -3493,31 +3448,60 @@ function ManageMenu() {
                       marginBottom: '12px', 
                       flexWrap: 'wrap' 
                     }}>
-                      {promo.image_url ? (
-                        <img 
-                          src={promo.image_url} 
-                          alt={promo.name} 
-                          style={{ 
+                      <div style={{ position: 'relative' }}>
+                        {promo.image_url ? (
+                          <>
+                            <img 
+                              src={promo.image_url} 
+                              alt={promo.name} 
+                              style={{ 
+                                width: isMobile ? '44px' : '56px', 
+                                height: isMobile ? '44px' : '56px', 
+                                borderRadius: '10px', 
+                                objectFit: 'cover' 
+                              }} 
+                            />
+                            <button 
+                              onClick={() => deletePromoImage(promo.image_url, promo.id)}
+                              style={{ 
+                                position: 'absolute', 
+                                top: '-6px', 
+                                right: '-6px', 
+                                background: '#ef4444', 
+                                color: 'white', 
+                                borderRadius: '50%', 
+                                width: '18px', 
+                                height: '18px', 
+                                fontSize: '10px', 
+                                cursor: 'pointer', 
+                                border: 'none',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                            >
+                              ✕
+                            </button>
+                          </>
+                        ) : (
+                          <div style={{ 
                             width: isMobile ? '44px' : '56px', 
                             height: isMobile ? '44px' : '56px', 
+                            background: secondaryBg, 
                             borderRadius: '10px', 
-                            objectFit: 'cover' 
-                          }} 
-                        />
-                      ) : (
-                        <div style={{ 
-                          width: isMobile ? '44px' : '56px', 
-                          height: isMobile ? '44px' : '56px', 
-                          background: secondaryBg, 
-                          borderRadius: '10px', 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'center', 
-                          fontSize: isMobile ? '24px' : '28px' 
-                        }}>
-                          🏷️
-                        </div>
-                      )}
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            justifyContent: 'center', 
+                            fontSize: isMobile ? '24px' : '28px' 
+                          }}>
+                            🏷️
+                          </div>
+                        )}
+                      </div>
+                      
                       <div style={{ flex: 1 }}>
                         <h3 style={{ 
                           margin: 0, 
@@ -3537,7 +3521,41 @@ function ManageMenu() {
                         }}>
                           {promo.is_active ? translate('active') : translate('inactive')}
                         </span>
+                        <span style={{ 
+                          marginLeft: '8px',
+                          background: '#8b5cf6', 
+                          color: 'white', 
+                          padding: '2px 10px', 
+                          borderRadius: '20px', 
+                          fontSize: isMobile ? '10px' : '11px',
+                          fontWeight: 'bold'
+                        }}>
+                          {promo.type === 'bogo' ? '🎁 BOGO' : promo.type === 'bundle' ? '📦 Bundle' : '🍽️ Set Menu'}
+                        </span>
                       </div>
+                    </div>
+                    
+                    <div style={{ 
+                      fontSize: '12px', 
+                      color: textMuted,
+                      marginBottom: '8px',
+                      padding: '8px',
+                      background: secondaryBg,
+                      borderRadius: '8px'
+                    }}>
+                      {promo.type === 'bogo' && (
+                        <div>
+                          🛒 {promo.trigger_items?.[0]?.name} → 🎁 {promo.free_items?.[0]?.name} (FREE)
+                        </div>
+                      )}
+                      {(promo.type === 'set_menu' || promo.type === 'bundle') && (
+                        <div>
+                          📦 {promo.bundle_items?.map(i => i.name).join(' + ')} 
+                          <span style={{ color: priceColor, fontWeight: 'bold' }}>
+                            → RM {promo.bundle_price}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     
                     <div style={{ 
@@ -3605,43 +3623,1046 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* ============================================================ */}
-        {/* ===== ALL MODALS ===== */}
-        {/* ============================================================ */}
-
-        {/* ADD DRINK MODAL */}
-        {showDrinkModal && (
+        {/* ============================================================
+            ADD PROMOTION MODAL - FIXED WITH PREVIEW
+            ============================================================ */}
+        {showAddPromoModal && (
           <div style={modalOverlayStyle}>
-            <div style={modalContentStyle}>
-              <h3 style={modalTitleStyle}>{translate('add_drink_title')}</h3>
-              <label style={labelStyle}>{translate('drink_name')} *</label>
-              <input type="text" placeholder={translate('drink_name')} value={newDrinkName} onChange={(e) => setNewDrinkName(e.target.value)} style={inputStyle} />
-              <label style={labelStyle}>🔥 {translate('hot_label')} - {translate('price')}</label>
-              <input type="number" step="0.01" placeholder={translate('hot_price')} value={newDrinkPanas} onChange={(e) => setNewDrinkPanas(e.target.value)} style={inputStyle} />
-              <label style={{...labelStyle, fontSize:'11px', color:textMuted}}>📸 {translate('drink_image')} ({translate('hot_label')})</label>
-              <input type="file" accept="image/*" onChange={(e) => setNewDrinkImagePanas(e.target.files[0])} style={inputStyle} />
-              {newDrinkImagePanas && <img src={URL.createObjectURL(newDrinkImagePanas)} alt="Panas" style={{width:'50px',height:'50px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              <label style={labelStyle}>🧊 {translate('cold_label')} - {translate('price')}</label>
-              <input type="number" step="0.01" placeholder={translate('cold_price')} value={newDrinkSejuk} onChange={(e) => setNewDrinkSejuk(e.target.value)} style={inputStyle} />
-              <label style={{...labelStyle, fontSize:'11px', color:textMuted}}>📸 {translate('drink_image')} ({translate('cold_label')})</label>
-              <input type="file" accept="image/*" onChange={(e) => setNewDrinkImageSejuk(e.target.files[0])} style={inputStyle} />
-              {newDrinkImageSejuk && <img src={URL.createObjectURL(newDrinkImageSejuk)} alt="Sejuk" style={{width:'50px',height:'50px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              <label style={labelStyle}>📦 {translate('takeaway_label')} - {translate('price')}</label>
-              <input type="number" step="0.01" placeholder={translate('takeaway_price')} value={newDrinkBungkus} onChange={(e) => setNewDrinkBungkus(e.target.value)} style={inputStyle} />
-              <label style={{...labelStyle, fontSize:'11px', color:textMuted}}>📸 {translate('drink_image')} ({translate('takeaway_label')})</label>
-              <input type="file" accept="image/*" onChange={(e) => setNewDrinkImageBungkus(e.target.files[0])} style={inputStyle} />
-              {newDrinkImageBungkus && <img src={URL.createObjectURL(newDrinkImageBungkus)} alt="Bungkus" style={{width:'50px',height:'50px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              <label style={labelStyle}>{translate('stock_qty')}</label>
-              <input type="number" placeholder={translate('stock_qty')} value={newDrinkStock} onChange={(e) => setNewDrinkStock(e.target.value)} style={inputStyle} />
+            <div style={{...modalContentStyle, maxWidth: isMobile ? '95%' : '550px'}}>
+              <h3 style={modalTitleStyle}>{translate('add_promotion')}</h3>
+              
+              <label style={labelStyle}>{translate('promo_name')} *</label>
+              <input 
+                type="text" 
+                placeholder={translate('promo_name')} 
+                value={promoFormData.name} 
+                onChange={(e) => setPromoFormData({...promoFormData, name: e.target.value})} 
+                style={inputStyle} 
+              />
+              
+              <label style={labelStyle}>{translate('promo_type')}</label>
+              <select 
+                value={promoFormData.type} 
+                onChange={(e) => {
+                  setPromoFormData({
+                    ...promoFormData, 
+                    type: e.target.value,
+                    selected_bundle_items: [],
+                    bundle_price: 0
+                  })
+                }} 
+                style={inputStyle}
+              >
+                <option value="set_menu">{translate('set_menu')}</option>
+                <option value="bundle">{translate('bundle')}</option>
+                <option value="bogo">{translate('bogo')}</option>
+              </select>
+              
+              {promoFormData.type === 'bogo' && (
+                <>
+                  <label style={labelStyle}>{translate('trigger_item')}</label>
+                  <select 
+                    value={promoFormData.trigger_item_id || ''} 
+                    onChange={(e) => setPromoFormData({...promoFormData, trigger_item_id: parseInt(e.target.value) || null})} 
+                    style={inputStyle}
+                  >
+                    <option value="">{translate('select_item')}</option>
+                    {availableMenuItems.map(item => (
+                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
+                    ))}
+                  </select>
+                  
+                  <label style={labelStyle}>{translate('free_item')}</label>
+                  <select 
+                    value={promoFormData.free_item_id || ''} 
+                    onChange={(e) => setPromoFormData({...promoFormData, free_item_id: parseInt(e.target.value) || null})} 
+                    style={inputStyle}
+                  >
+                    <option value="">{translate('select_item')}</option>
+                    {availableMenuItems.map(item => (
+                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
+                    ))}
+                  </select>
+                </>
+              )}
+              
+              {(promoFormData.type === 'set_menu' || promoFormData.type === 'bundle') && (
+                <>
+                  <div style={{ fontSize: '12px', color: textMuted, marginBottom: '8px' }}>
+                    {availableMenuItems.length > 0 ? `📋 ${availableMenuItems.length} ${translate('items_available')}` : `⚠️ ${translate('no_items_available')}`}
+                  </div>
+                  <div style={{ 
+                    maxHeight: '150px', 
+                    overflowY: 'auto', 
+                    border: `1px solid ${inputBorder}`, 
+                    borderRadius: '12px', 
+                    padding: '8px', 
+                    background: inputBg, 
+                    marginBottom: '12px' 
+                  }}>
+                    {availableMenuItems.map(item => {
+                      const isSelected = promoFormData.selected_bundle_items.includes(item.id)
+                      return (
+                        <label key={item.id} style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '10px', 
+                          padding: '6px 8px', 
+                          borderRadius: '6px', 
+                          cursor: 'pointer', 
+                          color: textColor, 
+                          borderBottom: `1px solid ${borderColor}`,
+                          background: isSelected ? 'rgba(34,197,94,0.1)' : 'transparent'
+                        }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setPromoFormData(prev => ({
+                                  ...prev, 
+                                  selected_bundle_items: [...prev.selected_bundle_items, item.id]
+                                }))
+                              } else {
+                                setPromoFormData(prev => ({
+                                  ...prev, 
+                                  selected_bundle_items: prev.selected_bundle_items.filter(id => id !== item.id)
+                                }))
+                              }
+                            }} 
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }} 
+                          />
+                          <span style={{ fontSize: '14px' }}>
+                            {item.name} 
+                            <span style={{ color: '#22c55e', fontWeight: 'bold' }}>(RM {item.price})</span>
+                            {item.has_options && <span style={{ color: '#8b5cf6', fontSize: '10px', marginLeft: '4px' }}>⚙️</span>}
+                            {item.has_addons && <span style={{ color: '#8b5cf6', fontSize: '10px', marginLeft: '4px' }}>✨</span>}
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  
+                  {promoFormData.selected_bundle_items.length < 2 && promoFormData.selected_bundle_items.length > 0 && (
+                    <div style={{ fontSize: '11px', color: '#f59e0b', marginBottom: '8px' }}>
+                      ⚠️ Pilih sekurang-kurangnya 2 item
+                    </div>
+                  )}
+                  
+                  <label style={labelStyle}>{translate('promo_price')}</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    placeholder={translate('promo_price')} 
+                    value={promoFormData.bundle_price} 
+                    onChange={(e) => setPromoFormData({...promoFormData, bundle_price: e.target.value})} 
+                    style={inputStyle} 
+                  />
+                  
+                  {/* ===== PREVIEW HARGA PROMOSI ===== */}
+                  {promoFormData.selected_bundle_items.length >= 2 && promoFormData.bundle_price > 0 && (() => {
+                    const selectedItems = promoFormData.selected_bundle_items
+                      .map(id => availableMenuItems.find(i => i.id === id))
+                      .filter(i => i !== null)
+                    
+                    const originalTotal = selectedItems.reduce((sum, item) => sum + (item.price || 0), 0)
+                    const promoPrice = parseFloat(promoFormData.bundle_price) || 0
+                    const savings = originalTotal - promoPrice
+                    
+                    return (
+                      <div style={{
+                        background: darkMode ? 'rgba(34,197,94,0.1)' : '#dcfce7',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                        marginBottom: '12px',
+                        border: `1px solid ${darkMode ? 'rgba(34,197,94,0.2)' : '#bbf7d0'}`
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor }}>
+                          <span>💰 {translate('original_price')}:</span>
+                          <span style={{ textDecoration: 'line-through', color: '#94a3b8' }}>RM {originalTotal.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: 'bold', color: priceColor }}>
+                          <span>🏷️ {translate('promo_price_label')}:</span>
+                          <span>RM {promoPrice.toFixed(2)}</span>
+                        </div>
+                        {savings > 0 && (
+                          <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'center', 
+                            marginTop: '6px',
+                            paddingTop: '6px',
+                            borderTop: `1px solid ${darkMode ? 'rgba(34,197,94,0.2)' : '#bbf7d0'}`,
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            color: promoColor
+                          }}>
+                            🎉 {translate('you_save')}: RM {savings.toFixed(2)}!
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </>
+              )}
+              
+              <label style={labelStyle}>{translate('start_date')}</label>
+              <input 
+                type="date" 
+                value={promoFormData.start_date} 
+                onChange={(e) => setPromoFormData({...promoFormData, start_date: e.target.value})} 
+                style={inputStyle} 
+              />
+              
+              <label style={labelStyle}>{translate('end_date')}</label>
+              <input 
+                type="date" 
+                value={promoFormData.end_date} 
+                onChange={(e) => setPromoFormData({...promoFormData, end_date: e.target.value})} 
+                style={inputStyle} 
+              />
+              
+              <label style={labelStyle}>{translate('promo_image')}</label>
+              
+              {/* Show current image with delete button */}
+              {promoFormData.image_url && !promoFormData.image_file && (
+                <div style={{ 
+                  position: 'relative', 
+                  display: 'inline-block', 
+                  marginBottom: '12px',
+                  border: `1px solid ${borderColor}`,
+                  borderRadius: '8px',
+                  padding: '4px'
+                }}>
+                  <img 
+                    src={promoFormData.image_url} 
+                    alt="Current" 
+                    style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px'}} 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Padam gambar ini?')) {
+                        setPromoFormData(prev => ({ ...prev, image_url: '', image_file: null }))
+                        toast.success('Gambar dipadam!')
+                      }
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      right: '-8px',
+                      background: '#ef4444',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '22px',
+                      height: '22px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              
+              {promoFormData.image_file && (
+                <div style={{ 
+                  position: 'relative', 
+                  display: 'inline-block', 
+                  marginBottom: '12px',
+                  border: `1px solid ${borderColor}`,
+                  borderRadius: '8px',
+                  padding: '4px'
+                }}>
+                  <img 
+                    src={URL.createObjectURL(promoFormData.image_file)} 
+                    alt="Preview" 
+                    style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px'}} 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPromoFormData(prev => ({ ...prev, image_file: null }))
+                      toast.success('Gambar dibuang!')
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      right: '-8px',
+                      background: '#ef4444',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '22px',
+                      height: '22px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => setPromoFormData({...promoFormData, image_file: e.target.files[0]})} 
+                style={inputStyle} 
+              />
+              
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => { setShowDrinkModal(false); setNewDrinkImagePanas(null); setNewDrinkImageSejuk(null); setNewDrinkImageBungkus(null) }} style={buttonSecondaryStyle}>{translate('cancel')}</button>
-                <button onClick={addDrinkWithOptions} style={buttonPrimaryStyle}>{uploading ? '⏳...' : translate('add')}</button>
+                <button 
+                  onClick={() => setShowAddPromoModal(false)} 
+                  style={buttonSecondaryStyle}
+                >
+                  {translate('cancel')}
+                </button>
+                <button 
+                  onClick={addPromotion} 
+                  style={buttonPrimaryStyle}
+                >
+                  {uploading ? '⏳...' : translate('add')}
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* ADD MENU MODAL */}
+        {/* ============================================================
+            EDIT PROMOTION MODAL - FIXED WITH PREVIEW
+            ============================================================ */}
+        {showEditPromoModal && selectedPromo && (
+          <div style={modalOverlayStyle}>
+            <div style={{...modalContentStyle, maxWidth: isMobile ? '95%' : '550px'}}>
+              <h3 style={modalTitleStyle}>{translate('edit_promotion')}</h3>
+              
+              <label style={labelStyle}>{translate('promo_name')} *</label>
+              <input 
+                type="text" 
+                placeholder={translate('promo_name')} 
+                value={promoFormData.name} 
+                onChange={(e) => setPromoFormData({...promoFormData, name: e.target.value})} 
+                style={inputStyle} 
+              />
+              
+              <label style={labelStyle}>{translate('promo_type')}</label>
+              <select 
+                value={promoFormData.type} 
+                onChange={(e) => setPromoFormData({...promoFormData, type: e.target.value})} 
+                style={inputStyle}
+                disabled
+              >
+                <option value="set_menu">{translate('set_menu')}</option>
+                <option value="bundle">{translate('bundle')}</option>
+                <option value="bogo">{translate('bogo')}</option>
+              </select>
+              
+              {promoFormData.type === 'bogo' && (
+                <>
+                  <label style={labelStyle}>{translate('trigger_item')}</label>
+                  <select 
+                    value={promoFormData.trigger_item_id || ''} 
+                    onChange={(e) => setPromoFormData({...promoFormData, trigger_item_id: parseInt(e.target.value) || null})} 
+                    style={inputStyle}
+                  >
+                    <option value="">{translate('select_item')}</option>
+                    {availableMenuItems.map(item => (
+                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
+                    ))}
+                  </select>
+                  
+                  <label style={labelStyle}>{translate('free_item')}</label>
+                  <select 
+                    value={promoFormData.free_item_id || ''} 
+                    onChange={(e) => setPromoFormData({...promoFormData, free_item_id: parseInt(e.target.value) || null})} 
+                    style={inputStyle}
+                  >
+                    <option value="">{translate('select_item')}</option>
+                    {availableMenuItems.map(item => (
+                      <option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>
+                    ))}
+                  </select>
+                </>
+              )}
+              
+              {(promoFormData.type === 'set_menu' || promoFormData.type === 'bundle') && (
+                <>
+                  <div style={{ fontSize: '12px', color: textMuted, marginBottom: '8px' }}>
+                    {availableMenuItems.length > 0 ? `📋 ${availableMenuItems.length} ${translate('items_available')}` : `⚠️ ${translate('no_items_available')}`}
+                  </div>
+                  <div style={{ 
+                    maxHeight: '150px', 
+                    overflowY: 'auto', 
+                    border: `1px solid ${inputBorder}`, 
+                    borderRadius: '12px', 
+                    padding: '8px', 
+                    background: inputBg, 
+                    marginBottom: '12px' 
+                  }}>
+                    {availableMenuItems.map(item => {
+                      const isSelected = promoFormData.selected_bundle_items.includes(item.id)
+                      return (
+                        <label key={item.id} style={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: '10px', 
+                          padding: '6px 8px', 
+                          borderRadius: '6px', 
+                          cursor: 'pointer', 
+                          color: textColor, 
+                          borderBottom: `1px solid ${borderColor}`,
+                          background: isSelected ? 'rgba(34,197,94,0.1)' : 'transparent'
+                        }}>
+                          <input 
+                            type="checkbox" 
+                            checked={isSelected}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setPromoFormData(prev => ({
+                                  ...prev, 
+                                  selected_bundle_items: [...prev.selected_bundle_items, item.id]
+                                }))
+                              } else {
+                                setPromoFormData(prev => ({
+                                  ...prev, 
+                                  selected_bundle_items: prev.selected_bundle_items.filter(id => id !== item.id)
+                                }))
+                              }
+                            }} 
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }} 
+                          />
+                          <span style={{ fontSize: '14px' }}>
+                            {item.name} 
+                            <span style={{ color: '#22c55e', fontWeight: 'bold' }}>(RM {item.price})</span>
+                            {item.has_options && <span style={{ color: '#8b5cf6', fontSize: '10px', marginLeft: '4px' }}>⚙️</span>}
+                            {item.has_addons && <span style={{ color: '#8b5cf6', fontSize: '10px', marginLeft: '4px' }}>✨</span>}
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  
+                  {promoFormData.selected_bundle_items.length < 2 && promoFormData.selected_bundle_items.length > 0 && (
+                    <div style={{ fontSize: '11px', color: '#f59e0b', marginBottom: '8px' }}>
+                      ⚠️ Pilih sekurang-kurangnya 2 item
+                    </div>
+                  )}
+                  
+                  <label style={labelStyle}>{translate('promo_price')}</label>
+                  <input 
+                    type="number" 
+                    step="0.01" 
+                    placeholder={translate('promo_price')} 
+                    value={promoFormData.bundle_price} 
+                    onChange={(e) => setPromoFormData({...promoFormData, bundle_price: e.target.value})} 
+                    style={inputStyle} 
+                  />
+                  
+                  {/* ===== PREVIEW HARGA PROMOSI ===== */}
+                  {promoFormData.selected_bundle_items.length >= 2 && promoFormData.bundle_price > 0 && (() => {
+                    const selectedItems = promoFormData.selected_bundle_items
+                      .map(id => availableMenuItems.find(i => i.id === id))
+                      .filter(i => i !== null)
+                    
+                    const originalTotal = selectedItems.reduce((sum, item) => sum + (item.price || 0), 0)
+                    const promoPrice = parseFloat(promoFormData.bundle_price) || 0
+                    const savings = originalTotal - promoPrice
+                    
+                    return (
+                      <div style={{
+                        background: darkMode ? 'rgba(34,197,94,0.1)' : '#dcfce7',
+                        borderRadius: '12px',
+                        padding: '12px 16px',
+                        marginBottom: '12px',
+                        border: `1px solid ${darkMode ? 'rgba(34,197,94,0.2)' : '#bbf7d0'}`
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor }}>
+                          <span>💰 {translate('original_price')}:</span>
+                          <span style={{ textDecoration: 'line-through', color: '#94a3b8' }}>RM {originalTotal.toFixed(2)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '15px', fontWeight: 'bold', color: priceColor }}>
+                          <span>🏷️ {translate('promo_price_label')}:</span>
+                          <span>RM {promoPrice.toFixed(2)}</span>
+                        </div>
+                        {savings > 0 && (
+                          <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'center', 
+                            marginTop: '6px',
+                            paddingTop: '6px',
+                            borderTop: `1px solid ${darkMode ? 'rgba(34,197,94,0.2)' : '#bbf7d0'}`,
+                            fontSize: '12px',
+                            fontWeight: 'bold',
+                            color: promoColor
+                          }}>
+                            🎉 {translate('you_save')}: RM {savings.toFixed(2)}!
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </>
+              )}
+              
+              <label style={labelStyle}>{translate('start_date')}</label>
+              <input 
+                type="date" 
+                value={promoFormData.start_date} 
+                onChange={(e) => setPromoFormData({...promoFormData, start_date: e.target.value})} 
+                style={inputStyle} 
+              />
+              
+              <label style={labelStyle}>{translate('end_date')}</label>
+              <input 
+                type="date" 
+                value={promoFormData.end_date} 
+                onChange={(e) => setPromoFormData({...promoFormData, end_date: e.target.value})} 
+                style={inputStyle} 
+              />
+              
+              <label style={labelStyle}>{translate('promo_image')}</label>
+              
+              {/* Show current image with delete button */}
+              {promoFormData.image_url && !promoFormData.image_file && (
+                <div style={{ 
+                  position: 'relative', 
+                  display: 'inline-block', 
+                  marginBottom: '12px',
+                  border: `1px solid ${borderColor}`,
+                  borderRadius: '8px',
+                  padding: '4px'
+                }}>
+                  <img 
+                    src={promoFormData.image_url} 
+                    alt="Current" 
+                    style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px'}} 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('Padam gambar ini?')) {
+                        setPromoFormData(prev => ({ ...prev, image_url: '', image_file: null }))
+                        toast.success('Gambar dipadam!')
+                      }
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      right: '-8px',
+                      background: '#ef4444',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '22px',
+                      height: '22px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              
+              {promoFormData.image_file && (
+                <div style={{ 
+                  position: 'relative', 
+                  display: 'inline-block', 
+                  marginBottom: '12px',
+                  border: `1px solid ${borderColor}`,
+                  borderRadius: '8px',
+                  padding: '4px'
+                }}>
+                  <img 
+                    src={URL.createObjectURL(promoFormData.image_file)} 
+                    alt="Preview" 
+                    style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px'}} 
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPromoFormData(prev => ({ ...prev, image_file: null }))
+                      toast.success('Gambar dibuang!')
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: '-8px',
+                      right: '-8px',
+                      background: '#ef4444',
+                      color: 'white',
+                      borderRadius: '50%',
+                      width: '22px',
+                      height: '22px',
+                      border: 'none',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
+              
+              <input 
+                type="file" 
+                accept="image/*" 
+                onChange={(e) => setPromoFormData({...promoFormData, image_file: e.target.files[0]})} 
+                style={inputStyle} 
+              />
+              
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  onClick={() => setShowEditPromoModal(false)} 
+                  style={buttonSecondaryStyle}
+                >
+                  {translate('cancel')}
+                </button>
+                <button 
+                  onClick={updatePromotion} 
+                  style={buttonPrimaryStyle}
+                >
+                  {uploading ? '⏳...' : translate('save')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================
+            ALL OTHER MODALS (Size Options, Add-On, Add/Edit Menu, etc)
+            ============================================================ */}
+
+        {/* Size Options Modal */}
+        {showOptionsModal && selectedMenuForOptions && (
+          <div style={modalOverlayStyle}>
+            <div style={{ ...modalContentStyle, maxWidth: isMobile ? '95%' : '500px' }}>
+              <h3 style={modalTitleStyle}>{translate('size_options')} - {selectedMenuForOptions.name}</h3>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <h4 style={{ color: textColor, marginBottom: '8px' }}>
+                  {editingOption ? translate('edit_size') : translate('add_size')}
+                </h4>
+                
+                <label style={labelStyle}>{translate('size_name')} *</label>
+                <input 
+                  type="text" 
+                  placeholder={translate('size_name')} 
+                  value={optionForm.option_name} 
+                  onChange={(e) => setOptionForm({...optionForm, option_name: e.target.value})} 
+                  style={inputStyle} 
+                />
+                
+                <label style={labelStyle}>{translate('size_price')} *</label>
+                <input 
+                  type="number" 
+                  step="0.01" 
+                  placeholder={translate('size_price')} 
+                  value={optionForm.price_adjustment} 
+                  onChange={(e) => setOptionForm({...optionForm, price_adjustment: e.target.value})} 
+                  style={inputStyle} 
+                />
+
+                <label style={labelStyle}>{translate('stock_qty')}</label>
+                <input 
+                  type="number" 
+                  placeholder={translate('stock_qty')} 
+                  value={optionForm.stock} 
+                  onChange={(e) => setOptionForm({...optionForm, stock: parseInt(e.target.value) || 0})} 
+                  style={inputStyle} 
+                />
+                
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px' }}>
+                  <label style={{ color: textColor }}>
+                    <input 
+                      type="checkbox" 
+                      checked={optionForm.is_absolute_price} 
+                      onChange={(e) => setOptionForm({...optionForm, is_absolute_price: e.target.checked})} 
+                    />
+                    {translate('absolute_price')}
+                  </label>
+                </div>
+                
+                <button 
+                  onClick={editingOption ? updateMenuOption : addMenuOption} 
+                  style={buttonPrimaryStyle}
+                >
+                  {editingOption ? translate('save') : translate('add')}
+                </button>
+              </div>
+              
+              <div>
+                <h4 style={{ color: textColor, marginBottom: '8px' }}>{translate('size_list')}</h4>
+                {menuOptions.length === 0 ? (
+                  <p style={{ color: textMuted }}>{translate('no_sizes')}</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {menuOptions.map(opt => {
+                      const stockColor = (opt.stock || 0) <= 0 ? '#ef4444' : (opt.stock || 0) <= 10 ? '#f59e0b' : '#22c55e'
+                      return (
+                        <div 
+                          key={opt.id} 
+                          style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            alignItems: 'center', 
+                            padding: '8px 12px', 
+                            background: secondaryBg, 
+                            borderRadius: '8px', 
+                            border: `1px solid ${borderColor}` 
+                          }}
+                        >
+                          <span style={{ color: textColor }}>
+                            {opt.option_name} - RM {opt.price_adjustment} 
+                            {opt.is_absolute_price ? ' (Absolute)' : ' (Adjustment)'}
+                            <span style={{ 
+                              marginLeft: '10px', 
+                              background: stockColor,
+                              color: 'white',
+                              padding: '2px 10px',
+                              borderRadius: '12px',
+                              fontSize: '10px',
+                              fontWeight: 'bold',
+                              display: 'inline-block'
+                            }}>
+                              📦 {translate('stock')}: {opt.stock || 0}
+                            </span>
+                          </span>
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button 
+                              onClick={() => openEditOption(opt)} 
+                              style={{ 
+                                background: '#f59e0b', 
+                                color: 'white', 
+                                padding: '2px 10px', 
+                                border: 'none', 
+                                borderRadius: '12px', 
+                                cursor: 'pointer', 
+                                fontSize: '11px' 
+                              }}
+                            >
+                              ✏️
+                            </button>
+                            <button 
+                              onClick={() => deleteMenuOption(opt.id)} 
+                              style={{ 
+                                background: '#ef4444', 
+                                color: 'white', 
+                                padding: '2px 10px', 
+                                border: 'none', 
+                                borderRadius: '12px', 
+                                cursor: 'pointer', 
+                                fontSize: '11px' 
+                              }}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+              
+              <div style={{ marginTop: '16px' }}>
+                <button 
+                  onClick={() => {
+                    setShowOptionsModal(false)
+                    setEditingOption(null)
+                    setOptionForm({ 
+                      option_name: '', 
+                      price_adjustment: '', 
+                      is_absolute_price: true, 
+                      sort_order: 0,
+                      stock: 0 
+                    })
+                  }} 
+                  style={buttonSecondaryStyle}
+                >
+                  {translate('close')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add-On Management Modal */}
+        {showAddonModal && selectedMenuForAddon && (
+          <div style={modalOverlayStyle}>
+            <div style={{ ...modalContentStyle, maxWidth: isMobile ? '95%' : '500px' }}>
+              <h3 style={modalTitleStyle}>
+                ✨ {translate('manage_addons')} - {selectedMenuForAddon.name}
+              </h3>
+              
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'space-between',
+                padding: '12px 16px',
+                background: secondaryBg,
+                borderRadius: '12px',
+                marginBottom: '16px',
+                border: `1px solid ${borderColor}`
+              }}>
+                <span style={{ fontWeight: 'bold', color: textColor }}>
+                  {translate('enable_addons')}
+                </span>
+                <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '26px' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={selectedMenuForAddon.has_addons || false} 
+                    onChange={() => toggleAddonsEnabled(selectedMenuForAddon.id, selectedMenuForAddon.has_addons)} 
+                    style={{ opacity: 0, width: 0, height: 0 }} 
+                  />
+                  <span style={{ 
+                    position: 'absolute', 
+                    cursor: 'pointer', 
+                    top: 0, 
+                    left: 0, 
+                    right: 0, 
+                    bottom: 0, 
+                    backgroundColor: selectedMenuForAddon.has_addons ? '#22c55e' : '#64748b', 
+                    transition: '.3s', 
+                    borderRadius: '34px' 
+                  }}>
+                    <span style={{ 
+                      position: 'absolute', 
+                      height: '20px', 
+                      width: '20px', 
+                      left: '3px', 
+                      bottom: '3px', 
+                      backgroundColor: 'white', 
+                      transition: '.3s', 
+                      borderRadius: '50%', 
+                      transform: selectedMenuForAddon.has_addons ? 'translateX(26px)' : 'none' 
+                    }} />
+                  </span>
+                </label>
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <h4 style={{ color: textColor, marginBottom: '8px' }}>
+                  {translate('addon_list')} ({menuAddons.length})
+                </h4>
+                {menuAddons.length === 0 ? (
+                  <p style={{ 
+                    color: textMuted, 
+                    textAlign: 'center', 
+                    padding: '20px',
+                    background: secondaryBg,
+                    borderRadius: '8px'
+                  }}>
+                    {selectedMenuForAddon.has_addons 
+                      ? 'Tiada add-on. Tambah di bawah.' 
+                      : 'Aktifkan add-on terlebih dahulu'}
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {menuAddons.map(addon => (
+                      <div 
+                        key={addon.id} 
+                        style={{ 
+                          display: 'flex', 
+                          justifyContent: 'space-between', 
+                          alignItems: 'center', 
+                          padding: '8px 12px', 
+                          background: secondaryBg, 
+                          borderRadius: '8px', 
+                          border: `1px solid ${borderColor}` 
+                        }}
+                      >
+                        <div>
+                          <span style={{ color: textColor, fontWeight: 'bold' }}>{addon.name}</span>
+                          <span style={{ color: priceColor, marginLeft: '8px', fontSize: '13px' }}>
+                            +RM {parseFloat(addon.price).toFixed(2)}
+                          </span>
+                          <span style={{ 
+                            fontSize: '10px', 
+                            color: textMuted, 
+                            marginLeft: '8px',
+                            background: darkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9',
+                            padding: '1px 8px',
+                            borderRadius: '10px'
+                          }}>
+                            {addon.category || 'Topping'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button 
+                            onClick={() => {
+                              setEditingAddon(addon)
+                              setAddonForm({
+                                name: addon.name,
+                                price: addon.price,
+                                category: addon.category || 'Topping'
+                              })
+                            }} 
+                            style={{ 
+                              background: '#f59e0b', 
+                              color: 'white', 
+                              padding: '2px 10px', 
+                              border: 'none', 
+                              borderRadius: '12px', 
+                              cursor: 'pointer', 
+                              fontSize: '11px' 
+                            }}
+                          >
+                            ✏️
+                          </button>
+                          <button 
+                            onClick={() => deleteAddon(addon.id)} 
+                            style={{ 
+                              background: '#ef4444', 
+                              color: 'white', 
+                              padding: '2px 10px', 
+                              border: 'none', 
+                              borderRadius: '12px', 
+                              cursor: 'pointer', 
+                              fontSize: '11px' 
+                            }}
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              <div style={{ 
+                borderTop: `1px solid ${borderColor}`, 
+                paddingTop: '14px' 
+              }}>
+                <h4 style={{ color: textColor, marginBottom: '8px' }}>
+                  {editingAddon ? translate('edit_addon') : translate('add_new_addon')}
+                </h4>
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  <input 
+                    type="text" 
+                    placeholder={translate('addon_name')}
+                    value={addonForm.name}
+                    onChange={(e) => setAddonForm({...addonForm, name: e.target.value})}
+                    style={{ 
+                      flex: 2,
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      border: `1px solid ${borderColor}`,
+                      background: inputBg,
+                      color: textColor,
+                      outline: 'none',
+                      fontSize: '13px',
+                      minWidth: '120px'
+                    }}
+                  />
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    placeholder={translate('addon_price')}
+                    value={addonForm.price}
+                    onChange={(e) => setAddonForm({...addonForm, price: e.target.value})}
+                    style={{ 
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      border: `1px solid ${borderColor}`,
+                      background: inputBg,
+                      color: textColor,
+                      outline: 'none',
+                      fontSize: '13px',
+                      minWidth: '80px'
+                    }}
+                  />
+                  <select
+                    value={addonForm.category}
+                    onChange={(e) => setAddonForm({...addonForm, category: e.target.value})}
+                    style={{
+                      flex: 1,
+                      padding: '8px 12px',
+                      borderRadius: '10px',
+                      border: `1px solid ${borderColor}`,
+                      background: inputBg,
+                      color: textColor,
+                      outline: 'none',
+                      fontSize: '13px',
+                      minWidth: '80px'
+                    }}
+                  >
+                    <option value="Topping">Topping</option>
+                    <option value="Extra">Extra</option>
+                    <option value="Level">Level</option>
+                    <option value="Drink">Drink</option>
+                  </select>
+                  <button 
+                    onClick={editingAddon ? updateAddon : addAddon}
+                    disabled={!selectedMenuForAddon.has_addons}
+                    style={{ 
+                      padding: '8px 20px',
+                      background: !selectedMenuForAddon.has_addons ? '#94a3b8' : 'linear-gradient(135deg, #22c55e, #16a34a)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '10px',
+                      cursor: !selectedMenuForAddon.has_addons ? 'not-allowed' : 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '13px'
+                    }}
+                  >
+                    {editingAddon ? '💾 Update' : '➕ Tambah'}
+                  </button>
+                  {editingAddon && (
+                    <button 
+                      onClick={() => {
+                        setEditingAddon(null)
+                        setAddonForm({ name: '', price: '', category: 'Topping' })
+                      }}
+                      style={{ 
+                        padding: '8px 16px',
+                        background: '#64748b',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        fontSize: '13px'
+                      }}
+                    >
+                      ✕ Batal
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              <div style={{ marginTop: '16px' }}>
+                <button 
+                  onClick={() => {
+                    setShowAddonModal(false)
+                    setSelectedMenuForAddon(null)
+                    setMenuAddons([])
+                    setEditingAddon(null)
+                    setAddonForm({ name: '', price: '', category: 'Topping' })
+                  }} 
+                  style={buttonSecondaryStyle}
+                >
+                  {translate('close')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Menu Modal */}
         {showAddModal && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
@@ -3657,7 +4678,9 @@ function ManageMenu() {
               <label style={labelStyle}>{translate('category')}</label>
               <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} style={inputStyle}>
                 <option value="">{translate('select_category')}</option>
-                {categories.map(cat => (<option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>))}
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
+                ))}
               </select>
               <label style={labelStyle}>{translate('image')}</label>
               <input type="file" accept="image/*" onChange={(e) => setFormData({...formData, image_file: e.target.files[0]})} style={inputStyle} />
@@ -3670,7 +4693,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* ===== EDIT MENU MODAL - FIXED ===== */}
+        {/* Edit Menu Modal */}
         {showEditModal && selectedItem && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
@@ -3686,7 +4709,9 @@ function ManageMenu() {
               <label style={labelStyle}>{translate('category')}</label>
               <select value={formData.category} onChange={(e) => setFormData({...formData, category: e.target.value})} style={inputStyle}>
                 <option value="">{translate('select_category')}</option>
-                {categories.map(cat => (<option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>))}
+                {categories.map(cat => (
+                  <option key={cat.id} value={cat.name}>{cat.icon} {cat.name}</option>
+                ))}
               </select>
               <label style={labelStyle}>{translate('image')}</label>
               <input type="file" accept="image/*" onChange={(e) => setFormData({...formData, image_file: e.target.files[0]})} style={inputStyle} />
@@ -3700,7 +4725,123 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* ADD SPECIAL MODAL */}
+        {/* Add Drink Modal */}
+        {showDrinkModal && (
+          <div style={modalOverlayStyle}>
+            <div style={modalContentStyle}>
+              <h3 style={modalTitleStyle}>{translate('add_drink_title')}</h3>
+              
+              <label style={labelStyle}>{translate('drink_name')} *</label>
+              <input
+                type="text"
+                placeholder={translate('drink_name')}
+                value={newDrinkName}
+                onChange={(e) => setNewDrinkName(e.target.value)}
+                style={inputStyle}
+              />
+
+              <label style={labelStyle}>🔥 {translate('hot_label')} - {translate('price')}</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder={translate('hot_price')}
+                value={newDrinkPanas}
+                onChange={(e) => setNewDrinkPanas(e.target.value)}
+                style={inputStyle}
+              />
+              <label style={{...labelStyle, fontSize:'11px', color:textMuted}}>📸 {translate('drink_image')} ({translate('hot_label')})</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setNewDrinkImagePanas(e.target.files[0])}
+                style={inputStyle}
+              />
+              {newDrinkImagePanas && (
+                <img 
+                  src={URL.createObjectURL(newDrinkImagePanas)} 
+                  alt="Panas" 
+                  style={{width:'50px',height:'50px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} 
+                />
+              )}
+
+              <label style={labelStyle}>🧊 {translate('cold_label')} - {translate('price')}</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder={translate('cold_price')}
+                value={newDrinkSejuk}
+                onChange={(e) => setNewDrinkSejuk(e.target.value)}
+                style={inputStyle}
+              />
+              <label style={{...labelStyle, fontSize:'11px', color:textMuted}}>📸 {translate('drink_image')} ({translate('cold_label')})</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setNewDrinkImageSejuk(e.target.files[0])}
+                style={inputStyle}
+              />
+              {newDrinkImageSejuk && (
+                <img 
+                  src={URL.createObjectURL(newDrinkImageSejuk)} 
+                  alt="Sejuk" 
+                  style={{width:'50px',height:'50px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} 
+                />
+              )}
+
+              <label style={labelStyle}>📦 {translate('takeaway_label')} - {translate('price')}</label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder={translate('takeaway_price')}
+                value={newDrinkBungkus}
+                onChange={(e) => setNewDrinkBungkus(e.target.value)}
+                style={inputStyle}
+              />
+              <label style={{...labelStyle, fontSize:'11px', color:textMuted}}>📸 {translate('drink_image')} ({translate('takeaway_label')})</label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setNewDrinkImageBungkus(e.target.files[0])}
+                style={inputStyle}
+              />
+              {newDrinkImageBungkus && (
+                <img 
+                  src={URL.createObjectURL(newDrinkImageBungkus)} 
+                  alt="Bungkus" 
+                  style={{width:'50px',height:'50px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} 
+                />
+              )}
+
+              <label style={labelStyle}>{translate('stock_qty')}</label>
+              <input
+                type="number"
+                placeholder={translate('stock_qty')}
+                value={newDrinkStock}
+                onChange={(e) => setNewDrinkStock(e.target.value)}
+                style={inputStyle}
+              />
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  onClick={() => {
+                    setShowDrinkModal(false)
+                    setNewDrinkImagePanas(null)
+                    setNewDrinkImageSejuk(null)
+                    setNewDrinkImageBungkus(null)
+                  }} 
+                  style={buttonSecondaryStyle}
+                >
+                  {translate('cancel')}
+                </button>
+                <button onClick={addDrinkWithOptions} style={buttonPrimaryStyle}>
+                  {uploading ? '⏳...' : translate('add')}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Special Modal */}
         {showAddSpecialModal && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
@@ -3724,7 +4865,7 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* EDIT SPECIAL MODAL */}
+        {/* Edit Special Modal */}
         {showEditSpecialModal && selectedSpecialItem && (
           <div style={modalOverlayStyle}>
             <div style={modalContentStyle}>
@@ -3749,243 +4890,6 @@ function ManageMenu() {
           </div>
         )}
 
-        {/* ADD PROMO MODAL */}
-        {showAddPromoModal && (
-          <div style={modalOverlayStyle}>
-            <div style={{...modalContentStyle, maxWidth: isMobile ? '95%' : '550px'}}>
-              <h3 style={modalTitleStyle}>{translate('add_promotion')}</h3>
-              <label style={labelStyle}>{translate('promo_name')} *</label>
-              <input type="text" placeholder={translate('promo_name')} value={promoFormData.name} onChange={(e) => setPromoFormData({...promoFormData, name: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('promo_type')}</label>
-              <select value={promoFormData.type} onChange={(e) => setPromoFormData({...promoFormData, type: e.target.value})} style={inputStyle}>
-                <option value="set_menu">{translate('set_menu')}</option>
-                <option value="bundle">{translate('bundle')}</option>
-                <option value="bogo">{translate('bogo')}</option>
-              </select>
-              {promoFormData.type === 'bogo' && (
-                <>
-                  <label style={labelStyle}>{translate('trigger_item')}</label>
-                  <select value={promoFormData.trigger_item_id || ''} onChange={(e) => setPromoFormData({...promoFormData, trigger_item_id: parseInt(e.target.value)})} style={inputStyle}>
-                    <option value="">{translate('select_item')}</option>
-                    {availableMenuItems.map(item => (<option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>))}
-                  </select>
-                  <label style={labelStyle}>{translate('free_item')}</label>
-                  <select value={promoFormData.free_item_id || ''} onChange={(e) => setPromoFormData({...promoFormData, free_item_id: parseInt(e.target.value)})} style={inputStyle}>
-                    <option value="">{translate('select_item')}</option>
-                    {availableMenuItems.map(item => (<option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>))}
-                  </select>
-                </>
-              )}
-              {(promoFormData.type === 'set_menu' || promoFormData.type === 'bundle') && (
-                <>
-                  <div style={{ fontSize: '12px', color: textMuted, marginBottom: '8px' }}>
-                    {availableMenuItems.length > 0 ? `📋 ${availableMenuItems.length} ${translate('items_available')}` : `⚠️ ${translate('no_items_available')}`}
-                  </div>
-                  <div style={{ maxHeight: '150px', overflowY: 'auto', border: `1px solid ${inputBorder}`, borderRadius: '12px', padding: '8px', background: inputBg, marginBottom: '12px' }}>
-                    {availableMenuItems.map(item => (
-                      <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', color: textColor, borderBottom: `1px solid ${borderColor}` }}>
-                        <input type="checkbox" checked={promoFormData.selected_bundle_items.includes(item.id)} onChange={(e) => {
-                          if (e.target.checked) {
-                            setPromoFormData({...promoFormData, selected_bundle_items: [...promoFormData.selected_bundle_items, item.id]})
-                          } else {
-                            setPromoFormData({...promoFormData, selected_bundle_items: promoFormData.selected_bundle_items.filter(id => id !== item.id)})
-                          }
-                        }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                        <span style={{ fontSize: '14px' }}>{item.name} <span style={{ color: '#22c55e', fontWeight: 'bold' }}>(RM {item.price})</span></span>
-                      </label>
-                    ))}
-                  </div>
-                  <label style={labelStyle}>{translate('promo_price')}</label>
-                  <input type="number" step="0.01" placeholder={translate('promo_price')} value={promoFormData.bundle_price} onChange={(e) => setPromoFormData({...promoFormData, bundle_price: e.target.value})} style={inputStyle} />
-                </>
-              )}
-              <label style={labelStyle}>{translate('start_date')}</label>
-              <input type="date" value={promoFormData.start_date} onChange={(e) => setPromoFormData({...promoFormData, start_date: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('end_date')}</label>
-              <input type="date" value={promoFormData.end_date} onChange={(e) => setPromoFormData({...promoFormData, end_date: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('promo_image')}</label>
-              <input type="file" accept="image/*" onChange={(e) => setPromoFormData({...promoFormData, image_file: e.target.files[0]})} style={inputStyle} />
-              {promoFormData.image_file && <img src={URL.createObjectURL(promoFormData.image_file)} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => setShowAddPromoModal(false)} style={buttonSecondaryStyle}>{translate('cancel')}</button>
-                <button onClick={addPromotion} style={buttonPrimaryStyle}>{translate('add')}</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* EDIT PROMO MODAL */}
-        {showEditPromoModal && selectedPromo && (
-          <div style={modalOverlayStyle}>
-            <div style={{...modalContentStyle, maxWidth: isMobile ? '95%' : '550px'}}>
-              <h3 style={modalTitleStyle}>{translate('edit_promotion')}</h3>
-              <label style={labelStyle}>{translate('promo_name')} *</label>
-              <input type="text" placeholder={translate('promo_name')} value={promoFormData.name} onChange={(e) => setPromoFormData({...promoFormData, name: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('promo_type')}</label>
-              <select value={promoFormData.type} onChange={(e) => setPromoFormData({...promoFormData, type: e.target.value})} style={inputStyle}>
-                <option value="set_menu">{translate('set_menu')}</option>
-                <option value="bundle">{translate('bundle')}</option>
-                <option value="bogo">{translate('bogo')}</option>
-              </select>
-              {promoFormData.type === 'bogo' && (
-                <>
-                  <label style={labelStyle}>{translate('trigger_item')}</label>
-                  <select value={promoFormData.trigger_item_id || ''} onChange={(e) => setPromoFormData({...promoFormData, trigger_item_id: parseInt(e.target.value)})} style={inputStyle}>
-                    <option value="">{translate('select_item')}</option>
-                    {availableMenuItems.map(item => (<option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>))}
-                  </select>
-                  <label style={labelStyle}>{translate('free_item')}</label>
-                  <select value={promoFormData.free_item_id || ''} onChange={(e) => setPromoFormData({...promoFormData, free_item_id: parseInt(e.target.value)})} style={inputStyle}>
-                    <option value="">{translate('select_item')}</option>
-                    {availableMenuItems.map(item => (<option key={item.id} value={item.id}>{item.name} (RM {item.price})</option>))}
-                  </select>
-                </>
-              )}
-              {(promoFormData.type === 'set_menu' || promoFormData.type === 'bundle') && (
-                <>
-                  <div style={{ fontSize: '12px', color: textMuted, marginBottom: '8px' }}>
-                    {availableMenuItems.length > 0 ? `📋 ${availableMenuItems.length} ${translate('items_available')}` : `⚠️ ${translate('no_items_available')}`}
-                  </div>
-                  <div style={{ maxHeight: '150px', overflowY: 'auto', border: `1px solid ${inputBorder}`, borderRadius: '12px', padding: '8px', background: inputBg, marginBottom: '12px' }}>
-                    {availableMenuItems.map(item => (
-                      <label key={item.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '6px 8px', borderRadius: '6px', cursor: 'pointer', color: textColor, borderBottom: `1px solid ${borderColor}` }}>
-                        <input type="checkbox" checked={promoFormData.selected_bundle_items.includes(item.id)} onChange={(e) => {
-                          if (e.target.checked) {
-                            setPromoFormData({...promoFormData, selected_bundle_items: [...promoFormData.selected_bundle_items, item.id]})
-                          } else {
-                            setPromoFormData({...promoFormData, selected_bundle_items: promoFormData.selected_bundle_items.filter(id => id !== item.id)})
-                          }
-                        }} style={{ width: '18px', height: '18px', cursor: 'pointer' }} />
-                        <span style={{ fontSize: '14px' }}>{item.name} <span style={{ color: '#22c55e', fontWeight: 'bold' }}>(RM {item.price})</span></span>
-                      </label>
-                    ))}
-                  </div>
-                  <label style={labelStyle}>{translate('promo_price')}</label>
-                  <input type="number" step="0.01" placeholder={translate('promo_price')} value={promoFormData.bundle_price} onChange={(e) => setPromoFormData({...promoFormData, bundle_price: e.target.value})} style={inputStyle} />
-                </>
-              )}
-              <label style={labelStyle}>{translate('start_date')}</label>
-              <input type="date" value={promoFormData.start_date} onChange={(e) => setPromoFormData({...promoFormData, start_date: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('end_date')}</label>
-              <input type="date" value={promoFormData.end_date} onChange={(e) => setPromoFormData({...promoFormData, end_date: e.target.value})} style={inputStyle} />
-              <label style={labelStyle}>{translate('promo_image')}</label>
-              <input type="file" accept="image/*" onChange={(e) => setPromoFormData({...promoFormData, image_file: e.target.files[0]})} style={inputStyle} />
-              {promoFormData.image_url && !promoFormData.image_file && <img src={promoFormData.image_url} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              {promoFormData.image_file && <img src={URL.createObjectURL(promoFormData.image_file)} alt="Preview" style={{width:'80px',height:'80px',objectFit:'cover',borderRadius:'8px',marginBottom:'12px'}} />}
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button onClick={() => setShowEditPromoModal(false)} style={buttonSecondaryStyle}>{translate('cancel')}</button>
-                <button onClick={updatePromotion} style={buttonPrimaryStyle}>{translate('save')}</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* SIZE OPTIONS MODAL */}
-        {showOptionsModal && selectedMenuForOptions && (
-          <div style={modalOverlayStyle}>
-            <div style={{ ...modalContentStyle, maxWidth: isMobile ? '95%' : '500px' }}>
-              <h3 style={modalTitleStyle}>{translate('size_options')} - {selectedMenuForOptions.name}</h3>
-              <div style={{ marginBottom: '16px' }}>
-                <h4 style={{ color: textColor, marginBottom: '8px' }}>{editingOption ? translate('edit_size') : translate('add_size')}</h4>
-                <label style={labelStyle}>{translate('size_name')} *</label>
-                <input type="text" placeholder={translate('size_name')} value={optionForm.option_name} onChange={(e) => setOptionForm({...optionForm, option_name: e.target.value})} style={inputStyle} />
-                <label style={labelStyle}>{translate('size_price')} *</label>
-                <input type="number" step="0.01" placeholder={translate('size_price')} value={optionForm.price_adjustment} onChange={(e) => setOptionForm({...optionForm, price_adjustment: e.target.value})} style={inputStyle} />
-                <label style={labelStyle}>{translate('stock_qty')}</label>
-                <input type="number" placeholder={translate('stock_qty')} value={optionForm.stock} onChange={(e) => setOptionForm({...optionForm, stock: parseInt(e.target.value) || 0})} style={inputStyle} />
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '12px' }}>
-                  <label style={{ color: textColor }}><input type="checkbox" checked={optionForm.is_absolute_price} onChange={(e) => setOptionForm({...optionForm, is_absolute_price: e.target.checked})} /> {translate('absolute_price')}</label>
-                </div>
-                <button onClick={editingOption ? updateMenuOption : addMenuOption} style={buttonPrimaryStyle}>{editingOption ? translate('save') : translate('add')}</button>
-              </div>
-              <div>
-                <h4 style={{ color: textColor, marginBottom: '8px' }}>{translate('size_list')}</h4>
-                {menuOptions.length === 0 ? (<p style={{ color: textMuted }}>{translate('no_sizes')}</p>) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {menuOptions.map(opt => {
-                      const stockColor = (opt.stock || 0) <= 0 ? '#ef4444' : (opt.stock || 0) <= 10 ? '#f59e0b' : '#22c55e'
-                      return (
-                        <div key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: secondaryBg, borderRadius: '8px', border: `1px solid ${borderColor}` }}>
-                          <span style={{ color: textColor }}>{opt.option_name} - RM {opt.price_adjustment} {opt.is_absolute_price ? ' (Absolute)' : ' (Adjustment)'}<span style={{ marginLeft: '10px', background: stockColor, color: 'white', padding: '2px 10px', borderRadius: '12px', fontSize: '10px', fontWeight: 'bold', display: 'inline-block' }}>📦 {translate('stock')}: {opt.stock || 0}</span></span>
-                          <div style={{ display: 'flex', gap: '6px' }}>
-                            <button onClick={() => openEditOption(opt)} style={{ background: '#f59e0b', color: 'white', padding: '2px 10px', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '11px' }}>✏️</button>
-                            <button onClick={() => deleteMenuOption(opt.id)} style={{ background: '#ef4444', color: 'white', padding: '2px 10px', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '11px' }}>🗑️</button>
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-              <div style={{ marginTop: '16px' }}>
-                <button onClick={() => { setShowOptionsModal(false); setEditingOption(null); setOptionForm({ option_name: '', price_adjustment: '', is_absolute_price: true, sort_order: 0, stock: 0 }) }} style={buttonSecondaryStyle}>{translate('close')}</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ADD-ON MANAGEMENT MODAL */}
-        {showAddonModal && selectedMenuForAddon && (
-          <div style={modalOverlayStyle}>
-            <div style={{ ...modalContentStyle, maxWidth: isMobile ? '95%' : '500px' }}>
-              <h3 style={modalTitleStyle}>✨ {translate('manage_addons')} - {selectedMenuForAddon.name}</h3>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', background: secondaryBg, borderRadius: '12px', marginBottom: '16px', border: `1px solid ${borderColor}` }}>
-                <span style={{ fontWeight: 'bold', color: textColor }}>{translate('enable_addons')}</span>
-                <label style={{ position: 'relative', display: 'inline-block', width: '52px', height: '26px' }}>
-                  <input type="checkbox" checked={selectedMenuForAddon.has_addons || false} onChange={() => toggleAddonsEnabled(selectedMenuForAddon.id, selectedMenuForAddon.has_addons)} style={{ opacity: 0, width: 0, height: 0 }} />
-                  <span style={{ position: 'absolute', cursor: 'pointer', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: selectedMenuForAddon.has_addons ? '#22c55e' : '#64748b', transition: '.3s', borderRadius: '34px' }}>
-                    <span style={{ position: 'absolute', height: '20px', width: '20px', left: '3px', bottom: '3px', backgroundColor: 'white', transition: '.3s', borderRadius: '50%', transform: selectedMenuForAddon.has_addons ? 'translateX(26px)' : 'none' }} />
-                  </span>
-                </label>
-              </div>
-              <div style={{ marginBottom: '16px' }}>
-                <h4 style={{ color: textColor, marginBottom: '8px' }}>{translate('addon_list')} ({menuAddons.length})</h4>
-                {menuAddons.length === 0 ? (
-                  <p style={{ color: textMuted, textAlign: 'center', padding: '20px', background: secondaryBg, borderRadius: '8px' }}>
-                    {selectedMenuForAddon.has_addons ? 'Tiada add-on. Tambah di bawah.' : 'Aktifkan add-on terlebih dahulu'}
-                  </p>
-                ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                    {menuAddons.map(addon => (
-                      <div key={addon.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: secondaryBg, borderRadius: '8px', border: `1px solid ${borderColor}` }}>
-                        <div>
-                          <span style={{ color: textColor, fontWeight: 'bold' }}>{addon.name}</span>
-                          <span style={{ color: priceColor, marginLeft: '8px', fontSize: '13px' }}>+RM {parseFloat(addon.price).toFixed(2)}</span>
-                          <span style={{ fontSize: '10px', color: textMuted, marginLeft: '8px', background: darkMode ? 'rgba(255,255,255,0.05)' : '#f1f5f9', padding: '1px 8px', borderRadius: '10px' }}>{addon.category || 'Topping'}</span>
-                        </div>
-                        <div style={{ display: 'flex', gap: '6px' }}>
-                          <button onClick={() => { setEditingAddon(addon); setAddonForm({ name: addon.name, price: addon.price, category: addon.category || 'Topping' }) }} style={{ background: '#f59e0b', color: 'white', padding: '2px 10px', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '11px' }}>✏️</button>
-                          <button onClick={() => deleteAddon(addon.id)} style={{ background: '#ef4444', color: 'white', padding: '2px 10px', border: 'none', borderRadius: '12px', cursor: 'pointer', fontSize: '11px' }}>🗑️</button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              <div style={{ borderTop: `1px solid ${borderColor}`, paddingTop: '14px' }}>
-                <h4 style={{ color: textColor, marginBottom: '8px' }}>{editingAddon ? translate('edit_addon') : translate('add_new_addon')}</h4>
-                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                  <input type="text" placeholder={translate('addon_name')} value={addonForm.name} onChange={(e) => setAddonForm({...addonForm, name: e.target.value})} style={{ flex: 2, padding: '8px 12px', borderRadius: '10px', border: `1px solid ${borderColor}`, background: inputBg, color: textColor, outline: 'none', fontSize: '13px', minWidth: '120px' }} />
-                  <input type="number" step="0.01" placeholder={translate('addon_price')} value={addonForm.price} onChange={(e) => setAddonForm({...addonForm, price: e.target.value})} style={{ flex: 1, padding: '8px 12px', borderRadius: '10px', border: `1px solid ${borderColor}`, background: inputBg, color: textColor, outline: 'none', fontSize: '13px', minWidth: '80px' }} />
-                  <select value={addonForm.category} onChange={(e) => setAddonForm({...addonForm, category: e.target.value})} style={{ flex: 1, padding: '8px 12px', borderRadius: '10px', border: `1px solid ${borderColor}`, background: inputBg, color: textColor, outline: 'none', fontSize: '13px', minWidth: '80px' }}>
-                    <option value="Topping">Topping</option><option value="Extra">Extra</option><option value="Level">Level</option><option value="Drink">Drink</option>
-                  </select>
-                  <button onClick={editingAddon ? updateAddon : addAddon} disabled={!selectedMenuForAddon.has_addons} style={{ padding: '8px 20px', background: !selectedMenuForAddon.has_addons ? '#94a3b8' : 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', border: 'none', borderRadius: '10px', cursor: !selectedMenuForAddon.has_addons ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-                    {editingAddon ? '💾 Update' : '➕ Tambah'}
-                  </button>
-                  {editingAddon && (
-                    <button onClick={() => { setEditingAddon(null); setAddonForm({ name: '', price: '', category: 'Topping' }) }} style={{ padding: '8px 16px', background: '#64748b', color: 'white', border: 'none', borderRadius: '10px', cursor: 'pointer', fontSize: '13px' }}>✕ Batal</button>
-                  )}
-                </div>
-              </div>
-              <div style={{ marginTop: '16px' }}>
-                <button onClick={() => { setShowAddonModal(false); setSelectedMenuForAddon(null); setMenuAddons([]); setEditingAddon(null); setAddonForm({ name: '', price: '', category: 'Topping' }) }} style={buttonSecondaryStyle}>{translate('close')}</button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ===== STYLES ===== */}
         <style>
           {`
             .spinner { 

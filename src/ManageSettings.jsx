@@ -5,6 +5,17 @@ import Sidebar from './components/Sidebar'
 import { supabase } from './lib/supabase'
 import toast from 'react-hot-toast'
 
+// ===== IMPORT SYSTEM LOGS =====
+import { 
+  logActivity, 
+  getLogs, 
+  clearLogs, 
+  exportLogsToCSV,
+  getActionLabel,
+  getActionIcon,
+  LOG_ACTIONS 
+} from './utils/systemLogs'
+
 function ManageSettings() {
   const { language, setLanguage, t } = useLanguage()
   const { darkMode } = useTheme()
@@ -58,6 +69,44 @@ function ManageSettings() {
   const [uploadingLogo, setUploadingLogo] = useState(false)
   const [kitchenEnabled, setKitchenEnabled] = useState(true)
   const [testingTelegram, setTestingTelegram] = useState(false)
+
+  // ===== SYSTEM LOGS STATE =====
+  const [logs, setLogs] = useState([])
+  const [logsLoading, setLogsLoading] = useState(false)
+  const [logsCount, setLogsCount] = useState(0)
+  const [logsPage, setLogsPage] = useState(1)
+  const [logsLimit] = useState(50)
+  const [logsSearch, setLogsSearch] = useState('')
+  const [logsActionFilter, setLogsActionFilter] = useState('')
+  const [logsUsernameFilter, setLogsUsernameFilter] = useState('')
+  const [logsDateFrom, setLogsDateFrom] = useState('')
+  const [logsDateTo, setLogsDateTo] = useState('')
+  const [logsExporting, setLogsExporting] = useState(false)
+
+  // ===== RECEIPT SETTINGS STATE =====
+  const [receiptSettings, setReceiptSettings] = useState({
+    receipt_company_name: 'Restoran FullamakSUP',
+    receipt_company_address: 'No. 123, Jalan Contoh',
+    receipt_company_phone: '012-3456789',
+    receipt_header: 'Terima Kasih!',
+    receipt_footer: 'Sila datang lagi',
+    receipt_thank_you: 'Terima Kasih!',
+    receipt_show_logo: true,
+    receipt_show_qr: true,
+    receipt_show_items: true,
+    receipt_show_tax: true,
+    receipt_show_service: true,
+    receipt_paper_size: '58mm',
+    receipt_font_size: 'normal',
+    receipt_logo_size: 'medium',
+  })
+  
+  // ===== RECEIPT LOGO STATE =====
+  const [receiptLogoUrl, setReceiptLogoUrl] = useState('')
+  const [uploadingReceiptLogo, setUploadingReceiptLogo] = useState(false)
+  
+  const [receiptLoading, setReceiptLoading] = useState(false)
+  const [receiptPreview, setReceiptPreview] = useState('')
 
   // Theme colors
   const bgColor = darkMode ? '#0f0f1a' : '#f1f5f9'
@@ -144,7 +193,20 @@ function ManageSettings() {
 
   useEffect(() => {
     loadSettings()
+    loadReceiptSettings()
   }, [])
+
+  // ===== LOAD LOGS WHEN TAB CHANGES =====
+  useEffect(() => {
+    if (activeTab === 'logs') {
+      loadLogs()
+    }
+  }, [activeTab, logsPage, logsSearch, logsActionFilter, logsUsernameFilter, logsDateFrom, logsDateTo])
+
+  // ===== GENERATE RECEIPT PREVIEW ON SETTINGS CHANGE =====
+  useEffect(() => {
+    generateReceiptPreview()
+  }, [receiptSettings, receiptLogoUrl])
 
   async function loadSettings() {
     setLoading(true)
@@ -171,6 +233,192 @@ function ManageSettings() {
     setLoading(false)
   }
 
+  // ============================================================
+  // RECEIPT FUNCTIONS
+  // ============================================================
+  async function loadReceiptSettings() {
+    try {
+      // Load receipt settings
+      const { data, error } = await supabase
+        .from('settings')
+        .select('key, value')
+        .like('key', 'receipt_%')
+
+      if (error) {
+        console.error('Error loading receipt settings:', error)
+        return
+      }
+
+      if (data && data.length > 0) {
+        const newSettings = { ...receiptSettings }
+        data.forEach(item => {
+          const key = item.key.replace('receipt_', '')
+          if (['show_logo', 'show_qr', 'show_items', 'show_tax', 'show_service'].includes(key)) {
+            newSettings[`receipt_${key}`] = item.value === 'true'
+          } else {
+            newSettings[`receipt_${key}`] = item.value
+          }
+        })
+        setReceiptSettings(newSettings)
+      }
+      
+      // Load receipt logo
+      const { data: logoData } = await supabase
+        .from('settings')
+        .select('value')
+        .eq('key', 'receipt_logo_url')
+        .single()
+      
+      if (logoData && logoData.value) {
+        setReceiptLogoUrl(logoData.value)
+      }
+      
+    } catch (err) {
+      console.error('Error loading receipt settings:', err)
+    }
+  }
+
+  async function saveReceiptSettings() {
+    setReceiptLoading(true)
+    try {
+      const updates = Object.entries(receiptSettings).map(([key, value]) => ({
+        key: key,
+        value: typeof value === 'boolean' ? value.toString() : value
+      }))
+
+      let hasError = false
+      for (const update of updates) {
+        const { error } = await supabase
+          .from('settings')
+          .upsert({ key: update.key, value: update.value }, { onConflict: 'key' })
+        if (error) {
+          console.error('Error saving:', update.key, error)
+          hasError = true
+        }
+      }
+
+      if (hasError) {
+        toast.error(language === 'bm' ? '❌ Gagal simpan tetapan resit' : '❌ Failed to save receipt settings')
+      } else {
+        toast.success(language === 'bm' ? '✅ Tetapan resit disimpan!' : '✅ Receipt settings saved!')
+        await logActivity(LOG_ACTIONS.SETTING_BULK_UPDATE, 'Receipt settings updated', 'System')
+      }
+    } catch (err) {
+      toast.error('❌ ' + err.message)
+    }
+    setReceiptLoading(false)
+  }
+
+  // ===== UPLOAD RECEIPT LOGO =====
+  async function uploadReceiptLogo(file) {
+    if (!file) return
+    setUploadingReceiptLogo(true)
+    
+    const fileName = `receipt-logo-${Date.now()}.${file.name.split('.').pop()}`
+    const { error } = await supabase.storage.from('restaurant-logos').upload(fileName, file)
+    
+    if (error) {
+      console.error('Upload error:', error)
+      toast.error('❌ Gagal upload logo resit')
+      setUploadingReceiptLogo(false)
+      return
+    }
+    
+    const { data: urlData } = supabase.storage.from('restaurant-logos').getPublicUrl(fileName)
+    const logoUrl = urlData.publicUrl
+    
+    await supabase.from('settings').upsert({ 
+      key: 'receipt_logo_url', 
+      value: logoUrl 
+    }, { onConflict: 'key' })
+    
+    setReceiptLogoUrl(logoUrl)
+    toast.success('✅ Logo resit berjaya dimuat naik!')
+    await logActivity(LOG_ACTIONS.SETTING_CHANGE, 'Receipt logo uploaded', 'System')
+    setUploadingReceiptLogo(false)
+  }
+
+  async function deleteReceiptLogo() {
+    if (!receiptLogoUrl) return
+    if (!window.confirm('Padam logo resit?')) return
+    
+    const fileName = receiptLogoUrl.split('/').pop()
+    await supabase.storage.from('restaurant-logos').remove([fileName])
+    await supabase.from('settings').upsert({ 
+      key: 'receipt_logo_url', 
+      value: '' 
+    }, { onConflict: 'key' })
+    
+    setReceiptLogoUrl('')
+    toast.success('✅ Logo resit dipadam')
+    await logActivity(LOG_ACTIONS.DATA_DELETE, 'Receipt logo deleted', 'System')
+  }
+
+  function generateReceiptPreview() {
+    const {
+      receipt_company_name,
+      receipt_company_address,
+      receipt_company_phone,
+      receipt_header,
+      receipt_footer,
+      receipt_thank_you,
+      receipt_show_logo,
+      receipt_show_qr,
+      receipt_show_items,
+      receipt_show_tax,
+      receipt_show_service,
+      receipt_paper_size,
+      receipt_font_size,
+    } = receiptSettings
+
+    const isLarge = receipt_paper_size === '80mm'
+    const lineLength = isLarge ? 48 : 32
+    const line = '─'.repeat(lineLength)
+    const doubleLine = '═'.repeat(lineLength)
+    
+    // Logo - use receipt logo if exists
+    const logoLine = receipt_show_logo && receiptLogoUrl 
+      ? `  🖼️ [LOGO]` 
+      : receipt_show_logo ? '  🏪' : ''
+
+    const preview = `
+${doubleLine}
+${logoLine}
+  ${receipt_company_name}
+  ${receipt_company_address}
+  Tel: ${receipt_company_phone}
+${line}
+  Date: ${new Date().toLocaleDateString()}  ${new Date().toLocaleTimeString()}
+  Order: #ORD-12345
+  Table: 5
+  Staff: Ahmad
+${line}
+
+  Item          Qty    Price    Total
+  ───────────────────────────────────
+  Nasi Lemak     2     RM 6.00  RM12.00
+  Teh Tarik      1     RM 3.00  RM 3.00
+  Roti Canai     1     RM 2.50  RM 2.50
+${line}
+${receipt_show_items ? `                  Subtotal:  RM17.50` : ''}
+${receipt_show_service ? `                  Service:    RM 1.05 (6%)` : ''}
+${receipt_show_tax ? `                  Tax:        RM 1.05 (6%)` : ''}
+${line}
+                  TOTAL:      RM19.60
+${line}
+  Payment: Cash
+  Amount:  RM20.00
+  Change:  RM 0.40
+${doubleLine}
+  ${receipt_header}
+  ${receipt_thank_you}
+  ${receipt_footer}
+${receipt_show_qr ? '  [QR Code]' : ''}
+${doubleLine}`
+
+    setReceiptPreview(preview)
+  }
+
   async function uploadLogo(file) {
     if (!file) return
     setUploadingLogo(true)
@@ -187,6 +435,7 @@ function ManageSettings() {
     await supabase.from('settings').upsert({ key: 'logo_url', value: logoUrl }, { onConflict: 'key' })
     setSettings(prev => ({ ...prev, logo_url: logoUrl }))
     setMessage('✅ ' + t('logo_uploaded'))
+    await logActivity(LOG_ACTIONS.SETTING_CHANGE, 'Logo uploaded', 'System')
     setTimeout(() => setMessage(''), 3000)
     setUploadingLogo(false)
   }
@@ -199,14 +448,14 @@ function ManageSettings() {
     await supabase.from('settings').upsert({ key: 'logo_url', value: '' }, { onConflict: 'key' })
     setSettings(prev => ({ ...prev, logo_url: '' }))
     setMessage('✅ ' + t('logo_deleted'))
+    await logActivity(LOG_ACTIONS.DATA_DELETE, 'Logo deleted', 'System')
     setTimeout(() => setMessage(''), 3000)
   }
 
   // ============================================================
-  // TELEGRAM TEST FUNCTION - DIRECT CALL (NO BACKEND NEEDED)
+  // TELEGRAM TEST FUNCTION
   // ============================================================
   async function testTelegram() {
-    // Check if token and chat ID are filled
     if (!settings.telegram_bot_token || !settings.telegram_chat_id) {
       toast.error(
         language === 'bm' 
@@ -219,12 +468,10 @@ function ManageSettings() {
     setTestingTelegram(true)
     
     try {
-      // Build message
       const message = language === 'bm' 
         ? '✅ Ujian notifikasi daripada KedaiPOS! Bot berfungsi dengan baik.' 
         : '✅ Test notification from KedaiPOS! Bot is working properly.'
       
-      // Direct call to Telegram API (NO BACKEND NEEDED)
       const url = `https://api.telegram.org/bot${settings.telegram_bot_token}/sendMessage?chat_id=${settings.telegram_chat_id}&text=${encodeURIComponent(message)}`
       
       const response = await fetch(url)
@@ -236,34 +483,15 @@ function ManageSettings() {
             ? '✅ Notifikasi berjaya dihantar ke Telegram!' 
             : '✅ Notification sent to Telegram successfully!'
         )
+        await logActivity(LOG_ACTIONS.TELEGRAM_TEST, 'Telegram test sent successfully', 'System')
       } else {
-        // Show specific error from Telegram
         let errorMessage = result.description || 'Unknown error'
-        
-        // Friendly error messages
-        if (errorMessage.includes('bot token')) {
-          errorMessage = language === 'bm' 
-            ? 'Token bot tidak sah. Sila semak semula.' 
-            : 'Invalid bot token. Please check.'
-        } else if (errorMessage.includes('chat not found')) {
-          errorMessage = language === 'bm' 
-            ? 'Chat ID tidak dijumpai. Sila semak semula.' 
-            : 'Chat ID not found. Please check.'
-        } else if (errorMessage.includes('bot was blocked')) {
-          errorMessage = language === 'bm' 
-            ? 'Bot telah disekat oleh pengguna. Sila mula semula.' 
-            : 'Bot was blocked by user. Please restart.'
-        } else if (errorMessage.includes('chat_id is empty')) {
-          errorMessage = language === 'bm' 
-            ? 'Chat ID kosong. Sila isi Chat ID.' 
-            : 'Chat ID is empty. Please fill in Chat ID.'
-        }
-        
         toast.error(
           language === 'bm' 
             ? `❌ Gagal: ${errorMessage}` 
             : `❌ Failed: ${errorMessage}`
         )
+        await logActivity(LOG_ACTIONS.TELEGRAM_TEST, `Telegram test failed: ${errorMessage}`, 'System')
       }
     } catch (error) {
       console.error('Telegram test error:', error)
@@ -272,6 +500,7 @@ function ManageSettings() {
           ? `❌ Ralat sambungan: ${error.message}` 
           : `❌ Connection error: ${error.message}`
       )
+      await logActivity(LOG_ACTIONS.TELEGRAM_TEST, `Telegram test error: ${error.message}`, 'System')
     }
     
     setTestingTelegram(false)
@@ -300,7 +529,6 @@ function ManageSettings() {
         { key: 'auto_complete_enabled', value: settings.auto_complete_enabled.toString() },
         { key: 'auto_complete_minutes', value: settings.auto_complete_minutes.toString() },
         { key: 'auto_print_customer_order', value: settings.auto_print_customer_order.toString() },
-        // Telegram Settings
         { key: 'telegram_enabled', value: settings.telegram_enabled.toString() },
         { key: 'telegram_bot_token', value: settings.telegram_bot_token },
         { key: 'telegram_chat_id', value: settings.telegram_chat_id },
@@ -312,6 +540,9 @@ function ManageSettings() {
         const { error } = await supabase.from('settings').upsert({ key: update.key, value: update.value }, { onConflict: 'key' })
         if (error) { console.error('Error saving:', update.key, error); hasError = true }
       }
+      
+      await logActivity(LOG_ACTIONS.SETTING_BULK_UPDATE, 'Settings updated', 'System')
+      
       if (hasError) {
         setMessage('❌ ' + t('save_error'))
       } else {
@@ -328,104 +559,182 @@ function ManageSettings() {
   const updateSetting = (key, value) => { setSettings(prev => ({ ...prev, [key]: value })) }
 
   // ============================================================
+  // SYSTEM LOGS FUNCTIONS
+  // ============================================================
+  async function loadLogs() {
+    setLogsLoading(true)
+    try {
+      const { data, count, error } = await getLogs({
+        page: logsPage,
+        limit: logsLimit,
+        search: logsSearch,
+        action: logsActionFilter,
+        username: logsUsernameFilter,
+        dateFrom: logsDateFrom,
+        dateTo: logsDateTo,
+      })
+      
+      if (!error) {
+        setLogs(data || [])
+        setLogsCount(count || 0)
+      }
+    } catch (error) {
+      console.error('Error loading logs:', error)
+      toast.error(language === 'bm' ? '❌ Gagal memuatkan log' : '❌ Failed to load logs')
+    }
+    setLogsLoading(false)
+  }
+
+  async function handleClearLogs() {
+    const confirmMsg = language === 'bm' 
+      ? '⚠️ Padam semua log aktiviti?\n\nTindakan ini tidak boleh dibatalkan!'
+      : '⚠️ Delete all activity logs?\n\nThis action cannot be undone!'
+    
+    if (!window.confirm(confirmMsg)) return
+
+    const { error } = await clearLogs()
+    if (error) {
+      toast.error(language === 'bm' ? '❌ Gagal memadam log' : '❌ Failed to clear logs')
+    } else {
+      toast.success(language === 'bm' ? '✅ Semua log dipadam' : '✅ All logs cleared')
+      await logActivity(LOG_ACTIONS.DATA_DELETE, 'Cleared all system logs', 'System')
+      await loadLogs()
+    }
+  }
+
+  async function handleExportLogs() {
+    setLogsExporting(true)
+    try {
+      const { data } = await getLogs({
+        page: 1,
+        limit: 10000,
+        search: logsSearch,
+        action: logsActionFilter,
+        username: logsUsernameFilter,
+        dateFrom: logsDateFrom,
+        dateTo: logsDateTo,
+      })
+
+      const csvContent = await exportLogsToCSV(data || [])
+      if (!csvContent) {
+        toast.info(language === 'bm' ? 'ℹ️ Tiada log untuk dieksport' : 'ℹ️ No logs to export')
+        setLogsExporting(false)
+        return
+      }
+
+      const blob = new Blob([csvContent], { type: 'text/csv' })
+      const link = document.createElement('a')
+      link.href = URL.createObjectURL(blob)
+      link.download = `system_logs_${new Date().toISOString().split('T')[0]}.csv`
+      link.click()
+      URL.revokeObjectURL(link.href)
+
+      toast.success(language === 'bm' ? '✅ Log dieksport!' : '✅ Logs exported!')
+      await logActivity(LOG_ACTIONS.DATA_EXPORT, 'Exported system logs to CSV', 'System')
+    } catch (error) {
+      console.error('Export error:', error)
+      toast.error(language === 'bm' ? '❌ Gagal eksport log' : '❌ Failed to export logs')
+    }
+    setLogsExporting(false)
+  }
+
+  // ============================================================
   // DELETE DATA FUNCTIONS
   // ============================================================
-
-  // 1. Delete All Orders
   async function deleteAllOrders() {
     try {
-      const { error } = await supabase.from('customer_orders').delete().neq('id', 0)
+      const { data, error } = await supabase.from('customer_orders').delete().neq('id', 0)
       if (error) throw error
       toast.success(language === 'bm' ? '✅ Semua pesanan dipadam!' : '✅ All orders deleted!')
+      await logActivity(LOG_ACTIONS.DATA_DELETE, `Deleted ${data?.length || 0} orders`, 'System')
       setShowConfirmModal(null)
     } catch (error) {
       toast.error('❌ ' + error.message)
     }
   }
 
-  // 2. Delete All Menu
   async function deleteAllMenu() {
     try {
-      const { error } = await supabase.from('menu').delete().neq('id', 0)
+      const { data, error } = await supabase.from('menu').delete().neq('id', 0)
       if (error) throw error
       await supabase.from('drink_options').delete().neq('id', 0)
       await supabase.from('menu_options').delete().neq('id', 0)
       toast.success(language === 'bm' ? '✅ Semua menu dipadam!' : '✅ All menu deleted!')
+      await logActivity(LOG_ACTIONS.DATA_DELETE, `Deleted ${data?.length || 0} menu items`, 'System')
       setShowConfirmModal(null)
     } catch (error) {
       toast.error('❌ ' + error.message)
     }
   }
 
-  // 3. Delete All Categories
   async function deleteAllCategories() {
     try {
-      const { error } = await supabase.from('categories').delete().neq('id', 0)
+      const { data, error } = await supabase.from('categories').delete().neq('id', 0)
       if (error) throw error
       toast.success(language === 'bm' ? '✅ Semua kategori dipadam!' : '✅ All categories deleted!')
+      await logActivity(LOG_ACTIONS.DATA_DELETE, `Deleted ${data?.length || 0} categories`, 'System')
       setShowConfirmModal(null)
     } catch (error) {
       toast.error('❌ ' + error.message)
     }
   }
 
-  // 4. Delete All Customers
   async function deleteAllCustomers() {
     try {
-      const { error } = await supabase.from('customers').delete().neq('id', 0)
+      const { data, error } = await supabase.from('customers').delete().neq('id', 0)
       if (error) throw error
       toast.success(language === 'bm' ? '✅ Semua pelanggan dipadam!' : '✅ All customers deleted!')
+      await logActivity(LOG_ACTIONS.DATA_DELETE, `Deleted ${data?.length || 0} customers`, 'System')
       setShowConfirmModal(null)
     } catch (error) {
       toast.error('❌ ' + error.message)
     }
   }
 
-  // 5. Delete All Staff
   async function deleteAllStaff() {
     try {
       let error = null
-      const { error: err1 } = await supabase.from('profiles').delete().neq('username', 'admin')
+      const { data: data1, error: err1 } = await supabase.from('profiles').delete().neq('username', 'admin')
       if (err1) {
-        const { error: err2 } = await supabase.from('users').delete().neq('username', 'admin')
+        const { data: data2, error: err2 } = await supabase.from('users').delete().neq('username', 'admin')
         if (err2) {
-          const { error: err3 } = await supabase.from('staff').delete().neq('username', 'admin')
+          const { data: data3, error: err3 } = await supabase.from('staff').delete().neq('username', 'admin')
           if (err3) error = err3
         }
       }
       if (error) throw error
       toast.success(language === 'bm' ? '✅ Semua staff dipadam!' : '✅ All staff deleted!')
+      await logActivity(LOG_ACTIONS.DATA_DELETE, 'Deleted all staff (except admin)', 'System')
       setShowConfirmModal(null)
     } catch (error) {
       toast.error('❌ ' + error.message)
     }
   }
 
-  // 6. Delete All Tables
   async function deleteAllTables() {
     try {
-      const { error } = await supabase.from('tables').delete().neq('id', 0)
+      const { data, error } = await supabase.from('tables').delete().neq('id', 0)
       if (error) throw error
       toast.success(language === 'bm' ? '✅ Semua meja dipadam!' : '✅ All tables deleted!')
+      await logActivity(LOG_ACTIONS.DATA_DELETE, `Deleted ${data?.length || 0} tables`, 'System')
       setShowConfirmModal(null)
     } catch (error) {
       toast.error('❌ ' + error.message)
     }
   }
 
-  // 7. Delete All Payments
   async function deleteAllPayments() {
     try {
-      const { error } = await supabase.from('payments').delete().neq('id', 0)
+      const { data, error } = await supabase.from('payments').delete().neq('id', 0)
       if (error) throw error
       toast.success(language === 'bm' ? '✅ Semua pembayaran dipadam!' : '✅ All payments deleted!')
+      await logActivity(LOG_ACTIONS.DATA_DELETE, `Deleted ${data?.length || 0} payments`, 'System')
       setShowConfirmModal(null)
     } catch (error) {
       toast.error('❌ ' + error.message)
     }
   }
 
-  // 8. Reset All Settings
   async function deleteAllSettings() {
     try {
       const defaultSettings = [
@@ -461,6 +770,7 @@ function ManageSettings() {
       }
       
       toast.success(language === 'bm' ? '✅ Semua tetapan direset ke default!' : '✅ All settings reset to default!')
+      await logActivity(LOG_ACTIONS.SETTING_BULK_UPDATE, 'Settings reset to default', 'System')
       setShowConfirmModal(null)
       await loadSettings()
     } catch (error) {
@@ -468,23 +778,22 @@ function ManageSettings() {
     }
   }
 
-  // 9. Delete All Logs
   async function deleteAllLogs() {
     try {
-      const { error } = await supabase.from('system_logs').delete().neq('id', 0)
+      const { data, error } = await supabase.from('system_logs').delete().neq('id', 0)
       if (error) {
         toast.info(language === 'bm' ? 'ℹ️ Tiada log untuk dipadam' : 'ℹ️ No logs to delete')
         setShowConfirmModal(null)
         return
       }
       toast.success(language === 'bm' ? '✅ Semua log dipadam!' : '✅ All logs deleted!')
+      await logActivity(LOG_ACTIONS.DATA_DELETE, `Deleted ${data?.length || 0} logs`, 'System')
       setShowConfirmModal(null)
     } catch (error) {
       toast.error('❌ ' + error.message)
     }
   }
 
-  // 10. Reset ALL Data
   async function resetAllData() {
     try {
       const tables = ['customer_orders', 'menu', 'categories', 'tables', 'customers', 'payments']
@@ -527,6 +836,7 @@ function ManageSettings() {
       }
       
       toast.success(language === 'bm' ? '✅ Semua data direset!' : '✅ All data reset!')
+      await logActivity(LOG_ACTIONS.DATA_DELETE, 'Reset ALL data', 'System')
       setShowConfirmModal(null)
       setTimeout(() => window.location.reload(), 1500)
     } catch (error) {
@@ -727,10 +1037,22 @@ function ManageSettings() {
             📱 {language === 'bm' ? 'Telegram' : 'Telegram'}
           </button>
           <button 
+            onClick={() => setActiveTab('receipt')}
+            style={tabButtonStyle(activeTab === 'receipt')}
+          >
+            🧾 {language === 'bm' ? 'Resit' : 'Receipt'}
+          </button>
+          <button 
             onClick={() => setActiveTab('data')}
             style={tabButtonStyle(activeTab === 'data')}
           >
             🗑️ {language === 'bm' ? 'Padam Data' : 'Delete Data'}
+          </button>
+          <button 
+            onClick={() => setActiveTab('logs')}
+            style={tabButtonStyle(activeTab === 'logs')}
+          >
+            📋 {language === 'bm' ? 'Log' : 'Logs'}
           </button>
         </div>
 
@@ -1118,7 +1440,7 @@ function ManageSettings() {
               {toggleSwitch(settings.telegram_enabled, (val) => updateSetting('telegram_enabled', val))}
             </SettingRow>
 
-            {/* Bot Token - Dengan Butang Clear */}
+            {/* Bot Token */}
             <SettingRow 
               icon="🤖" 
               label={language === 'bm' ? 'Bot Token' : 'Bot Token'}
@@ -1138,6 +1460,7 @@ function ManageSettings() {
                       if (window.confirm(language === 'bm' ? 'Padam token bot?' : 'Delete bot token?')) {
                         updateSetting('telegram_bot_token', '')
                         toast.success(language === 'bm' ? '✅ Token dipadam' : '✅ Token deleted')
+                        logActivity(LOG_ACTIONS.TELEGRAM_RESET, 'Bot token cleared', 'System')
                       }
                     }}
                     style={{
@@ -1157,7 +1480,7 @@ function ManageSettings() {
               </div>
             </SettingRow>
 
-            {/* Chat ID - Dengan Butang Clear */}
+            {/* Chat ID */}
             <SettingRow 
               icon="💬" 
               label={language === 'bm' ? 'Chat ID' : 'Chat ID'}
@@ -1177,6 +1500,7 @@ function ManageSettings() {
                       if (window.confirm(language === 'bm' ? 'Padam Chat ID?' : 'Delete Chat ID?')) {
                         updateSetting('telegram_chat_id', '')
                         toast.success(language === 'bm' ? '✅ Chat ID dipadam' : '✅ Chat ID deleted')
+                        logActivity(LOG_ACTIONS.TELEGRAM_RESET, 'Chat ID cleared', 'System')
                       }
                     }}
                     style={{
@@ -1214,20 +1538,6 @@ function ManageSettings() {
                     <li>{language === 'bm' ? 'Klik "Start" atau hantar /start' : 'Click "Start" or send /start'}</li>
                     <li>{language === 'bm' ? 'Bot akan tunjukkan ID anda - salin dan tampal di atas' : 'Bot will show your ID - copy and paste above'}</li>
                   </ol>
-                  <div style={{ 
-                    marginTop: '6px', 
-                    padding: '6px 10px', 
-                    background: darkMode ? 'rgba(255,255,255,0.05)' : 'white',
-                    borderRadius: '6px',
-                    border: `1px solid ${borderColor}`,
-                    fontFamily: 'monospace',
-                    fontSize: '11px',
-                    color: textMuted
-                  }}>
-                    💡 {language === 'bm' 
-                      ? 'Tip: Untuk group, tambah bot ke group dan guna @userinfobot' 
-                      : 'Tip: For groups, add bot to group and use @userinfobot'}
-                  </div>
                 </div>
               </div>
             </div>
@@ -1337,6 +1647,7 @@ function ManageSettings() {
                     updateSetting('telegram_notify_new_order', true)
                     updateSetting('telegram_notify_payment', true)
                     toast.success(language === 'bm' ? '✅ Semua tetapan Telegram direset' : '✅ All Telegram settings reset')
+                    logActivity(LOG_ACTIONS.TELEGRAM_RESET, 'All Telegram settings reset', 'System')
                   }
                 }}
                 style={{
@@ -1397,7 +1708,371 @@ function ManageSettings() {
         )}
 
         {/* ============================================================ */}
-        {/* TAB 3: DELETE DATA */}
+        {/* TAB 3: RECEIPT CUSTOMIZATION */}
+        {/* ============================================================ */}
+        {activeTab === 'receipt' && (
+          <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
+            
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px' }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                background: 'linear-gradient(135deg, #8b5cf6, #7c3aed)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '28px'
+              }}>
+                🧾
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: textColor, fontSize: '20px', fontWeight: 'bold' }}>
+                  {language === 'bm' ? 'Customize Resit' : 'Receipt Customization'}
+                </h3>
+                <p style={{ color: textMuted, marginTop: '4px', fontSize: '13px' }}>
+                  {language === 'bm' 
+                    ? 'Ubah rupa dan kandungan resit anda' 
+                    : 'Customize your receipt appearance and content'}
+                </p>
+              </div>
+            </div>
+
+            {/* ===== LOGO RESIT - TAMBAHAN BARU ===== */}
+            <div style={{ ...cardStyle, marginBottom: '16px' }}>
+              <div style={{ fontWeight: 'bold', color: textColor, marginBottom: '12px' }}>
+                🖼️ {language === 'bm' ? 'Logo Resit' : 'Receipt Logo'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                {receiptLogoUrl ? (
+                  <div style={{ position: 'relative' }}>
+                    <img 
+                      src={receiptLogoUrl} 
+                      alt="Receipt Logo" 
+                      style={{ 
+                        width: '80px', 
+                        height: '80px', 
+                        objectFit: 'contain', 
+                        borderRadius: '10px', 
+                        border: `1px solid ${borderColor}`,
+                        background: 'white',
+                        padding: '4px'
+                      }} 
+                    />
+                    <button 
+                      onClick={deleteReceiptLogo}
+                      style={{ 
+                        position: 'absolute', 
+                        top: '-8px', 
+                        right: '-8px', 
+                        background: danger, 
+                        color: 'white', 
+                        border: 'none', 
+                        borderRadius: '50%', 
+                        width: '22px', 
+                        height: '22px', 
+                        cursor: 'pointer',
+                        fontSize: '12px'
+                      }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ) : (
+                  <div style={{ 
+                    width: '80px', 
+                    height: '80px', 
+                    background: secondaryBg, 
+                    borderRadius: '10px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    border: `1px solid ${borderColor}`,
+                    fontSize: '32px'
+                  }}>
+                    🏪
+                  </div>
+                )}
+                <div>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={(e) => { if (e.target.files[0]) uploadReceiptLogo(e.target.files[0]) }} 
+                    style={{ display: 'none' }} 
+                    id="receipt-logo-upload" 
+                  />
+                  <label 
+                    htmlFor="receipt-logo-upload" 
+                    style={{ 
+                      display: 'inline-block', 
+                      background: primaryGradient, 
+                      color: 'white', 
+                      padding: '8px 18px', 
+                      borderRadius: '30px', 
+                      cursor: 'pointer', 
+                      fontSize: '12px', 
+                      fontWeight: 'bold' 
+                    }}
+                  >
+                    {uploadingReceiptLogo ? '⏳' : '📤 ' + (language === 'bm' ? 'Pilih Logo Resit' : 'Select Receipt Logo')}
+                  </label>
+                  <p style={{ fontSize: '10px', color: textMuted, marginTop: '4px' }}>
+                    {language === 'bm' ? 'Format: JPG, PNG (Saiz terbaik: 200x200px)' : 'Format: JPG, PNG (Best size: 200x200px)'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Settings Grid */}
+            <div style={{ 
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+              gap: '16px'
+            }}>
+              
+              {/* Company Info */}
+              <div style={{ ...cardStyle }}>
+                <div style={{ fontWeight: 'bold', color: textColor, marginBottom: '12px' }}>
+                  🏢 {language === 'bm' ? 'Maklumat Syarikat' : 'Company Info'}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', color: textMuted }}>{language === 'bm' ? 'Nama' : 'Name'}</label>
+                    <input 
+                      type="text"
+                      value={receiptSettings.receipt_company_name}
+                      onChange={(e) => setReceiptSettings({...receiptSettings, receipt_company_name: e.target.value})}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', color: textMuted }}>{language === 'bm' ? 'Alamat' : 'Address'}</label>
+                    <input 
+                      type="text"
+                      value={receiptSettings.receipt_company_address}
+                      onChange={(e) => setReceiptSettings({...receiptSettings, receipt_company_address: e.target.value})}
+                      style={inputStyle}
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', color: textMuted }}>{language === 'bm' ? 'Telefon' : 'Phone'}</label>
+                    <input 
+                      type="text"
+                      value={receiptSettings.receipt_company_phone}
+                      onChange={(e) => setReceiptSettings({...receiptSettings, receipt_company_phone: e.target.value})}
+                      style={inputStyle}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Receipt Text */}
+              <div style={{ ...cardStyle }}>
+                <div style={{ fontWeight: 'bold', color: textColor, marginBottom: '12px' }}>
+                  📝 {language === 'bm' ? 'Teks Resit' : 'Receipt Text'}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', color: textMuted }}>{language === 'bm' ? 'Header' : 'Header'}</label>
+                    <input 
+                      type="text"
+                      value={receiptSettings.receipt_header}
+                      onChange={(e) => setReceiptSettings({...receiptSettings, receipt_header: e.target.value})}
+                      style={inputStyle}
+                      placeholder="Terima Kasih!"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', color: textMuted }}>{language === 'bm' ? 'Footer' : 'Footer'}</label>
+                    <input 
+                      type="text"
+                      value={receiptSettings.receipt_footer}
+                      onChange={(e) => setReceiptSettings({...receiptSettings, receipt_footer: e.target.value})}
+                      style={inputStyle}
+                      placeholder="Sila datang lagi"
+                    />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', color: textMuted }}>{language === 'bm' ? 'Ucapan Terima Kasih' : 'Thank You'}</label>
+                    <input 
+                      type="text"
+                      value={receiptSettings.receipt_thank_you}
+                      onChange={(e) => setReceiptSettings({...receiptSettings, receipt_thank_you: e.target.value})}
+                      style={inputStyle}
+                      placeholder="Terima Kasih!"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Options */}
+              <div style={{ ...cardStyle }}>
+                <div style={{ fontWeight: 'bold', color: textColor, marginBottom: '12px' }}>
+                  ⚙️ {language === 'bm' ? 'Pilihan' : 'Options'}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: textColor }}>🏪 {language === 'bm' ? 'Tunjuk Logo' : 'Show Logo'}</span>
+                    {toggleSwitch(receiptSettings.receipt_show_logo, (val) => setReceiptSettings({...receiptSettings, receipt_show_logo: val}))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: textColor }}>📱 {language === 'bm' ? 'Tunjuk QR Code' : 'Show QR Code'}</span>
+                    {toggleSwitch(receiptSettings.receipt_show_qr, (val) => setReceiptSettings({...receiptSettings, receipt_show_qr: val}))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: textColor }}>📋 {language === 'bm' ? 'Tunjuk Item' : 'Show Items'}</span>
+                    {toggleSwitch(receiptSettings.receipt_show_items, (val) => setReceiptSettings({...receiptSettings, receipt_show_items: val}))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: textColor }}>💰 {language === 'bm' ? 'Tunjuk Cukai' : 'Show Tax'}</span>
+                    {toggleSwitch(receiptSettings.receipt_show_tax, (val) => setReceiptSettings({...receiptSettings, receipt_show_tax: val}))}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: '13px', color: textColor }}>🧾 {language === 'bm' ? 'Tunjuk Caj Perkhidmatan' : 'Show Service Charge'}</span>
+                    {toggleSwitch(receiptSettings.receipt_show_service, (val) => setReceiptSettings({...receiptSettings, receipt_show_service: val}))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Size & Style */}
+              <div style={{ ...cardStyle }}>
+                <div style={{ fontWeight: 'bold', color: textColor, marginBottom: '12px' }}>
+                  📐 {language === 'bm' ? 'Saiz & Gaya' : 'Size & Style'}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div>
+                    <label style={{ fontSize: '12px', color: textMuted }}>{language === 'bm' ? 'Saiz Kertas' : 'Paper Size'}</label>
+                    <select 
+                      value={receiptSettings.receipt_paper_size}
+                      onChange={(e) => setReceiptSettings({...receiptSettings, receipt_paper_size: e.target.value})}
+                      style={inputStyle}
+                    >
+                      <option value="58mm">58mm (Small)</option>
+                      <option value="80mm">80mm (Large)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', color: textMuted }}>{language === 'bm' ? 'Saiz Font' : 'Font Size'}</label>
+                    <select 
+                      value={receiptSettings.receipt_font_size}
+                      onChange={(e) => setReceiptSettings({...receiptSettings, receipt_font_size: e.target.value})}
+                      style={inputStyle}
+                    >
+                      <option value="small">Small</option>
+                      <option value="normal">Normal</option>
+                      <option value="large">Large</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '12px', color: textMuted }}>{language === 'bm' ? 'Saiz Logo' : 'Logo Size'}</label>
+                    <select 
+                      value={receiptSettings.receipt_logo_size}
+                      onChange={(e) => setReceiptSettings({...receiptSettings, receipt_logo_size: e.target.value})}
+                      style={inputStyle}
+                    >
+                      <option value="small">Small</option>
+                      <option value="medium">Medium</option>
+                      <option value="large">Large</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div style={{ 
+              display: 'flex', 
+              gap: '12px', 
+              marginTop: '20px',
+              flexWrap: 'wrap'
+            }}>
+              <button 
+                onClick={saveReceiptSettings}
+                disabled={receiptLoading}
+                style={{ 
+                  flex: 2,
+                  minWidth: '150px',
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
+                  color: 'white', 
+                  padding: '14px', 
+                  border: 'none', 
+                  borderRadius: '60px', 
+                  fontSize: '15px', 
+                  fontWeight: 'bold', 
+                  cursor: receiptLoading ? 'not-allowed' : 'pointer', 
+                  opacity: receiptLoading ? 0.7 : 1,
+                  transition: 'transform 0.2s'
+                }}
+                onMouseEnter={e => !receiptLoading && (e.currentTarget.style.transform = 'scale(1.02)')}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {receiptLoading ? '⏳ ' + (language === 'bm' ? 'Menyimpan...' : 'Saving...') : '💾 ' + (language === 'bm' ? 'Simpan Tetapan' : 'Save Settings')}
+              </button>
+              <button 
+                onClick={generateReceiptPreview}
+                style={{
+                  flex: 1,
+                  minWidth: '120px',
+                  padding: '14px',
+                  background: '#3b82f6',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '60px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '14px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.02)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                🔄 {language === 'bm' ? 'Refresh Preview' : 'Refresh Preview'}
+              </button>
+            </div>
+
+            {/* ===== RECEIPT PREVIEW ===== */}
+            <div style={{ marginTop: '24px' }}>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '10px', 
+                marginBottom: '16px' 
+              }}>
+                <span style={{ fontSize: '20px' }}>📄</span>
+                <h4 style={{ margin: 0, color: textColor, fontSize: '16px', fontWeight: 'bold' }}>
+                  {language === 'bm' ? 'Pratonton Resit' : 'Receipt Preview'}
+                </h4>
+              </div>
+              
+              <div style={{
+                background: '#ffffff',
+                borderRadius: '12px',
+                padding: '20px',
+                maxWidth: receiptSettings.receipt_paper_size === '80mm' ? '420px' : '300px',
+                margin: '0 auto',
+                boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                fontFamily: 'monospace',
+                fontSize: receiptSettings.receipt_font_size === 'large' ? '14px' : receiptSettings.receipt_font_size === 'small' ? '10px' : '12px',
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+                color: '#000000',
+                minHeight: '200px',
+                overflow: 'auto'
+              }}>
+                {receiptPreview || (
+                  <div style={{ textAlign: 'center', color: '#94a3b8', padding: '20px' }}>
+                    {language === 'bm' ? 'Memuatkan pratonton...' : 'Loading preview...'}
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB 4: DELETE DATA */}
         {/* ============================================================ */}
         {activeTab === 'data' && (
           <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
@@ -1786,6 +2461,275 @@ function ManageSettings() {
               </button>
             </div>
 
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB 5: SYSTEM LOGS */}
+        {/* ============================================================ */}
+        {activeTab === 'logs' && (
+          <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
+            
+            {/* Header */}
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '12px',
+              marginBottom: '20px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '32px' }}>📋</span>
+                <div>
+                  <h3 style={{ margin: 0, color: textColor, fontSize: '20px', fontWeight: 'bold' }}>
+                    {language === 'bm' ? 'Aktiviti Sistem' : 'System Activity'}
+                  </h3>
+                  <p style={{ color: textMuted, marginTop: '2px', fontSize: '13px' }}>
+                    {language === 'bm' 
+                      ? `Jumlah log: ${logsCount}` 
+                      : `Total logs: ${logsCount}`}
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={handleExportLogs}
+                  disabled={logsExporting}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#22c55e',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: logsExporting ? 'not-allowed' : 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    opacity: logsExporting ? 0.5 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  {logsExporting ? '⏳' : '📥 ' + (language === 'bm' ? 'Eksport' : 'Export')}
+                </button>
+                <button
+                  onClick={handleClearLogs}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  🗑️ {language === 'bm' ? 'Padam Semua' : 'Clear All'}
+                </button>
+                <button
+                  onClick={() => { setLogsPage(1); loadLogs() }}
+                  style={{
+                    padding: '10px 20px',
+                    background: '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '40px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '13px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  🔄 {language === 'bm' ? 'Muat Semula' : 'Refresh'}
+                </button>
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div style={{ 
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(180px, 1fr))',
+              gap: '10px',
+              marginBottom: '16px'
+            }}>
+              <input
+                type="text"
+                placeholder={language === 'bm' ? '🔍 Cari...' : '🔍 Search...'}
+                value={logsSearch}
+                onChange={(e) => setLogsSearch(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="text"
+                placeholder={language === 'bm' ? '👤 User' : '👤 User'}
+                value={logsUsernameFilter}
+                onChange={(e) => setLogsUsernameFilter(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="date"
+                value={logsDateFrom}
+                onChange={(e) => setLogsDateFrom(e.target.value)}
+                style={inputStyle}
+              />
+              <input
+                type="date"
+                value={logsDateTo}
+                onChange={(e) => setLogsDateTo(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Logs Table */}
+            {logsLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px' }}>
+                <div className="spinner"></div>
+                <p style={{ color: textMuted, marginTop: '12px' }}>
+                  {language === 'bm' ? 'Memuatkan log...' : 'Loading logs...'}
+                </p>
+              </div>
+            ) : logs.length === 0 ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '40px',
+                color: textMuted
+              }}>
+                <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>📭</span>
+                {language === 'bm' ? 'Tiada log dijumpai' : 'No logs found'}
+              </div>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ 
+                  width: '100%', 
+                  borderCollapse: 'collapse',
+                  fontSize: isMobile ? '12px' : '14px'
+                }}>
+                  <thead>
+                    <tr style={{ 
+                      background: secondaryBg,
+                      borderBottom: `2px solid ${borderColor}`
+                    }}>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', color: textMuted }}>
+                        {language === 'bm' ? 'Masa' : 'Time'}
+                      </th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', color: textMuted }}>
+                        {language === 'bm' ? 'User' : 'User'}
+                      </th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', color: textMuted }}>
+                        {language === 'bm' ? 'Tindakan' : 'Action'}
+                      </th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', color: textMuted }}>
+                        {language === 'bm' ? 'Butiran' : 'Details'}
+                      </th>
+                      <th style={{ padding: '10px 12px', textAlign: 'left', color: textMuted, display: isMobile ? 'none' : 'table-cell' }}>
+                        IP
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map((log, idx) => {
+                      const icon = getActionIcon(log.action)
+                      const label = getActionLabel(log.action, language)
+                      
+                      return (
+                        <tr 
+                          key={log.id}
+                          style={{
+                            borderBottom: `1px solid ${borderColor}`,
+                            background: idx % 2 === 0 ? 'transparent' : secondaryBg,
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)'}
+                          onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : secondaryBg}
+                        >
+                          <td style={{ padding: '10px 12px', color: textMuted, whiteSpace: 'nowrap' }}>
+                            {new Date(log.created_at).toLocaleString()}
+                          </td>
+                          <td style={{ padding: '10px 12px', color: textColor, fontWeight: '500' }}>
+                            {log.username || 'System'}
+                          </td>
+                          <td style={{ padding: '10px 12px' }}>
+                            <span style={{ 
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              background: secondaryBg,
+                              padding: '4px 12px',
+                              borderRadius: '20px',
+                              fontSize: isMobile ? '11px' : '12px',
+                              color: textColor,
+                              border: `1px solid ${borderColor}`
+                            }}>
+                              {icon} {label}
+                            </span>
+                          </td>
+                          <td style={{ padding: '10px 12px', color: textMuted, maxWidth: '200px', wordBreak: 'break-word' }}>
+                            {log.details || '-'}
+                          </td>
+                          <td style={{ padding: '10px 12px', color: textMuted, display: isMobile ? 'none' : 'table-cell' }}>
+                            {log.ip_address || '-'}
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+
+                {/* Pagination */}
+                {logsCount > logsLimit && (
+                  <div style={{ 
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    gap: '8px', 
+                    marginTop: '16px',
+                    flexWrap: 'wrap'
+                  }}>
+                    <button
+                      onClick={() => setLogsPage(p => Math.max(1, p - 1))}
+                      disabled={logsPage === 1}
+                      style={{
+                        padding: '6px 14px',
+                        background: logsPage === 1 ? '#64748b' : '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '30px',
+                        cursor: logsPage === 1 ? 'not-allowed' : 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        opacity: logsPage === 1 ? 0.5 : 1
+                      }}
+                    >
+                      ← {language === 'bm' ? 'Sebelum' : 'Prev'}
+                    </button>
+                    <span style={{ 
+                      padding: '6px 14px', 
+                      color: textColor,
+                      fontSize: '13px'
+                    }}>
+                      {logsPage} / {Math.ceil(logsCount / logsLimit)}
+                    </span>
+                    <button
+                      onClick={() => setLogsPage(p => p + 1)}
+                      disabled={logsPage >= Math.ceil(logsCount / logsLimit)}
+                      style={{
+                        padding: '6px 14px',
+                        background: logsPage >= Math.ceil(logsCount / logsLimit) ? '#64748b' : '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '30px',
+                        cursor: logsPage >= Math.ceil(logsCount / logsLimit) ? 'not-allowed' : 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        opacity: logsPage >= Math.ceil(logsCount / logsLimit) ? 0.5 : 1
+                      }}
+                    >
+                      {language === 'bm' ? 'Seterusnya' : 'Next'} →
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

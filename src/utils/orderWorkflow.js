@@ -1,88 +1,67 @@
-// ============================================================
-// ORDER WORKFLOW CONSTANTS
-// ============================================================
-
 export const ORDER_STATUS = {
-  NEW: 'new',
-  PENDING: 'pending',
+  NEW: 'pending_confirmation',
   CONFIRMED: 'confirmed',
   PREPARING: 'preparing',
   READY: 'ready',
   COMPLETED: 'completed',
-  CANCELLED: 'cancelled'
+  CANCELLED: 'cancelled',
 }
 
 export const PAYMENT_STATUS = {
   UNPAID: 'unpaid',
   PAID: 'paid',
-  CANCELLED: 'cancelled'
+  CANCELLED: 'cancelled',
 }
 
-// ============================================================
-// NORMALIZE ORDER FOR INSERT
-// ============================================================
+const drinkKeywords = [
+  'minuman', 'teh', 'kopi', 'jus', 'air', 'milo', 'sirap', 'coke',
+  'soda', 'limau', 'mangga', 'oren', 'nescafe', 'neslo',
+  'horlicks', 'barli', 'laici', 'ais', 'suam', 'panas', 'sejuk', 'bungkus'
+]
 
-export function normalizeOrderForInsert(order) {
-  return {
-    order_number: order.order_number || `ORD-${Date.now()}`,
-    order_type: order.order_type || 'dine_in',
-    table_number: order.table_number || null,
-    customer_name: order.customer_name || 'Guest',
-    customer_phone: order.customer_phone || null,
-    items: order.items || [],
-    subtotal: order.subtotal || 0,
-    service_charge: order.service_charge || 0,
-    tax: order.tax || 0,
-    total: order.total || 0,
-    notes: order.notes || '',
-    status: order.status || ORDER_STATUS.NEW,
-    order_status: order.order_status || ORDER_STATUS.NEW,
-    payment_status: order.payment_status || PAYMENT_STATUS.UNPAID,
-    created_at: new Date().toISOString(),
-    confirmed_at: null,
-    paid_at: null
-  }
+export function isDrinkItem(item = {}) {
+  const category = String(item.category || '').toLowerCase()
+  const name = String(item.name || '').toLowerCase()
+  return category.includes('minuman') || drinkKeywords.some(keyword => name.includes(keyword))
 }
 
-// ============================================================
-// NORMALIZE CONFIRMED UPDATE
-// ============================================================
-
-export function normalizeConfirmedUpdate(order) {
-  return {
-    status: ORDER_STATUS.CONFIRMED,
-    order_status: ORDER_STATUS.CONFIRMED,
-    confirmed_at: new Date().toISOString()
-  }
-}
-
-// ============================================================
-// SPLIT ORDER ITEMS
-// ============================================================
-
-export function splitOrderItems(items, itemType = 'all') {
-  if (!items || !Array.isArray(items)) return []
-  
-  if (itemType === 'all') return items
-  
-  if (itemType === 'food') {
-    return items.filter(item => item.category !== 'Minuman')
-  }
-  
-  if (itemType === 'drink') {
-    return items.filter(item => item.category === 'Minuman')
-  }
-  
+export function splitOrderItems(items = [], type = 'all') {
+  if (type === 'drink') return items.filter(isDrinkItem)
+  if (type === 'food') return items.filter(item => !isDrinkItem(item))
   return items
 }
 
-// ============================================================
-// GET DRINK OPTION IMAGE
-// ============================================================
+export function getDrinkOptionImage(menuItem, option) {
+  return option?.image_url || option?.option_image_url || option?.image || menuItem?.image_url || ''
+}
 
-export function getDrinkOptionImage(drink, option) {
-  if (!drink) return null
-  if (option?.image_url) return option.image_url
-  if (drink.image_url) return drink.image_url
-  return null
+export function normalizeOrderForInsert(order = {}) {
+  return {
+    order_number: order.order_number || 'ORD-' + Date.now(),
+    items: order.items || [],
+    total: order.total || 0,
+    customer_name: order.customer_name || 'Guest',
+    customer_phone: order.customer_phone || null,
+    table_number: order.table_number || null,
+    order_type: order.order_type || 'dine_in',
+    status: order.status || ORDER_STATUS.NEW,
+    order_status: order.order_status || order.status || ORDER_STATUS.NEW,
+    payment_status: order.payment_status || PAYMENT_STATUS.UNPAID,
+    notes: order.notes || '',
+    subtotal: order.subtotal || order.total || 0,
+    service_charge: order.service_charge || 0,
+    tax: order.tax || 0,
+    grand_total: order.grand_total || order.total || 0,
+    has_bundle: order.has_bundle || false,
+    bundle_promo: order.bundle_promo || null
+  }
+}
+
+export function normalizeConfirmedUpdate() {
+  return {
+    status: ORDER_STATUS.CONFIRMED,
+    order_status: ORDER_STATUS.CONFIRMED,
+    payment_status: PAYMENT_STATUS.UNPAID,
+    confirmed_at: new Date().toISOString(),
+  }
 }

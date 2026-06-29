@@ -252,7 +252,6 @@ function StaffApp() {
     if (el) {
       const scrollLeft = el.scrollLeft
       const maxScroll = el.scrollWidth - el.clientWidth
-      
       setShowLeftArrow(scrollLeft > 10)
       setShowRightArrow(scrollLeft < maxScroll - 10)
     }
@@ -262,14 +261,8 @@ function StaffApp() {
     const el = categoryContainerRef.current
     if (el) {
       const scrollAmount = Math.min(200, el.clientWidth * 0.8)
-      const targetScroll = direction === 'left' 
-        ? el.scrollLeft - scrollAmount 
-        : el.scrollLeft + scrollAmount
-      
-      el.scrollTo({
-        left: targetScroll,
-        behavior: 'smooth'
-      })
+      const targetScroll = direction === 'left' ? el.scrollLeft - scrollAmount : el.scrollLeft + scrollAmount
+      el.scrollTo({ left: targetScroll, behavior: 'smooth' })
     }
   }
 
@@ -278,19 +271,16 @@ function StaffApp() {
   // ============================================================
   const playNotificationSound = () => {
     console.log('🔔 playNotificationSound called')
-    
     if (!settings.notification_sound) {
       console.log('🔇 Sound disabled in settings')
       return
     }
-    
     const now = Date.now()
     if (now - lastSoundTime < SOUND_COOLDOWN) {
       console.log('🔇 Sound cooldown, skipping...')
       return
     }
     setLastSoundTime(now)
-    
     console.log('🔊 Playing notification sound!')
     playSound()
   }
@@ -380,9 +370,7 @@ function StaffApp() {
         checkScroll()
       }
     }, 200)
-    
     window.addEventListener('resize', checkScroll)
-    
     return () => {
       clearTimeout(timer)
       window.removeEventListener('resize', checkScroll)
@@ -396,7 +384,6 @@ function StaffApp() {
     const checkOrders = async () => {
       try {
         console.log('🔍 Staff interval: Checking for new orders...')
-        
         const { data } = await supabase
           .from('customer_orders')
           .select('*')
@@ -405,8 +392,7 @@ function StaffApp() {
 
         const pending = (data || []).filter(order => {
           const status = order.order_status || order.status
-          return ['pending', 'pending_confirmation', 'new'].includes(status) || 
-                 status === ORDER_STATUS.NEW
+          return ['pending', 'pending_confirmation', 'new'].includes(status) || status === ORDER_STATUS.NEW
         })
 
         console.log(`📊 Staff interval: Found ${pending.length} pending orders`)
@@ -419,19 +405,16 @@ function StaffApp() {
         if (newIds.length > 0) {
           console.log(`🔔 Staff interval: ${newIds.length} NEW ORDER(S)! Playing sound...`)
           playNotificationSound()
-          
           setNotifiedOrderIds(prev => {
             const newSet = new Set(prev)
             currentIds.forEach(id => newSet.add(id))
             return newSet
           })
-
           toast(`🔔 ${pending.length} ${t('new_order_notification')}`, {
             duration: 3000,
             icon: '🔔'
           })
         }
-        
       } catch (err) {
         console.error('Staff interval error:', err)
       }
@@ -614,21 +597,13 @@ function StaffApp() {
         .select('stock, option_name')
         .eq('id', optionId)
         .single()
-      
       if (error) {
         console.error('Error checking stock:', error)
         return { available: false, stock: 0, error: error.message }
       }
-      
       const currentStock = data?.stock || 0
       const available = currentStock >= quantity
-      
-      return { 
-        available, 
-        stock: currentStock, 
-        option_name: data?.option_name || 'Unknown',
-        error: null 
-      }
+      return { available, stock: currentStock, option_name: data?.option_name || 'Unknown', error: null }
     } catch (err) {
       console.error('Stock check exception:', err)
       return { available: false, stock: 0, error: err.message }
@@ -657,20 +632,10 @@ function StaffApp() {
     for (const promo of promotions) {
       if (promo.type === 'bogo') {
         const trigger = promo.trigger_items?.[0]
-        if (trigger && item.id === trigger.id) return { 
-          type: 'bogo', 
-          trigger: trigger, 
-          free: promo.free_items?.[0], 
-          promo 
-        }
+        if (trigger && item.id === trigger.id) return { type: 'bogo', trigger, free: promo.free_items?.[0], promo }
       } else if (promo.type === 'bundle' || promo.type === 'set_menu') {
         const found = (promo.bundle_items || []).find(i => i.id === item.id)
-        if (found) return { 
-          type: promo.type, 
-          bundleItems: promo.bundle_items, 
-          bundlePrice: promo.bundle_price, 
-          promo 
-        }
+        if (found) return { type: promo.type, bundleItems: promo.bundle_items, bundlePrice: promo.bundle_price, promo }
       }
     }
     return null
@@ -693,20 +658,16 @@ function StaffApp() {
   // ============================================================
   function getBundlePromoForCart(cartItems) {
     if (!cartItems || cartItems.length === 0) return null
-    
     const bundlePromos = promotions.filter(p => 
       (p.type === 'bundle' || p.type === 'set_menu') && 
       p.bundle_items && 
       p.bundle_items.length > 0 &&
       p.bundle_price > 0
     )
-    
     for (const promo of bundlePromos) {
       const bundleItemIds = promo.bundle_items.map(i => i.id)
       const cartItemIds = cartItems.map(i => i.id)
-      
       const allItemsInCart = bundleItemIds.every(id => cartItemIds.includes(id))
-      
       if (allItemsInCart) {
         return {
           promo: promo,
@@ -717,8 +678,17 @@ function StaffApp() {
         }
       }
     }
-    
     return null
+  }
+
+  function getBundlePriceForItem(item, cartItems) {
+    const bundle = getBundlePromoForCart(cartItems)
+    if (!bundle) return null
+    const isInBundle = bundle.bundleItems.some(i => i.id === item.id)
+    if (!isInBundle) return null
+    const bundleItemCount = bundle.bundleItems.length
+    const perItemPrice = bundle.bundlePrice / bundleItemCount
+    return { price: perItemPrice, originalPrice: item.price, savings: bundle.savings, bundlePrice: bundle.bundlePrice }
   }
 
   function getItemPrice(item, option, size) {
@@ -751,22 +721,16 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== GET FILTERED MENU - Sorted by category order =====
+  // ===== GET FILTERED MENU =====
   // ============================================================
   const getFilteredMenu = () => {
     let filtered = [...menu]
-    
     if (selectedCategory !== 'All') {
       const selectedCat = categories.find(c => c.name === selectedCategory)
-      
       if (selectedCat) {
         const isParent = selectedCat.parent_id === null || selectedCat.parent_id === undefined
-        
         if (isParent) {
-          const subCategoryNames = categories
-            .filter(c => c.parent_id === selectedCat.id)
-            .map(c => c.name)
-          
+          const subCategoryNames = categories.filter(c => c.parent_id === selectedCat.id).map(c => c.name)
           const allRelated = [selectedCategory, ...subCategoryNames]
           filtered = filtered.filter(item => allRelated.includes(item.category))
         } else {
@@ -776,24 +740,15 @@ function StaffApp() {
         filtered = filtered.filter(item => item.category === selectedCategory)
       }
     }
-    
     if (searchTerm) {
-      filtered = filtered.filter(item => 
-        item.name.toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      filtered = filtered.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()))
     }
-    
     return filtered.sort((a, b) => {
       const catOrderA = categories.findIndex(c => c.name === a.category)
       const catOrderB = categories.findIndex(c => c.name === b.category)
-      
       const orderA = catOrderA === -1 ? 999 : catOrderA
       const orderB = catOrderB === -1 ? 999 : catOrderB
-      
-      if (orderA !== orderB) {
-        return orderA - orderB
-      }
-      
+      if (orderA !== orderB) return orderA - orderB
       return (a.sort_order || 0) - (b.sort_order || 0)
     })
   }
@@ -803,17 +758,10 @@ function StaffApp() {
   // ============================================================
   const getGroupedMenuByCategory = (menuItems) => {
     if (selectedCategory !== 'All') return null
-    
     const grouped = {}
-    
     const orderedCategories = getSortedCategories().map(cat => cat.name)
-    
-    orderedCategories.forEach(catName => {
-      grouped[catName] = []
-    })
-    
+    orderedCategories.forEach(catName => { grouped[catName] = [] })
     grouped['Lain-lain'] = []
-    
     menuItems.forEach(item => {
       const catName = item.category || 'Lain-lain'
       if (grouped[catName]) {
@@ -822,13 +770,9 @@ function StaffApp() {
         grouped['Lain-lain'].push(item)
       }
     })
-    
     Object.keys(grouped).forEach(key => {
-      if (grouped[key].length === 0) {
-        delete grouped[key]
-      }
+      if (grouped[key].length === 0) delete grouped[key]
     })
-    
     return grouped
   }
 
@@ -843,6 +787,14 @@ function StaffApp() {
   // CART FUNCTIONS
   // ============================================================
   const getSubtotal = () => {
+    const bundle = getBundlePromoForCart(cart)
+    if (bundle) {
+      const bundleItemIds = bundle.bundleItems.map(i => i.id)
+      const nonBundleItems = cart.filter(item => !bundleItemIds.includes(item.id))
+      let subtotal = nonBundleItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+      subtotal += bundle.bundlePrice
+      return subtotal
+    }
     return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
   }
   
@@ -852,7 +804,7 @@ function StaffApp() {
   const getCartItemCount = () => cart.reduce((sum, item) => sum + item.quantity, 0)
 
   // ============================================================
-  // ADD TO CART - WITH PRICE SYNC FIX
+  // ADD TO CART
   // ============================================================
   const addToCart = async () => {
     if (!selectedItem) { toast.error(t('please_select_item')); return }
@@ -868,17 +820,14 @@ function StaffApp() {
     
     if (selectedSize) {
       const stockCheck = await checkOptionStock(selectedSize.id, quantity)
-      
       if (!stockCheck.available) {
         toast.error(`❌ "${selectedSize.option_name}" ${t('out_of_stock')}! Stok sedia ada: ${stockCheck.stock}`)
         return
       }
-      
       if (stockCheck.stock < quantity) {
         toast.error(`❌ Stok tidak mencukupi untuk "${selectedSize.option_name}". Stok sedia ada: ${stockCheck.stock}`)
         return
       }
-      
       if (stockCheck.stock < 5) {
         toast.warning(`⚠️ "${selectedSize.option_name}" ${t('low_stock')}! Stok: ${stockCheck.stock} sahaja`)
       }
@@ -888,11 +837,54 @@ function StaffApp() {
     const addonTotal = getAddonTotal()
     let finalPrice = basePrice + addonTotal
     const addonNames = getAddonNames()
+    
+    const tempCartItem = {
+      id: selectedItem.id,
+      name: selectedItem.name,
+      category: selectedItem.category,
+      option: selectedOption || null,
+      size: selectedSize?.option_name || null,
+      size_id: selectedSize?.id || null,
+      price: finalPrice,
+      basePrice: basePrice,
+      originalPrice: selectedItem.price,
+      quantity: quantity,
+      subtotal: finalPrice * quantity,
+      image_url: selectedItem.image_url,
+      notes: selectedItem.notes || '',
+      addons: addonNames,
+      addon_ids: [...selectedAddons],
+      addon_total: addonTotal
+    }
+    
+    const tempCart = [...cart, tempCartItem]
+    const bundleCheck = getBundlePromoForCart(tempCart)
+    let isBundleItem = false
+    let bundleName = null
+    let bundlePriceValue = null
+    
+    if (bundleCheck) {
+      const bundleItemIds = bundleCheck.bundleItems.map(i => i.id)
+      const isInBundle = bundleItemIds.includes(selectedItem.id)
+      if (isInBundle) {
+        const bundleItemCount = bundleCheck.bundleItems.length
+        const perItemPrice = bundleCheck.bundlePrice / bundleItemCount
+        finalPrice = perItemPrice + addonTotal
+        isBundleItem = true
+        bundleName = bundleCheck.promo.name
+        bundlePriceValue = bundleCheck.bundlePrice
+        setTimeout(() => {
+          toast.success(`📦 ${bundleCheck.promo.name} Aktif! ${bundleCheck.bundleItems.map(i => i.name).join(' + ')} = RM ${bundleCheck.bundlePrice.toFixed(2)} (Jimat RM ${bundleCheck.savings.toFixed(2)})`, {
+            duration: 4000
+          })
+        }, 200)
+      }
+    }
+    
     const isFree = finalPrice === 0
     const promo = getItemPromotion(selectedItem)
     
-    // Create new item
-    const newItem = {
+    const cartItem = {
       id: selectedItem.id,
       name: selectedItem.name,
       category: selectedItem.category,
@@ -912,94 +904,40 @@ function StaffApp() {
       addons: addonNames,
       addon_ids: [...selectedAddons],
       addon_total: addonTotal,
-      isBundleItem: false,
-      bundleName: null,
-      bundlePrice: null
+      isBundleItem: isBundleItem,
+      bundleName: bundleName,
+      bundlePrice: bundlePriceValue
     }
     
-    // Check if item already exists in cart (same id, option, size, addons)
     const existingIndex = cart.findIndex(c => 
-      c.id === newItem.id && 
-      c.option === newItem.option && 
-      c.size === newItem.size &&
-      JSON.stringify(c.addon_ids) === JSON.stringify(newItem.addon_ids)
+      c.id === cartItem.id && 
+      c.option === cartItem.option && 
+      c.size === cartItem.size &&
+      JSON.stringify(c.addon_ids) === JSON.stringify(cartItem.addon_ids)
     )
     
     let newCart = []
-    
     if (existingIndex >= 0) {
-      // Update existing item
       newCart = [...cart]
       newCart[existingIndex].quantity += quantity
       newCart[existingIndex].subtotal = newCart[existingIndex].price * newCart[existingIndex].quantity
+      newCart[existingIndex].isBundleItem = isBundleItem
+      newCart[existingIndex].bundleName = bundleName
+      newCart[existingIndex].bundlePrice = bundlePriceValue
     } else {
-      // Add new item
-      newCart = [...cart, newItem]
+      newCart = [...cart, cartItem]
     }
     
-    // 🔥 CHECK IF BUNDLE IS ACTIVE AND REAPPLY BUNDLE PRICES
-    const bundleCheck = getBundlePromoForCart(newCart)
+    setCart(newCart)
     
-    if (bundleCheck) {
-      const bundleItemIds = bundleCheck.bundleItems.map(i => i.id)
-      const bundleItemCount = bundleCheck.bundleItems.length
-      const perItemPrice = bundleCheck.bundlePrice / bundleItemCount
-      
-      // Recalculate ALL items in cart that are in the bundle
-      const updatedCart = newCart.map(item => {
-        if (bundleItemIds.includes(item.id)) {
-          const newPrice = perItemPrice + (item.addon_total || 0)
-          return {
-            ...item,
-            price: newPrice,
-            subtotal: newPrice * item.quantity,
-            isBundleItem: true,
-            bundleName: bundleCheck.promo.name,
-            bundlePrice: bundleCheck.bundlePrice
-          }
-        }
-        // If item was previously a bundle item but now not in bundle, restore original price
-        if (item.isBundleItem && !bundleItemIds.includes(item.id)) {
-          const originalPrice = item.basePrice || item.originalPrice || item.price
-          return {
-            ...item,
-            price: originalPrice,
-            subtotal: originalPrice * item.quantity,
-            isBundleItem: false,
-            bundleName: null,
-            bundlePrice: null
-          }
-        }
-        return item
-      })
-      
-      setCart(updatedCart)
-      
-      // Show bundle toast
-      setTimeout(() => {
-        toast.success(`📦 ${bundleCheck.promo.name} Aktif! ${bundleCheck.bundleItems.map(i => i.name).join(' + ')} = RM ${bundleCheck.bundlePrice.toFixed(2)} (Jimat RM ${bundleCheck.savings.toFixed(2)})`, {
-          duration: 4000
+    setTimeout(() => {
+      const bundleAfterAdd = getBundlePromoForCart(newCart)
+      if (bundleAfterAdd && !bundleCheck) {
+        toast.success(`📦 Bundle Promo Aktif! ${bundleAfterAdd.bundleItems.map(i => i.name).join(' + ')} = RM ${bundleAfterAdd.bundlePrice.toFixed(2)}`, {
+          duration: 3000
         })
-      }, 200)
-      
-    } else {
-      // No bundle - make sure no items have bundle flags
-      const updatedCart = newCart.map(item => {
-        if (item.isBundleItem) {
-          const originalPrice = item.basePrice || item.originalPrice || item.price
-          return {
-            ...item,
-            price: originalPrice,
-            subtotal: originalPrice * item.quantity,
-            isBundleItem: false,
-            bundleName: null,
-            bundlePrice: null
-          }
-        }
-        return item
-      })
-      setCart(updatedCart)
-    }
+      }
+    }, 300)
     
     setShowItemModal(false)
     setSelectedItem(null)
@@ -1011,78 +949,21 @@ function StaffApp() {
     toast.success(isFree ? `🎁 ${selectedItem.name} FREE!` : t('order_added'))
   }
 
-  // ============================================================
-  // REMOVE FROM CART - WITH BUNDLE REAPPLY
-  // ============================================================
   const removeFromCart = (index) => {
-    let newCart = [...cart]
+    const newCart = [...cart]
     newCart.splice(index, 1)
-    
-    // 🔥 CHECK IF BUNDLE IS STILL ACTIVE
-    const bundleCheck = getBundlePromoForCart(newCart)
-    
-    if (bundleCheck) {
-      const bundleItemIds = bundleCheck.bundleItems.map(i => i.id)
-      const bundleItemCount = bundleCheck.bundleItems.length
-      const perItemPrice = bundleCheck.bundlePrice / bundleItemCount
-      
-      // Reapply bundle prices
-      const updatedCart = newCart.map(item => {
-        if (bundleItemIds.includes(item.id)) {
-          const newPrice = perItemPrice + (item.addon_total || 0)
-          return {
-            ...item,
-            price: newPrice,
-            subtotal: newPrice * item.quantity,
-            isBundleItem: true,
-            bundleName: bundleCheck.promo.name,
-            bundlePrice: bundleCheck.bundlePrice
-          }
+    setCart(newCart)
+    setTimeout(() => {
+      const bundleAfterRemove = getBundlePromoForCart(newCart)
+      if (!bundleAfterRemove) {
+        const hadBundle = cart.some(item => item.isBundleItem)
+        if (hadBundle) {
+          toast.info('📦 Bundle promo telah dilumpuhkan kerana item dikeluarkan')
         }
-        if (item.isBundleItem && !bundleItemIds.includes(item.id)) {
-          const originalPrice = item.basePrice || item.originalPrice || item.price
-          return {
-            ...item,
-            price: originalPrice,
-            subtotal: originalPrice * item.quantity,
-            isBundleItem: false,
-            bundleName: null,
-            bundlePrice: null
-          }
-        }
-        return item
-      })
-      
-      setCart(updatedCart)
-    } else {
-      // No bundle - restore all items to original prices
-      const updatedCart = newCart.map(item => {
-        if (item.isBundleItem) {
-          const originalPrice = item.basePrice || item.originalPrice || item.price
-          return {
-            ...item,
-            price: originalPrice,
-            subtotal: originalPrice * item.quantity,
-            isBundleItem: false,
-            bundleName: null,
-            bundlePrice: null
-          }
-        }
-        return item
-      })
-      setCart(updatedCart)
-      
-      // Check if bundle was broken
-      const hadBundle = cart.some(item => item.isBundleItem)
-      if (hadBundle) {
-        toast.info('📦 Bundle promo telah dilumpuhkan kerana item dikeluarkan')
       }
-    }
+    }, 200)
   }
 
-  // ============================================================
-  // CLEAR CART
-  // ============================================================
   const clearCart = () => {
     if (cart.length === 0) { toast.error(t('cart_empty_msg')); return }
     if (window.confirm(t('confirm_clear_cart'))) {
@@ -1092,7 +973,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== SEND ORDER - WITH RECEIPT PRINT & TELEGRAM =====
+  // ===== SEND ORDER =====
   // ============================================================
   const sendOrder = async () => {
     if (cart.length === 0) { toast.error(t('cart_empty_msg')); return }
@@ -1116,6 +997,8 @@ function StaffApp() {
     
     const total = cart.reduce((sum, item) => sum + item.subtotal, 0)
     const orderNumber = 'ORD-' + Date.now()
+    const bundleInCart = getBundlePromoForCart(cart)
+    const hasBundle = bundleInCart !== null
     
     const orderData = {
       order_number: orderNumber,
@@ -1148,7 +1031,19 @@ function StaffApp() {
       status: ORDER_STATUS.NEW,
       order_status: ORDER_STATUS.NEW,
       payment_status: PAYMENT_STATUS.UNPAID,
-      notes: cart.map(item => item.notes).filter(n => n).join(', ')
+      notes: cart.map(item => item.notes).filter(n => n).join(', '),
+      subtotal: getSubtotal(),
+      service_charge: getServiceCharge(),
+      tax: getTax(),
+      grand_total: getGrandTotal(),
+      has_bundle: hasBundle,
+      bundle_promo: hasBundle ? {
+        name: bundleInCart.promo.name,
+        bundle_price: bundleInCart.bundlePrice,
+        original_price: bundleInCart.totalOriginalPrice,
+        savings: bundleInCart.savings,
+        items: bundleInCart.bundleItems.map(i => i.name)
+      } : null
     }
     
     try {
@@ -1156,7 +1051,6 @@ function StaffApp() {
       if (error) throw error
       
       let stockUpdateErrors = []
-      
       for (const item of cart) {
         if (item.size_id) {
           const { data: currentData } = await supabase
@@ -1164,16 +1058,13 @@ function StaffApp() {
             .select('stock')
             .eq('id', item.size_id)
             .single()
-          
           if (currentData) {
             const currentStock = currentData.stock || 0
             const newStock = Math.max(0, currentStock - item.quantity)
-            
             const { error: updateError } = await supabase
               .from('menu_options')
               .update({ stock: newStock })
               .eq('id', item.size_id)
-            
             if (updateError) {
               stockUpdateErrors.push(`Failed to update stock for ${item.size}: ${updateError.message}`)
             }
@@ -1188,7 +1079,6 @@ function StaffApp() {
       
       toast.success(`✅ ${t('order_sent')} #${orderNumber}`)
       
-      // ===== SEND TELEGRAM NOTIFICATION =====
       if (data && data.length > 0) {
         const order = data[0]
         const message = formatOrderNotification(order)
@@ -1196,7 +1086,6 @@ function StaffApp() {
         console.log('📨 Telegram notification sent for order:', order.order_number)
       }
       
-      // ===== PRINT RECEIPT =====
       if (data && data.length > 0 && receiptSettings) {
         const order = data[0]
         try {
@@ -1221,9 +1110,16 @@ function StaffApp() {
             tax: getTax(),
             total: getGrandTotal(),
             payment_method: 'cash',
-            paid_amount: getGrandTotal()
+            paid_amount: getGrandTotal(),
+            has_bundle: hasBundle,
+            bundle_promo: hasBundle ? {
+              name: bundleInCart.promo.name,
+              bundle_price: bundleInCart.bundlePrice,
+              original_price: bundleInCart.totalOriginalPrice,
+              savings: bundleInCart.savings,
+              items: bundleInCart.bundleItems.map(i => i.name)
+            } : null
           })
-          
           await printReceipt(receiptText)
           console.log('✅ Receipt printed successfully from StaffApp')
         } catch (receiptError) {
@@ -1256,7 +1152,6 @@ function StaffApp() {
           confirmed_at: new Date().toISOString() 
         })
         .eq('id', order.id)
-      
       playSound()
       toast.success(t('order_confirmed_kitchen'))
       loadNewOrders()
@@ -1325,7 +1220,9 @@ function StaffApp() {
           tax: order.tax || 0,
           total: order.grand_total || order.total || 0,
           payment_method: order.payment_method || 'cash',
-          paid_amount: order.grand_total || order.total || 0
+          paid_amount: order.grand_total || order.total || 0,
+          has_bundle: order.has_bundle || false,
+          bundle_promo: order.bundle_promo || null
         })
         printReceipt(receiptText)
         console.log('✅ Receipt printed successfully from StaffApp (legacy)')
@@ -1403,18 +1300,11 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== RENDER FUNCTIONS =====
-  // ============================================================
-
-  // ============================================================
-  // RENDER CATEGORY TABS - WITH SCROLL BUTTONS
+  // RENDER CATEGORY TABS
   // ============================================================
   const renderCategoryTabs = () => {
     const sortedCategories = getSortedCategories()
-    
-    const getCategoryCount = (catName) => {
-      return menu.filter(item => item.category === catName).length
-    }
+    const getCategoryCount = (catName) => menu.filter(item => item.category === catName).length
     
     return (
       <div style={{ position: 'relative', marginBottom: '12px' }}>
@@ -1498,9 +1388,7 @@ function StaffApp() {
           {sortedCategories.map(cat => {
             const count = getCategoryCount(cat.name)
             if (count === 0) return null
-            
             const displayName = cleanCategoryName(cat.name)
-            
             return (
               <button
                 key={cat.id}
@@ -1569,7 +1457,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RENDER MENU ITEM CARD - WITH BUNDLE PROMO SUPPORT
+  // RENDER MENU ITEM CARD
   // ============================================================
   const renderMenuItemCard = (item) => {
     const hasDrinkOpts = getDrinkOptionsForItem(item).length > 0
@@ -1587,10 +1475,7 @@ function StaffApp() {
     let promoLabel = ''
     
     if (bundleInCart && isInBundle) {
-      const allItemsInCart = bundleInCart.bundleItems.every(i => 
-        cart.some(c => c.id === i.id)
-      )
-      
+      const allItemsInCart = bundleInCart.bundleItems.every(i => cart.some(c => c.id === i.id))
       if (allItemsInCart) {
         const bundleItemCount = bundleInCart.bundleItems.length
         const perItemPrice = bundleInCart.bundlePrice / bundleItemCount
@@ -1866,11 +1751,10 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RENDER MENU ITEMS - Grouped by category
+  // RENDER MENU ITEMS
   // ============================================================
   const renderMenuItems = () => {
     const filteredMenu = getFilteredMenu()
-    
     if (filteredMenu.length === 0) {
       return (
         <div style={{ textAlign: 'center', padding: '40px', color: textMuted }}>
@@ -1896,9 +1780,7 @@ function StaffApp() {
         return found?.sort_order ?? 999
       }
       
-      const sortedCategoryNames = Object.keys(grouped).sort((a, b) => {
-        return getCategoryOrder(a) - getCategoryOrder(b)
-      })
+      const sortedCategoryNames = Object.keys(grouped).sort((a, b) => getCategoryOrder(a) - getCategoryOrder(b))
       
       return sortedCategoryNames.map((categoryName) => {
         const items = grouped[categoryName]
@@ -1920,11 +1802,7 @@ function StaffApp() {
               border: `1px solid ${borderColor}`
             }}>
               <span style={{ fontSize: '18px' }}>{catIcon}</span>
-              <span style={{ 
-                fontWeight: 'bold', 
-                fontSize: isMobile ? '13px' : '15px', 
-                color: textColor 
-              }}>
+              <span style={{ fontWeight: 'bold', fontSize: isMobile ? '13px' : '15px', color: textColor }}>
                 {cleanName}
               </span>
               <span style={{
@@ -2043,9 +1921,12 @@ function StaffApp() {
               )}
               
               {cart.map((item, index) => {
-                const isBundleItem = hasBundle && bundleInCart.bundleItems.some(i => i.id === item.id)
+                const isBundleComplete = hasBundle && bundleInCart.bundleItems.some(i => i.id === item.id)
                 const bundleItemCount = hasBundle ? bundleInCart.bundleItems.length : 0
-                const perItemPrice = hasBundle && isBundleItem ? bundleInCart.bundlePrice / bundleItemCount : null
+                const perItemPrice = hasBundle && isBundleComplete ? bundleInCart.bundlePrice / bundleItemCount : null
+                const displayPrice = isBundleComplete && perItemPrice !== null ? perItemPrice : item.price
+                const displaySubtotal = isBundleComplete && perItemPrice !== null ? perItemPrice * item.quantity : item.subtotal
+                const hasDiscount = isBundleComplete && perItemPrice !== null && item.price !== perItemPrice
                 
                 return (
                   <div key={index} style={{
@@ -2054,16 +1935,31 @@ function StaffApp() {
                     alignItems: 'center',
                     padding: '6px 0',
                     borderBottom: `1px solid ${borderColor}`,
-                    opacity: isBundleItem ? 0.7 : 1
+                    opacity: isBundleComplete ? 0.8 : 1,
+                    background: isBundleComplete ? 'rgba(139,92,246,0.05)' : 'transparent',
+                    borderRadius: '4px'
                   }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ fontSize: isMobile ? '12px' : '13px', color: textColor }}>
                         {item.name}
                         {item.option && <span style={{ fontSize: '10px', color: textMuted, marginLeft: '4px' }}>({item.option})</span>}
                         {item.size && <span style={{ fontSize: '10px', color: '#8b5cf6', marginLeft: '4px' }}>[{item.size}]</span>}
-                        {isBundleItem && (
-                          <span style={{ fontSize: '9px', color: '#8b5cf6', fontWeight: 'bold', marginLeft: '4px' }}>
+                        {isBundleComplete && (
+                          <span style={{ 
+                            fontSize: '9px', 
+                            color: '#8b5cf6', 
+                            fontWeight: 'bold', 
+                            marginLeft: '4px',
+                            background: 'rgba(139,92,246,0.15)',
+                            padding: '1px 8px',
+                            borderRadius: '10px'
+                          }}>
                             📦 Bundle
+                          </span>
+                        )}
+                        {item.isFree && (
+                          <span style={{ fontSize: '9px', color: '#22c55e', fontWeight: 'bold', marginLeft: '4px' }}>
+                            🎁 FREE
                           </span>
                         )}
                         {item.addons && (
@@ -2073,15 +1969,17 @@ function StaffApp() {
                         )}
                       </div>
                       <div style={{ fontSize: '10px', color: textMuted }}>
-                        x{item.quantity} × {isBundleItem && perItemPrice !== null ? `RM ${perItemPrice.toFixed(2)}` : `RM ${item.price.toFixed(2)}`}
+                        x{item.quantity} × RM {displayPrice.toFixed(2)}
+                        {hasDiscount && (
+                          <span style={{ marginLeft: '6px', fontSize: '9px', color: '#94a3b8', textDecoration: 'line-through' }}>
+                            RM {item.price.toFixed(2)}
+                          </span>
+                        )}
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '12px' }}>
-                        {isBundleItem && perItemPrice !== null 
-                          ? `RM ${(perItemPrice * item.quantity).toFixed(2)}`
-                          : `RM ${item.subtotal.toFixed(2)}`
-                        }
+                      <span style={{ color: isBundleComplete ? '#8b5cf6' : priceColor, fontWeight: 'bold', fontSize: '12px' }}>
+                        RM {displaySubtotal.toFixed(2)}
                       </span>
                       <button
                         onClick={() => removeFromCart(index)}
@@ -2175,6 +2073,9 @@ function StaffApp() {
     )
   }
 
+  // ============================================================
+  // RENDER NEW ORDERS
+  // ============================================================
   const renderNewOrders = () => {
     if (newOrders.length === 0) {
       return (
@@ -2242,6 +2143,9 @@ function StaffApp() {
     )
   }
 
+  // ============================================================
+  // RENDER UNPAID ORDERS
+  // ============================================================
   const renderUnpaidOrders = () => {
     if (unpaidOrders.length === 0) {
       return (
@@ -2312,6 +2216,9 @@ function StaffApp() {
     )
   }
 
+  // ============================================================
+  // RENDER HISTORY
+  // ============================================================
   const renderHistory = () => {
     const totalPages = Math.ceil(orderHistory.length / historyItemsPerPage)
     const paginated = orderHistory.slice((historyPage - 1) * historyItemsPerPage, historyPage * historyItemsPerPage)
@@ -2377,7 +2284,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== ITEM MODAL =====
+  // ITEM MODAL
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
@@ -2499,11 +2406,7 @@ function StaffApp() {
             {isInBundle ? (
               <>
                 <span>RM {displayPrice.toFixed(2)}</span>
-                <span style={{ 
-                  fontSize: isMobile ? '14px' : '16px', 
-                  color: textMuted, 
-                  textDecoration: 'line-through' 
-                }}>
+                <span style={{ fontSize: isMobile ? '14px' : '16px', color: textMuted, textDecoration: 'line-through' }}>
                   RM {displayOriginalPrice?.toFixed(2) || basePrice.toFixed(2)}
                 </span>
                 <span style={{
@@ -2519,11 +2422,7 @@ function StaffApp() {
             ) : hasDiscount ? (
               <>
                 <span>RM {displayPrice.toFixed(2)}</span>
-                <span style={{ 
-                  fontSize: isMobile ? '14px' : '16px', 
-                  color: textMuted, 
-                  textDecoration: 'line-through' 
-                }}>
+                <span style={{ fontSize: isMobile ? '14px' : '16px', color: textMuted, textDecoration: 'line-through' }}>
                   RM {displayOriginalPrice?.toFixed(2) || selectedItem.price.toFixed(2)}
                 </span>
                 <span style={{
@@ -2666,11 +2565,7 @@ function StaffApp() {
                 gap: '6px'
               }}>
                 ✨ {t('addons')}
-                <span style={{ 
-                  fontSize: '10px', 
-                  color: textMuted, 
-                  fontWeight: 'normal' 
-                }}>
+                <span style={{ fontSize: '10px', color: textMuted, fontWeight: 'normal' }}>
                   ({t('addon_optional')}) +RM {addonTotal.toFixed(2)}
                 </span>
               </label>
@@ -2704,11 +2599,7 @@ function StaffApp() {
                       }}
                     >
                       <span>{addon.name}</span>
-                      <span style={{ 
-                        color: priceColor, 
-                        fontWeight: 'bold',
-                        fontSize: '13px'
-                      }}>
+                      <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '13px' }}>
                         +RM {parseFloat(addon.price).toFixed(2)}
                       </span>
                     </button>
@@ -3010,6 +2901,7 @@ function StaffApp() {
     <Sidebar>
       <div style={{ padding: isMobile ? '12px' : '20px', maxWidth: '1600px', margin: '0 auto', background: bgColor, minHeight: '100vh' }}>
         
+        {/* ===== HEADER ===== */}
         <div style={{ ...glassEffect, borderRadius: '20px', padding: isMobile ? '14px 18px' : '18px 24px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h1 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold' }}>{t('pos_title')}</h1>
@@ -3036,6 +2928,7 @@ function StaffApp() {
           </div>
         </div>
         
+        {/* ===== ORDER TYPE & DETAILS ===== */}
         <div style={{ ...glassEffect, borderRadius: '16px', padding: isMobile ? '12px 16px' : '16px 20px', marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button onClick={() => setOrderType('dine_in')} style={{ padding: '6px 14px', background: orderType === 'dine_in' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: orderType === 'dine_in' ? 'white' : textColor, border: orderType === 'dine_in' ? 'none' : `1px solid ${borderColor}`, borderRadius: '30px', cursor: 'pointer', fontSize: isMobile ? '10px' : '12px', fontWeight: 'bold' }}>🍽️ {t('dine_in')}</button>
@@ -3048,6 +2941,7 @@ function StaffApp() {
           <input type="tel" placeholder={t('customer_phone')} value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} style={{ padding: '8px 14px', borderRadius: '12px', border: `1px solid ${borderColor}`, background: inputBg, color: textColor, flex: 1, minWidth: '120px', outline: 'none', fontSize: '13px' }} />
         </div>
         
+        {/* ===== TOP TABS ===== */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', background: darkMode ? 'rgba(30,30,46,0.5)' : 'rgba(0,0,0,0.03)', borderRadius: '50px', padding: '4px', overflowX: 'auto', flexWrap: 'nowrap' }}>
           <button onClick={() => setActiveTab('pos')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'pos' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'pos' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'pos' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap' }}>🧾 {t('pos')}</button>
           <button onClick={() => setActiveTab('orders')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'orders' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'orders' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'orders' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap', position: 'relative' }}>
@@ -3061,6 +2955,7 @@ function StaffApp() {
           <button onClick={() => setActiveTab('history')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'history' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'history' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'history' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap' }}>📜 {t('history')}</button>
         </div>
         
+        {/* ===== CONTENT ===== */}
         {activeTab === 'pos' && (
           <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '16px' }}>
             <div style={{ flex: isMobile ? 1 : 2, minWidth: 0 }}>
@@ -3085,6 +2980,7 @@ function StaffApp() {
         {activeTab === 'unpaid' && renderUnpaidOrders()}
         {activeTab === 'history' && renderHistory()}
         
+        {/* ===== MODALS ===== */}
         {showItemModal && renderItemModal()}
         {renderPaymentModal()}
         {renderReceiptModal()}
@@ -3093,10 +2989,7 @@ function StaffApp() {
           {`
             .spinner { width: 40px; height: 40px; border: 3px solid rgba(59,130,246,0.15); border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s linear infinite; }
             @keyframes spin { to { transform: rotate(360deg); } }
-            @keyframes pulse {
-              0%, 100% { transform: scale(1); }
-              50% { transform: scale(1.05); }
-            }
+            @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
             ::-webkit-scrollbar { width: 6px; height: 6px; }
             ::-webkit-scrollbar-track { background: ${darkMode ? '#1a1a2e' : '#e2e8f0'}; border-radius: 10px; }
             ::-webkit-scrollbar-thumb { background: ${darkMode ? '#3d3d5c' : '#94a3b8'}; border-radius: 10px; }

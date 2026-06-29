@@ -35,12 +35,31 @@ export function getDrinkOptionImage(menuItem, option) {
   return option?.image_url || option?.option_image_url || option?.image || menuItem?.image_url || ''
 }
 
+// ============================================================
+// ===== FIXED: normalizeOrderForInsert - ONLY table columns =====
+// ============================================================
 export function normalizeOrderForInsert(order = {}) {
+  // 🔥 ONLY include fields that exist in the customer_orders table
   return {
-    ...order,
+    order_number: order.order_number || 'ORD-' + Date.now(),
+    items: order.items || [],
+    total: order.total || 0,
+    customer_name: order.customer_name || 'Guest',
+    customer_phone: order.customer_phone || null,
+    table_number: order.table_number || null,
+    order_type: order.order_type || 'dine_in',
     status: order.status || ORDER_STATUS.NEW,
     order_status: order.order_status || order.status || ORDER_STATUS.NEW,
     payment_status: order.payment_status || PAYMENT_STATUS.UNPAID,
+    notes: order.notes || '',
+    subtotal: order.subtotal || order.total || 0,
+    service_charge: order.service_charge || 0,
+    tax: order.tax || 0,
+    grand_total: order.grand_total || order.total || 0,
+    // 🔥 Only include if you have added these columns to the table
+    // If you haven't added them, COMMENT OUT or REMOVE these lines
+    has_bundle: order.has_bundle || false,
+    bundle_promo: order.bundle_promo || null
   }
 }
 

@@ -35,11 +35,7 @@ export function getDrinkOptionImage(menuItem, option) {
   return option?.image_url || option?.option_image_url || option?.image || menuItem?.image_url || ''
 }
 
-// ============================================================
-// ===== FIXED: normalizeOrderForInsert - ONLY table columns =====
-// ============================================================
 export function normalizeOrderForInsert(order = {}) {
-  // 🔥 ONLY include fields that exist in the customer_orders table
   return {
     order_number: order.order_number || 'ORD-' + Date.now(),
     items: order.items || [],
@@ -56,8 +52,6 @@ export function normalizeOrderForInsert(order = {}) {
     service_charge: order.service_charge || 0,
     tax: order.tax || 0,
     grand_total: order.grand_total || order.total || 0,
-    // 🔥 Only include if you have added these columns to the table
-    // If you haven't added them, COMMENT OUT or REMOVE these lines
     has_bundle: order.has_bundle || false,
     bundle_promo: order.bundle_promo || null
   }

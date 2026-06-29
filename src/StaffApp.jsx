@@ -6,9 +6,7 @@ import { supabase } from './lib/supabase'
 import toast from 'react-hot-toast'
 import { playSound, initSound, unlockAudio } from './utils/sound'
 import { ORDER_STATUS, PAYMENT_STATUS, normalizeOrderForInsert } from './lib/orderWorkflow'
-
-// ===== IMPORT USE RECEIPT HOOK =====
-import { useReceipt } from './hooks/useReceipt'
+import { generateReceiptHTML } from './lib/receipt'
 
 // ===== IMPORT NOTIFICATION =====
 import { sendTelegramNotification, formatOrderNotification } from './lib/notification'
@@ -16,15 +14,6 @@ import { sendTelegramNotification, formatOrderNotification } from './lib/notific
 function StaffApp() {
   const { darkMode } = useTheme()
   const { language } = useLanguage()
-  
-  // ===== USE RECEIPT HOOK =====
-  const { 
-    settings: receiptSettings, 
-    loading: receiptLoading, 
-    generateReceipt, 
-    printReceipt,
-    reload: reloadReceipt 
-  } = useReceipt()
   
   // ============================================================
   // TRANSLATIONS
@@ -336,7 +325,6 @@ function StaffApp() {
     loadUnpaidOrders()
     loadOrderHistory()
     loadSettings()
-    reloadReceipt()
 
     const menuSub = supabase.channel('staff_menu')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'menu' }, () => loadMenu())
@@ -679,16 +667,6 @@ function StaffApp() {
       }
     }
     return null
-  }
-
-  function getBundlePriceForItem(item, cartItems) {
-    const bundle = getBundlePromoForCart(cartItems)
-    if (!bundle) return null
-    const isInBundle = bundle.bundleItems.some(i => i.id === item.id)
-    if (!isInBundle) return null
-    const bundleItemCount = bundle.bundleItems.length
-    const perItemPrice = bundle.bundlePrice / bundleItemCount
-    return { price: perItemPrice, originalPrice: item.price, savings: bundle.savings, bundlePrice: bundle.bundlePrice }
   }
 
   function getItemPrice(item, option, size) {
@@ -1079,6 +1057,7 @@ function StaffApp() {
       
       toast.success(`✅ ${t('order_sent')} #${orderNumber}`)
       
+      // ===== SEND TELEGRAM NOTIFICATION =====
       if (data && data.length > 0) {
         const order = data[0]
         const message = formatOrderNotification(order)
@@ -1086,16 +1065,16 @@ function StaffApp() {
         console.log('📨 Telegram notification sent for order:', order.order_number)
       }
       
-      if (data && data.length > 0 && receiptSettings) {
+      // ===== PRINT RECEIPT =====
+      if (data && data.length > 0) {
         const order = data[0]
         try {
-          const receiptText = generateReceipt({
+          const receiptHTML = generateReceiptHTML({
             ...order,
             order_number: orderNumber,
             customer_name: customerName || 'Guest',
             table_number: orderType === 'dine_in' ? tableNumber : null,
             order_type: orderType,
-            staff_name: 'Staff',
             items: cart.map(item => ({
               name: item.name,
               option: item.option || null,
@@ -1103,14 +1082,17 @@ function StaffApp() {
               addons: item.addons || null,
               quantity: item.quantity,
               price: item.price,
-              subtotal: item.subtotal
+              subtotal: item.subtotal,
+              isFree: item.isFree || false,
+              isBundleItem: item.isBundleItem || false,
+              promoType: item.promoType || null,
+              promoName: item.promoName || null
             })),
             subtotal: getSubtotal(),
             service_charge: getServiceCharge(),
             tax: getTax(),
-            total: getGrandTotal(),
+            grand_total: getGrandTotal(),
             payment_method: 'cash',
-            paid_amount: getGrandTotal(),
             has_bundle: hasBundle,
             bundle_promo: hasBundle ? {
               name: bundleInCart.promo.name,
@@ -1119,9 +1101,24 @@ function StaffApp() {
               savings: bundleInCart.savings,
               items: bundleInCart.bundleItems.map(i => i.name)
             } : null
+          }, {
+            restaurant_name: settings.restaurant_name,
+            service_charge_percent: settings.service_charge,
+            tax_percent: settings.tax,
+            payment_method: 'cash',
+            darkMode: darkMode
           })
-          await printReceipt(receiptText)
-          console.log('✅ Receipt printed successfully from StaffApp')
+          
+          // Print receipt using window print
+          const printWindow = window.open('', '_blank', 'width=400,height=600')
+          if (printWindow) {
+            printWindow.document.write(receiptHTML)
+            printWindow.document.close()
+            console.log('✅ Receipt printed successfully from StaffApp')
+          } else {
+            console.warn('⚠️ Popup blocked, receipt printed to console')
+            console.log(receiptHTML)
+          }
         } catch (receiptError) {
           console.error('Error printing receipt:', receiptError)
         }
@@ -1207,30 +1204,36 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PRINT RECEIPT - FALLBACK
+  // PRINT RECEIPT LEGACY
   // ============================================================
   const printReceiptLegacy = (order) => {
-    if (receiptSettings) {
-      try {
-        const receiptText = generateReceipt({
-          ...order,
-          items: order.items || [],
-          subtotal: order.subtotal || order.total || 0,
-          service_charge: order.service_charge || 0,
-          tax: order.tax || 0,
-          total: order.grand_total || order.total || 0,
-          payment_method: order.payment_method || 'cash',
-          paid_amount: order.grand_total || order.total || 0,
-          has_bundle: order.has_bundle || false,
-          bundle_promo: order.bundle_promo || null
-        })
-        printReceipt(receiptText)
-        console.log('✅ Receipt printed successfully from StaffApp (legacy)')
-      } catch (err) {
-        console.error('Error printing receipt:', err)
-        fallbackPrintReceipt(order)
+    try {
+      const receiptHTML = generateReceiptHTML({
+        ...order,
+        items: order.items || [],
+        subtotal: order.subtotal || order.total || 0,
+        service_charge: order.service_charge || 0,
+        tax: order.tax || 0,
+        grand_total: order.grand_total || order.total || 0,
+        payment_method: order.payment_method || 'cash',
+        has_bundle: order.has_bundle || false,
+        bundle_promo: order.bundle_promo || null
+      }, {
+        restaurant_name: settings.restaurant_name,
+        service_charge_percent: settings.service_charge,
+        tax_percent: settings.tax,
+        payment_method: order.payment_method || 'cash',
+        darkMode: darkMode
+      })
+      
+      const printWindow = window.open('', '_blank', 'width=400,height=600')
+      if (printWindow) {
+        printWindow.document.write(receiptHTML)
+        printWindow.document.close()
+        console.log('✅ Receipt printed successfully')
       }
-    } else {
+    } catch (err) {
+      console.error('Error printing receipt:', err)
       fallbackPrintReceipt(order)
     }
   }
@@ -2918,7 +2921,6 @@ function StaffApp() {
                 loadUnpaidOrders(); 
                 loadOrderHistory(); 
                 resetNotifiedOrders();
-                reloadReceipt();
                 toast.success('🔄 Refreshed!') 
               }} 
               style={{ padding: isMobile ? '6px 14px' : '8px 18px', background: 'linear-gradient(135deg, #06b6d4, #0891b2)', color: 'white', border: 'none', borderRadius: '30px', cursor: 'pointer', fontWeight: 'bold', fontSize: isMobile ? '11px' : '13px' }}

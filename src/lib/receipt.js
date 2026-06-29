@@ -29,6 +29,10 @@ export function generateReceiptHTML(order, settings = {}) {
 
   const isDark = darkMode
 
+  // 🔥 AMBIL DATA BUNDLE DARI ORDER
+  const hasBundle = order.has_bundle || false
+  const bundlePromo = order.bundle_promo || null
+
   return `
     <!DOCTYPE html>
     <html>
@@ -126,6 +130,42 @@ export function generateReceiptHTML(order, settings = {}) {
           font-weight: bold;
           margin-top: 4px;
         }
+        /* 🔥 STYLE UNTUK BUNDLE PROMO */
+        .promo-badge {
+          background: ${isDark ? 'rgba(139,92,246,0.15)' : 'rgba(139,92,246,0.06)'};
+          border: 1px solid #8b5cf6;
+          border-radius: 8px;
+          padding: 10px 12px;
+          margin: 10px 0;
+          text-align: center;
+        }
+        .promo-name {
+          font-size: 12px;
+          color: #8b5cf6;
+          font-weight: bold;
+        }
+        .promo-items {
+          font-size: 10px;
+          color: ${isDark ? '#94a3b8' : '#64748b'};
+          margin: 4px 0;
+        }
+        .promo-price {
+          font-size: 14px;
+          font-weight: bold;
+          color: #22c55e;
+        }
+        .promo-original {
+          font-size: 11px;
+          color: #94a3b8;
+          text-decoration: line-through;
+        }
+        .promo-savings {
+          font-size: 10px;
+          background: #22c55e;
+          color: white;
+          padding: 1px 10px;
+          border-radius: 12px;
+        }
         @media print { 
           body { 
             margin: 0; 
@@ -149,6 +189,15 @@ export function generateReceiptHTML(order, settings = {}) {
           .order-info { color: #666 !important; }
           .option-label { color: #666 !important; }
           .payment-method { color: #3b82f6 !important; }
+          .promo-badge {
+            background: rgba(139,92,246,0.06) !important;
+            border-color: #8b5cf6 !important;
+          }
+          .promo-name { color: #8b5cf6 !important; }
+          .promo-items { color: #666 !important; }
+          .promo-price { color: #22c55e !important; }
+          .promo-original { color: #94a3b8 !important; }
+          .promo-savings { background: #22c55e !important; color: white !important; }
         }
       </style>
     </head>
@@ -174,22 +223,54 @@ export function generateReceiptHTML(order, settings = {}) {
             <tr><th>Item</th><th>Qty</th><th>Price</th></tr>
           </thead>
           <tbody>
-            ${order.items?.map(item => `
-              <tr>
-                <td style="text-align:left">
-                  ${item.name}
-                  ${item.option ? `<div class="option-label">${item.option}</div>` : ''}
-                  ${item.size ? `<div class="option-label">${item.size}</div>` : ''}
-                  ${item.isFree ? `<div style="color:#ef4444;font-weight:bold;">FREE</div>` : ''}
-                </td>
-                <td style="text-align:center">${item.quantity}</td>
-                <td style="text-align:right">${item.isFree ? 'FREE' : `RM ${(item.price * item.quantity).toFixed(2)}`}</td>
-              </tr>
-            `).join('')}
+            ${order.items?.map(item => {
+              let itemName = item.name || ''
+              
+              // 🔥 TAMBAH LABEL PROMO PADA ITEM
+              if (item.isBundleItem || item.isBundle) {
+                itemName = `📦 ${itemName} (Bundle)`
+              } else if (item.isFree) {
+                itemName = `🎁 ${itemName} (FREE)`
+              } else if (item.promoType === 'bogo') {
+                itemName = `🎁 ${itemName} (BOGO)`
+              } else if (item.promoName) {
+                itemName = `🔥 ${itemName} (Promo)`
+              }
+              
+              return `
+                <tr>
+                  <td style="text-align:left">
+                    ${itemName}
+                    ${item.option ? `<div class="option-label">${item.option}</div>` : ''}
+                    ${item.size ? `<div class="option-label">${item.size}</div>` : ''}
+                    ${item.addons ? `<div class="option-label">✨ ${item.addons}</div>` : ''}
+                    ${item.isFree ? `<div style="color:#ef4444;font-weight:bold;">FREE</div>` : ''}
+                  </td>
+                  <td style="text-align:center">${item.quantity}</td>
+                  <td style="text-align:right">${item.isFree ? 'FREE' : `RM ${(item.price * item.quantity).toFixed(2)}`}</td>
+                </tr>
+              `
+            }).join('')}
           </tbody>
         </table>
         
         <div class="divider"></div>
+        
+        <!-- ========================================================== -->
+        <!-- 🔥🔥🔥 TUNJUK BUNDLE PROMO DI RESIT 🔥🔥🔥 -->
+        <!-- ========================================================== -->
+        ${hasBundle && bundlePromo ? `
+          <div class="promo-badge">
+            <div class="promo-name">📦 ${bundlePromo.name}</div>
+            <div class="promo-items">${bundlePromo.items.join(' + ')}</div>
+            <div style="display: flex; justify-content: center; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap;">
+              <span class="promo-price">RM ${bundlePromo.bundle_price.toFixed(2)}</span>
+              <span class="promo-original">RM ${bundlePromo.original_price.toFixed(2)}</span>
+              <span class="promo-savings">Jimat RM ${bundlePromo.savings.toFixed(2)}</span>
+            </div>
+          </div>
+          <div class="divider"></div>
+        ` : ''}
         
         <div style="display:flex;justify-content:space-between;padding:2px 0;">
           <span class="label">Subtotal</span>

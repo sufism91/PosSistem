@@ -187,7 +187,6 @@ function StaffApp() {
     restaurant_name: 'Restoran Kita',
     kitchen_enabled: true,
     notification_sound: true,
-    // 🔥 TAMBAH RECEIPT SETTINGS
     receipt_logo_url: '',
     receipt_company_name: '',
     receipt_company_address: '',
@@ -514,13 +513,16 @@ function StaffApp() {
     } catch (err) { console.error('Error loading new orders:', err) }
   }
 
+  // ============================================================
+  // 🔥 FIX: loadUnpaidOrders - TUNJUK SEMUA UNPAID ORDERS
+  // ============================================================
   async function loadUnpaidOrders() {
     try {
       const { data } = await supabase
         .from('customer_orders')
         .select('*')
         .eq('payment_status', PAYMENT_STATUS.UNPAID)
-        .in('status', ['confirmed', 'preparing', 'ready'])
+        // 🔥 BUANG filter status - tunjuk semua UNPAID
         .order('created_at', { ascending: false })
       setUnpaidOrders(data || [])
     } catch (err) { console.error('Error loading unpaid orders:', err) }
@@ -967,7 +969,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== SEND ORDER - WITH RECEIPT PRINT USING SETTINGS =====
+  // ===== SEND ORDER - 🔥 FIX: GUNA 'pending' BUKAN 'new' =====
   // ============================================================
   const sendOrder = async () => {
     if (cart.length === 0) { toast.error(t('cart_empty_msg')); return }
@@ -994,6 +996,7 @@ function StaffApp() {
     const bundleInCart = getBundlePromoForCart(cart)
     const hasBundle = bundleInCart !== null
     
+    // 🔥 FIX: Tukar status dari 'new' ke 'pending'
     const orderData = {
       order_number: orderNumber,
       items: cart.map(item => ({
@@ -1022,8 +1025,9 @@ function StaffApp() {
       customer_phone: customerPhone || null,
       table_number: orderType === 'dine_in' ? parseInt(tableNumber) || null : null,
       order_type: orderType,
-      status: ORDER_STATUS.NEW,
-      order_status: ORDER_STATUS.NEW,
+      // 🔥 FIX: Guna 'pending' bukan ORDER_STATUS.NEW
+      status: 'pending',
+      order_status: 'pending',
       payment_status: PAYMENT_STATUS.UNPAID,
       notes: cart.map(item => item.notes).filter(n => n).join(', '),
       subtotal: getSubtotal(),
@@ -1120,13 +1124,11 @@ function StaffApp() {
               items: bundleInCart.bundleItems.map(i => i.name)
             } : null
           }, {
-            // 🔥 GUNA SETTING DARI MANAGESETTING
             restaurant_name: settings.restaurant_name,
             service_charge_percent: settings.service_charge,
             tax_percent: settings.tax,
             payment_method: 'cash',
             darkMode: darkMode,
-            // 🔥 RECEIPT SETTINGS
             receipt_logo_url: settings.receipt_logo_url || '',
             receipt_company_name: settings.receipt_company_name || '',
             receipt_company_address: settings.receipt_company_address || '',
@@ -1172,15 +1174,14 @@ function StaffApp() {
   }
 
   // ============================================================
-  // CONFIRM / CANCEL NEW ORDER
+  // 🔥 FIX: confirmNewOrder - JANGAN UPDATE STATUS
   // ============================================================
   const confirmNewOrder = async (order) => {
     try {
+      // 🔥 FIX: Hanya update confirmed_at, biar status kekal 'pending'
       await supabase
         .from('customer_orders')
         .update({ 
-          status: ORDER_STATUS.CONFIRMED, 
-          order_status: ORDER_STATUS.CONFIRMED, 
           confirmed_at: new Date().toISOString() 
         })
         .eq('id', order.id)
@@ -1210,12 +1211,14 @@ function StaffApp() {
     setShowPaymentModal(true)
   }
 
+  // 🔥 FIX: markAsPaid - Update status ke 'completed'
   const markAsPaid = async (order) => {
     const subtotal = parseFloat(order.subtotal || order.total || 0)
     const serviceCharge = order.order_type === 'take_away' ? 0 : subtotal * (settings.service_charge / 100)
     const tax = subtotal * (settings.tax / 100)
     const grandTotal = subtotal + serviceCharge + tax
     
+    // 🔥 FIX: Tambah status 'completed' dan 'order_status'
     await supabase
       .from('customer_orders')
       .update({ 
@@ -1225,7 +1228,10 @@ function StaffApp() {
         subtotal,
         service_charge: serviceCharge,
         tax,
-        grand_total: grandTotal
+        grand_total: grandTotal,
+        // 🔥 FIX: Update status ke completed
+        status: 'completed',
+        order_status: 'completed'
       })
       .eq('id', order.id)
     

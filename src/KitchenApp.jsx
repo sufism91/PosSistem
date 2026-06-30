@@ -234,7 +234,7 @@ function KitchenApp() {
   }, [kitchenEnabled])
 
   // ============================================================
-  // LOAD ORDERS - Pisah Makanan & Minuman
+  // 🔥 FIX: LOAD ORDERS - PASTIKAN 'pending' ADA DALAM FILTER
   // ============================================================
   async function loadOrders() {
     try {
@@ -242,6 +242,7 @@ function KitchenApp() {
         .from('customer_orders')
         .select('*')
         .eq('payment_status', PAYMENT_STATUS.UNPAID)
+        // 🔥 FIX: Pastikan 'pending' ada dalam filter
         .in('status', ['pending', 'confirmed', 'preparing', 'ready'])
         .order('created_at', { ascending: false })
 
@@ -312,6 +313,79 @@ function KitchenApp() {
   }
 
   // ============================================================
+  // 🔥 FIX: updateOrderStatus - BLOCK 'completed' DARI KITCHEN
+  // ============================================================
+  async function updateOrderStatus(orderId, status) {
+    // 🔥 FIX: Kitchen TIDAK BOLEH set status ke 'completed'
+    if (status === 'completed' || status === ORDER_STATUS.COMPLETED) {
+      toast.warning('⚠️ Sila gunakan Staff App untuk proses pembayaran')
+      return
+    }
+
+    try {
+      const updateData = status === ORDER_STATUS.COMPLETED || status === 'completed' 
+        ? { status, order_status: ORDER_STATUS.COMPLETED }
+        : { status, order_status: status }
+      
+      const { error } = await supabase
+        .from('customer_orders')
+        .update(updateData)
+        .eq('id', orderId)
+      
+      if (error) throw error
+      
+      await loadOrders()
+      await loadCompletedOrders()
+      
+      if (status === 'preparing') {
+        toast.success(t('cooking_started'))
+        playKitchenSound()
+      } else if (status === 'ready') {
+        toast.success(t('cooking_finished'))
+        playKitchenSound()
+      } else if (status === 'completed') {
+        toast.success(t('order_completed'))
+      } else if (status === 'cancelled') {
+        toast.error(t('order_cancelled'))
+      }
+    } catch (err) {
+      console.error('Error updating order:', err)
+      toast.error(t('error_updating'))
+    }
+  }
+
+  // ============================================================
+  // BULK COMPLETE
+  // ============================================================
+  async function bulkComplete(tab) {
+    let ordersToComplete = []
+    if (tab === 'ready') ordersToComplete = readyOrders
+    else if (tab === 'preparing') ordersToComplete = preparingOrders
+    else if (tab === 'food') ordersToComplete = foodOrders
+    else if (tab === 'drink') ordersToComplete = drinkOrders
+    
+    if (ordersToComplete.length === 0) {
+      toast.error(t('no_orders_to_complete'))
+      return
+    }
+    
+    if (window.confirm(t('confirm_complete_all'))) {
+      for (const order of ordersToComplete) {
+        // 🔥 FIX: Jangan guna 'completed', guna 'ready' sebagai status final
+        const newStatus = 'ready'
+        await supabase
+          .from('customer_orders')
+          .update({ status: newStatus, order_status: newStatus })
+          .eq('id', order.id)
+      }
+      await loadOrders()
+      await loadCompletedOrders()
+      toast.success(`✅ ${ordersToComplete.length} orders marked as ready!`)
+      playKitchenSound()
+    }
+  }
+
+  // ============================================================
   // MAIN EFFECT - POLLING + REMINDER SOUND
   // ============================================================
   useEffect(() => {
@@ -331,6 +405,7 @@ function KitchenApp() {
         const { data } = await supabase
           .from('customer_orders')
           .select('id, status, order_number, table_number, order_type')
+          // 🔥 FIX: Pastikan 'pending' dalam filter
           .in('status', ['pending', 'confirmed', 'preparing', 'ready'])
           .order('created_at', { ascending: false })
         
@@ -400,72 +475,6 @@ function KitchenApp() {
   }, [kitchenEnabled])
 
   // ============================================================
-  // ORDER ACTIONS
-  // ============================================================
-  async function updateOrderStatus(orderId, status) {
-    try {
-      const updateData = status === ORDER_STATUS.COMPLETED || status === 'completed' 
-        ? { status, order_status: ORDER_STATUS.COMPLETED }
-        : { status, order_status: status }
-      
-      const { error } = await supabase
-        .from('customer_orders')
-        .update(updateData)
-        .eq('id', orderId)
-      
-      if (error) throw error
-      
-      await loadOrders()
-      await loadCompletedOrders()
-      
-      if (status === 'preparing') {
-        toast.success(t('cooking_started'))
-        playKitchenSound()
-      } else if (status === 'ready') {
-        toast.success(t('cooking_finished'))
-        playKitchenSound()
-      } else if (status === 'completed') {
-        toast.success(t('order_completed'))
-      } else if (status === 'cancelled') {
-        toast.error(t('order_cancelled'))
-      }
-    } catch (err) {
-      console.error('Error updating order:', err)
-      toast.error(t('error_updating'))
-    }
-  }
-
-  // ============================================================
-  // BULK COMPLETE
-  // ============================================================
-  async function bulkComplete(tab) {
-    let ordersToComplete = []
-    if (tab === 'ready') ordersToComplete = readyOrders
-    else if (tab === 'preparing') ordersToComplete = preparingOrders
-    else if (tab === 'food') ordersToComplete = foodOrders
-    else if (tab === 'drink') ordersToComplete = drinkOrders
-    
-    if (ordersToComplete.length === 0) {
-      toast.error(t('no_orders_to_complete'))
-      return
-    }
-    
-    if (window.confirm(t('confirm_complete_all'))) {
-      for (const order of ordersToComplete) {
-        const newStatus = 'completed'
-        await supabase
-          .from('customer_orders')
-          .update({ status: newStatus, order_status: newStatus })
-          .eq('id', order.id)
-      }
-      await loadOrders()
-      await loadCompletedOrders()
-      toast.success(`✅ ${ordersToComplete.length} ${t('orders_completed')}`)
-      playKitchenSound()
-    }
-  }
-
-  // ============================================================
   // HELPERS
   // ============================================================
   const getOrderTypeIcon = (order) => {
@@ -520,7 +529,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // RENDER ORDER CARD
+  // RENDER ORDER CARD - 🔥 FIX: BUANG BUTTON COMPLETE
   // ============================================================
   const renderOrderCard = (order, showActionButtons = true) => {
     const waitingColor = getWaitingColor(order.created_at)
@@ -783,29 +792,27 @@ function KitchenApp() {
               </button>
             )}
             
+            {/* ============================================================
+                🔥 FIX: BUANG BUTTON "COMPLETE" UNTUK STATUS 'ready'
+                Kitchen TIDAK BOLEH set status ke 'completed'
+                ============================================================ */}
             {order.status === 'ready' && (
-              <button 
-                onClick={() => updateOrderStatus(order.id, 'completed')} 
-                style={{ 
-                  flex: 1, 
-                  background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
-                  color: 'white', 
-                  padding: isMobile ? '10px' : '12px', 
-                  border: 'none', 
-                  borderRadius: '50px', 
-                  cursor: 'pointer', 
-                  fontWeight: 'bold',
-                  fontSize: isMobile ? '12px' : '13px',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
-                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                ✅ {t('complete')}
-              </button>
+              <div style={{ 
+                flex: 1,
+                background: 'rgba(34, 197, 94, 0.1)',
+                border: `1px solid ${priceColor}`,
+                borderRadius: '50px',
+                padding: isMobile ? '10px' : '12px',
+                textAlign: 'center',
+                color: priceColor,
+                fontWeight: 'bold',
+                fontSize: isMobile ? '12px' : '13px'
+              }}>
+                ✅ Sedia untuk bayaran di Staff App
+              </div>
             )}
             
-            {order.status !== 'completed' && (
+            {order.status !== 'completed' && order.status !== 'ready' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'cancelled')} 
                 style={{ 

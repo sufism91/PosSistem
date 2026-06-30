@@ -52,7 +52,7 @@ function KitchenApp() {
     complete: { en: '✅ Complete', ms: 'Selesai' },
     cancelled: { en: '❌ Cancelled', ms: 'Dibatalkan' },
     cancel: { en: '❌ Cancel', ms: 'Batal' },
-    accept_and_cook: { en: '✅ Accept & Start Cooking', ms: '✅ Terima & Mula Masak' },
+    accept_and_cook: { en: '✅ Accept & Start Cooking', ms: 'Terima & Mula Masak' },
     
     // Messages
     error_updating: { en: '❌ Error updating order!', ms: 'Ralat kemaskini pesanan!' },

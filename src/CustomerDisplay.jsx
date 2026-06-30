@@ -724,66 +724,56 @@ function CustomerDisplay() {
     }
   }
 
-  // ===== PRINT RECEIPT WITH HOOK (RENAME TO AVOID CONFLICT) =====
+  // ===== PRINT RECEIPT WITH HOOK =====
   const printReceiptWithHook = (order) => {
-  if (receiptSettings) {
-    try {
-      const subtotal = order.subtotal || order.total || 0
-      const serviceCharge = order.service_charge || (subtotal * (serviceChargePercent / 100))
-      const tax = order.tax || (subtotal * (taxPercent / 100))
-      const grandTotal = order.grand_total || (subtotal + serviceCharge + tax)
-      
-      // 🔥 TAMBAH: Proses items dengan promo info
-      const itemsWithPromo = (order.items || []).map(item => {
-        // Check if item has promo
-        const promo = getItemPromotion(item)
-        const promoPrice = getPromoPrice(item)
-        const isFree = item.isFree === true
-        const isBundleItem = item.isBundleItem === true
+    if (receiptSettings) {
+      try {
+        const subtotal = order.subtotal || order.total || 0
+        const serviceCharge = order.service_charge || (subtotal * (serviceChargePercent / 100))
+        const tax = order.tax || (subtotal * (taxPercent / 100))
+        const grandTotal = order.grand_total || (subtotal + serviceCharge + tax)
         
-        return {
-          ...item,
-          promo_type: promo?.type || null,
-          promo_name: promo?.promo?.name || null,
-          promo_price: promoPrice,
-          isFree: isFree,
-          isBundleItem: isBundleItem,
-          original_price: item.originalPrice || item.price,
-          display_price: isFree ? 0 : (promoPrice !== null ? promoPrice : item.price)
-        }
-      })
-      
-      // 🔥 TAMBAH: Bundle promo info
-      const bundlePromo = order.bundle_promo || null
-      
-      const receiptText = generateReceipt({
-        ...order,
-        order_number: order.order_number || `ORD-${order.id}`,
-        customer_name: order.customer_name || 'Guest',
-        table_number: order.table_number || null,
-        order_type: order.order_type || 'dine_in',
-        staff_name: 'System',
-        items: itemsWithPromo,  // 🔥 GUNA items dengan promo info
-        subtotal: subtotal,
-        service_charge: serviceCharge,
-        tax: tax,
-        total: grandTotal,
-        payment_method: order.payment_method || paymentMethod || 'cash',
-        paid_amount: grandTotal,
-        has_promo: order.has_bundle === true || order.promo_applied === true,
-        bundle_promo: bundlePromo,  // 🔥 TAMBAH
-        promotions: promotions  // 🔥 TAMBAH untuk rujukan
-      })
-      printReceipt(receiptText)
-      console.log('✅ Receipt printed successfully from CustomerDisplay (view)')
-    } catch (err) {
-      console.error('Error printing receipt:', err)
+        const receiptText = generateReceipt({
+          ...order,
+          order_number: order.order_number || `ORD-${order.id}`,
+          customer_name: order.customer_name || 'Guest',
+          table_number: order.table_number || null,
+          order_type: order.order_type || 'dine_in',
+          staff_name: 'System',
+          items: order.items || [],
+          subtotal: subtotal,
+          service_charge: serviceCharge,
+          tax: tax,
+          total: grandTotal,
+          payment_method: order.payment_method || paymentMethod || 'cash',
+          paid_amount: grandTotal
+        })
+        printReceipt(receiptText)
+        console.log('✅ Receipt printed successfully from CustomerDisplay (view)')
+      } catch (err) {
+        console.error('Error printing receipt:', err)
+        printReceiptDirect(order)
+      }
+    } else {
       printReceiptDirect(order)
     }
-  } else {
-    printReceiptDirect(order)
   }
-}
+
+  // ============================================================
+  // 🔥 TAMBAH: PRINT ALL RECEIPTS
+  // ============================================================
+  const printAllReceipts = () => {
+    if (tableOrders.length === 0) {
+      toast.error(t2('no_orders'))
+      return
+    }
+    
+    tableOrders.forEach(order => {
+      printReceiptWithHook(order)
+    })
+    
+    toast.success(`🖨️ ${tableOrders.length} ${language === 'bm' ? 'resit dicetak!' : 'receipts printed!'}`)
+  }
 
   // ============================================================
   // HELPERS
@@ -1005,244 +995,244 @@ function CustomerDisplay() {
         </div>
       </div>
 
-      {/* ===== PROMOTIONS BANNER - DESIGN BARU ===== */}
-{promotions.length > 0 && (
-  <div style={{ 
-    background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-    borderRadius: '20px',
-    padding: isMobile ? '16px 20px' : '24px 32px',
-    marginBottom: '16px',
-    boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
-    border: '2px solid rgba(255,215,0,0.3)',
-    position: 'relative',
-    overflow: 'hidden',
-    flexShrink: 0
-  }}>
-    {/* Background decoration */}
-    <div style={{
-      position: 'absolute',
-      top: '-30%',
-      right: '-10%',
-      width: '300px',
-      height: '300px',
-      background: 'radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%)',
-      borderRadius: '50%',
-      pointerEvents: 'none'
-    }} />
-    <div style={{
-      position: 'absolute',
-      bottom: '-30%',
-      left: '-10%',
-      width: '200px',
-      height: '200px',
-      background: 'radial-gradient(circle, rgba(255,100,100,0.1) 0%, transparent 70%)',
-      borderRadius: '50%',
-      pointerEvents: 'none'
-    }} />
-    
-    {/* Header */}
-    <div style={{ 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'space-between',
-      marginBottom: '16px',
-      flexWrap: 'wrap',
-      gap: '10px',
-      position: 'relative',
-      zIndex: 1
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-        <div style={{
-          fontSize: isMobile ? '36px' : '48px',
-          animation: 'pulse 1.5s ease-in-out infinite'
+      {/* ===== PROMOTIONS BANNER ===== */}
+      {promotions.length > 0 && (
+        <div style={{ 
+          background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
+          borderRadius: '20px',
+          padding: isMobile ? '16px 20px' : '24px 32px',
+          marginBottom: '16px',
+          boxShadow: '0 8px 40px rgba(0,0,0,0.5)',
+          border: '2px solid rgba(255,215,0,0.3)',
+          position: 'relative',
+          overflow: 'hidden',
+          flexShrink: 0
         }}>
-          🔥
-        </div>
-        <div>
+          {/* Background decoration */}
+          <div style={{
+            position: 'absolute',
+            top: '-30%',
+            right: '-10%',
+            width: '300px',
+            height: '300px',
+            background: 'radial-gradient(circle, rgba(255,215,0,0.15) 0%, transparent 70%)',
+            borderRadius: '50%',
+            pointerEvents: 'none'
+          }} />
+          <div style={{
+            position: 'absolute',
+            bottom: '-30%',
+            left: '-10%',
+            width: '200px',
+            height: '200px',
+            background: 'radial-gradient(circle, rgba(255,100,100,0.1) 0%, transparent 70%)',
+            borderRadius: '50%',
+            pointerEvents: 'none'
+          }} />
+          
+          {/* Header */}
           <div style={{ 
-            fontSize: isMobile ? '18px' : '28px', 
-            fontWeight: 'bold', 
-            color: '#FFD700',
-            textShadow: '0 0 20px rgba(255,215,0,0.3)',
-            letterSpacing: '1px'
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            marginBottom: '16px',
+            flexWrap: 'wrap',
+            gap: '10px',
+            position: 'relative',
+            zIndex: 1
           }}>
-            {t2('promo')}
-          </div>
-          <div style={{ 
-            fontSize: isMobile ? '10px' : '13px', 
-            color: '#90CAF9',
-            fontWeight: '500'
-          }}>
-            {promotions.length} {language === 'bm' ? 'promosi aktif' : 'active promotions'}
-          </div>
-        </div>
-      </div>
-      
-      <div style={{
-        background: 'linear-gradient(135deg, #FFD700, #FFA000)',
-        color: '#1a1a2e',
-        padding: '6px 20px',
-        borderRadius: '30px',
-        fontSize: isMobile ? '10px' : '13px',
-        fontWeight: 'bold',
-        boxShadow: '0 4px 20px rgba(255,215,0,0.3)',
-        animation: 'pulse 2s ease-in-out infinite'
-      }}>
-        🎉 {language === 'bm' ? 'JANGAN LEPASKAN!' : "DON'T MISS OUT!"}
-      </div>
-    </div>
-    
-    {/* Promo Cards */}
-    <div style={{ 
-      display: 'grid', 
-      gridTemplateColumns: isMobile 
-        ? '1fr' 
-        : 'repeat(auto-fill, minmax(250px, 1fr))',
-      gap: isMobile ? '12px' : '16px',
-      position: 'relative',
-      zIndex: 1
-    }}>
-      {promotions.slice(0, 6).map((promo, idx) => {
-        const isBOGO = promo.type === 'bogo'
-        const triggerName = promo.trigger_items?.[0]?.name || ''
-        const freeName = promo.free_items?.[0]?.name || ''
-        
-        return (
-          <div 
-            key={idx} 
-            style={{ 
-              background: 'rgba(255,255,255,0.08)',
-              backdropFilter: 'blur(12px)',
-              borderRadius: '16px', 
-              padding: isMobile ? '14px 18px' : '18px 24px', 
-              border: '1px solid rgba(255,255,255,0.12)',
-              boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
-              transition: 'all 0.3s ease',
-              position: 'relative',
-              overflow: 'hidden'
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)'
-              e.currentTarget.style.boxShadow = '0 8px 40px rgba(0,0,0,0.3)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = 'translateY(0) scale(1)'
-              e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)'
-            }}
-          >
-            {/* Promo type badge */}
-            <div style={{
-              position: 'absolute',
-              top: '10px',
-              right: '10px',
-              background: isBOGO 
-                ? 'linear-gradient(135deg, #FF6B6B, #EE5A24)' 
-                : 'linear-gradient(135deg, #FFD700, #FFA000)',
-              color: 'white',
-              padding: '2px 12px',
-              borderRadius: '20px',
-              fontSize: isMobile ? '8px' : '10px',
-              fontWeight: 'bold',
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-              boxShadow: '0 2px 12px rgba(255,215,0,0.3)'
-            }}>
-              {getPromoTypeLabel(promo.type)}
-            </div>
-            
-            <div style={{ marginBottom: isMobile ? '6px' : '8px' }}>
-              <div style={{ 
-                fontWeight: 'bold', 
-                fontSize: isMobile ? '14px' : '18px', 
-                color: 'white',
-                textShadow: '0 1px 4px rgba(0,0,0,0.2)',
-                paddingRight: '60px'
-              }}>
-                {promo.name}
-              </div>
-              
-              <div style={{ 
-                fontSize: isMobile ? '11px' : '13px', 
-                color: '#90CAF9',
-                marginTop: '2px'
-              }}>
-                {isBOGO ? (
-                  <span>🎁 <span style={{ color: '#FFD700' }}>{triggerName}</span> → <span style={{ color: '#4ADE80' }}>{freeName || 'FREE'}</span></span>
-                ) : (
-                  <span>📦 {promo.bundle_items?.length || 0} {language === 'bm' ? 'item termasuk' : 'items included'}</span>
-                )}
-              </div>
-            </div>
-            
-            {/* Price */}
-            {promo.bundle_price > 0 && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                marginTop: isMobile ? '6px' : '8px',
-                padding: isMobile ? '6px 12px' : '8px 16px',
-                background: 'rgba(255,215,0,0.15)',
-                borderRadius: '30px',
-                border: '1px solid rgba(255,215,0,0.2)',
-                width: 'fit-content'
+                fontSize: isMobile ? '36px' : '48px',
+                animation: 'pulse 1.5s ease-in-out infinite'
               }}>
-                <span style={{
-                  fontSize: isMobile ? '18px' : '24px',
-                  fontWeight: 'bold',
-                  color: '#FFD700'
+                🔥
+              </div>
+              <div>
+                <div style={{ 
+                  fontSize: isMobile ? '18px' : '28px', 
+                  fontWeight: 'bold', 
+                  color: '#FFD700',
+                  textShadow: '0 0 20px rgba(255,215,0,0.3)',
+                  letterSpacing: '1px'
                 }}>
-                  RM {promo.bundle_price}
-                </span>
-                {promo.bundle_items && promo.bundle_items.length > 1 && (
-                  <span style={{
-                    fontSize: isMobile ? '10px' : '12px',
-                    color: '#90CAF9',
-                    textDecoration: 'line-through'
-                  }}>
-                    RM {promo.bundle_items.reduce((sum, i) => sum + (i.price || 0), 0).toFixed(2)}
-                  </span>
-                )}
+                  {t2('promo')}
+                </div>
+                <div style={{ 
+                  fontSize: isMobile ? '10px' : '13px', 
+                  color: '#90CAF9',
+                  fontWeight: '500'
+                }}>
+                  {promotions.length} {language === 'bm' ? 'promosi aktif' : 'active promotions'}
+                </div>
               </div>
-            )}
+            </div>
             
-            {/* Image */}
-            {promo.image_url && (
-              <div style={{ marginTop: '10px' }}>
-                <img 
-                  src={promo.image_url} 
-                  alt={promo.name}
-                  style={{
-                    width: '100%',
-                    height: isMobile ? '80px' : '100px',
-                    objectFit: 'cover',
-                    borderRadius: '12px',
-                    border: '1px solid rgba(255,255,255,0.1)'
-                  }}
-                />
-              </div>
-            )}
+            <div style={{
+              background: 'linear-gradient(135deg, #FFD700, #FFA000)',
+              color: '#1a1a2e',
+              padding: '6px 20px',
+              borderRadius: '30px',
+              fontSize: isMobile ? '10px' : '13px',
+              fontWeight: 'bold',
+              boxShadow: '0 4px 20px rgba(255,215,0,0.3)',
+              animation: 'pulse 2s ease-in-out infinite'
+            }}>
+              🎉 {language === 'bm' ? 'JANGAN LEPASKAN!' : "DON'T MISS OUT!"}
+            </div>
           </div>
-        )
-      })}
-    </div>
-    
-    {promotions.length > 6 && (
-      <div style={{ 
-        textAlign: 'center', 
-        marginTop: '12px',
-        color: '#90CAF9',
-        fontSize: isMobile ? '11px' : '13px',
-        position: 'relative',
-        zIndex: 1
-      }}>
-        + {promotions.length - 6} {language === 'bm' ? 'lagi promosi' : 'more promotions'} 🔥
-      </div>
-    )}
-  </div>
-)}
+          
+          {/* Promo Cards */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile 
+              ? '1fr' 
+              : 'repeat(auto-fill, minmax(250px, 1fr))',
+            gap: isMobile ? '12px' : '16px',
+            position: 'relative',
+            zIndex: 1
+          }}>
+            {promotions.slice(0, 6).map((promo, idx) => {
+              const isBOGO = promo.type === 'bogo'
+              const triggerName = promo.trigger_items?.[0]?.name || ''
+              const freeName = promo.free_items?.[0]?.name || ''
+              
+              return (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    background: 'rgba(255,255,255,0.08)',
+                    backdropFilter: 'blur(12px)',
+                    borderRadius: '16px', 
+                    padding: isMobile ? '14px 18px' : '18px 24px', 
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.2)',
+                    transition: 'all 0.3s ease',
+                    position: 'relative',
+                    overflow: 'hidden'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-4px) scale(1.02)'
+                    e.currentTarget.style.boxShadow = '0 8px 40px rgba(0,0,0,0.3)'
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'translateY(0) scale(1)'
+                    e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.2)'
+                  }}
+                >
+                  {/* Promo type badge */}
+                  <div style={{
+                    position: 'absolute',
+                    top: '10px',
+                    right: '10px',
+                    background: isBOGO 
+                      ? 'linear-gradient(135deg, #FF6B6B, #EE5A24)' 
+                      : 'linear-gradient(135deg, #FFD700, #FFA000)',
+                    color: 'white',
+                    padding: '2px 12px',
+                    borderRadius: '20px',
+                    fontSize: isMobile ? '8px' : '10px',
+                    fontWeight: 'bold',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    boxShadow: '0 2px 12px rgba(255,215,0,0.3)'
+                  }}>
+                    {getPromoTypeLabel(promo.type)}
+                  </div>
+                  
+                  <div style={{ marginBottom: isMobile ? '6px' : '8px' }}>
+                    <div style={{ 
+                      fontWeight: 'bold', 
+                      fontSize: isMobile ? '14px' : '18px', 
+                      color: 'white',
+                      textShadow: '0 1px 4px rgba(0,0,0,0.2)',
+                      paddingRight: '60px'
+                    }}>
+                      {promo.name}
+                    </div>
+                    
+                    <div style={{ 
+                      fontSize: isMobile ? '11px' : '13px', 
+                      color: '#90CAF9',
+                      marginTop: '2px'
+                    }}>
+                      {isBOGO ? (
+                        <span>🎁 <span style={{ color: '#FFD700' }}>{triggerName}</span> → <span style={{ color: '#4ADE80' }}>{freeName || 'FREE'}</span></span>
+                      ) : (
+                        <span>📦 {promo.bundle_items?.length || 0} {language === 'bm' ? 'item termasuk' : 'items included'}</span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Price */}
+                  {promo.bundle_price > 0 && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '10px',
+                      marginTop: isMobile ? '6px' : '8px',
+                      padding: isMobile ? '6px 12px' : '8px 16px',
+                      background: 'rgba(255,215,0,0.15)',
+                      borderRadius: '30px',
+                      border: '1px solid rgba(255,215,0,0.2)',
+                      width: 'fit-content'
+                    }}>
+                      <span style={{
+                        fontSize: isMobile ? '18px' : '24px',
+                        fontWeight: 'bold',
+                        color: '#FFD700'
+                      }}>
+                        RM {promo.bundle_price}
+                      </span>
+                      {promo.bundle_items && promo.bundle_items.length > 1 && (
+                        <span style={{
+                          fontSize: isMobile ? '10px' : '12px',
+                          color: '#90CAF9',
+                          textDecoration: 'line-through'
+                        }}>
+                          RM {promo.bundle_items.reduce((sum, i) => sum + (i.price || 0), 0).toFixed(2)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Image */}
+                  {promo.image_url && (
+                    <div style={{ marginTop: '10px' }}>
+                      <img 
+                        src={promo.image_url} 
+                        alt={promo.name}
+                        style={{
+                          width: '100%',
+                          height: isMobile ? '80px' : '100px',
+                          objectFit: 'cover',
+                          borderRadius: '12px',
+                          border: '1px solid rgba(255,255,255,0.1)'
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+          
+          {promotions.length > 6 && (
+            <div style={{ 
+              textAlign: 'center', 
+              marginTop: '12px',
+              color: '#90CAF9',
+              fontSize: isMobile ? '11px' : '13px',
+              position: 'relative',
+              zIndex: 1
+            }}>
+              + {promotions.length - 6} {language === 'bm' ? 'lagi promosi' : 'more promotions'} 🔥
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* ===== SPECIAL MENU BANNER ===== */}
+      {/* ===== SPECIAL MENU BANNER - TANPA GAMBAR ===== */}
       {specialMenuEnabled && specialMenuItems.length > 0 && (
         <div style={{ 
           background: 'linear-gradient(135deg, #fef3c7, #fde68a, #f59e0b, #d97706)',
@@ -1270,7 +1260,7 @@ function CustomerDisplay() {
             display: 'flex', 
             alignItems: 'center', 
             justifyContent: 'space-between',
-            marginBottom: '12px',
+            marginBottom: '14px',
             flexWrap: 'wrap',
             gap: '10px',
             position: 'relative',
@@ -1278,14 +1268,14 @@ function CustomerDisplay() {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
               <div style={{
-                fontSize: isMobile ? '40px' : '56px',
+                fontSize: isMobile ? '36px' : '48px',
                 animation: 'pulse 2s ease-in-out infinite'
               }}>
                 ⭐
               </div>
               <div>
                 <div style={{ 
-                  fontSize: isMobile ? '22px' : '34px', 
+                  fontSize: isMobile ? '20px' : '30px', 
                   fontWeight: 'bold', 
                   color: '#92400e',
                   textShadow: '0 2px 8px rgba(245,158,11,0.2)',
@@ -1306,9 +1296,9 @@ function CustomerDisplay() {
             <div style={{
               background: 'linear-gradient(135deg, #ef4444, #dc2626)',
               color: 'white',
-              padding: '6px 24px',
+              padding: '6px 20px',
               borderRadius: '30px',
-              fontSize: isMobile ? '12px' : '16px',
+              fontSize: isMobile ? '10px' : '14px',
               fontWeight: 'bold',
               boxShadow: '0 4px 16px rgba(239,68,68,0.4)',
               animation: 'pulse 1.5s ease-in-out infinite'
@@ -1321,8 +1311,8 @@ function CustomerDisplay() {
             display: 'grid', 
             gridTemplateColumns: isMobile 
               ? 'repeat(2, 1fr)' 
-              : 'repeat(auto-fill, minmax(250px, 1fr))',
-            gap: isMobile ? '10px' : '14px',
+              : 'repeat(auto-fill, minmax(220px, 1fr))',
+            gap: isMobile ? '10px' : '12px',
             position: 'relative',
             zIndex: 1
           }}>
@@ -1330,54 +1320,49 @@ function CustomerDisplay() {
               <div 
                 key={idx} 
                 style={{ 
-                  background: 'rgba(255,255,255,0.9)',
+                  background: 'rgba(255,255,255,0.92)',
                   backdropFilter: 'blur(8px)',
-                  borderRadius: '16px', 
-                  padding: isMobile ? '12px 16px' : '16px 20px', 
+                  borderRadius: '14px', 
+                  padding: isMobile ? '14px 16px' : '16px 20px', 
                   display: 'flex', 
                   alignItems: 'center', 
-                  gap: '12px',
+                  gap: '14px',
                   boxShadow: '0 4px 16px rgba(0,0,0,0.06)',
                   border: '1px solid rgba(255,255,255,0.8)',
                   transition: 'all 0.3s ease',
                   cursor: 'default',
-                  minHeight: isMobile ? '70px' : '90px'
+                  minHeight: isMobile ? '64px' : '76px'
+                }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.transform = 'translateY(-2px)'
+                  e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.1)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.transform = 'translateY(0)'
+                  e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,0.06)'
                 }}
               >
-                <div style={{ flexShrink: 0 }}>
-                  {item.image_url ? (
-                    <img 
-                      src={item.image_url} 
-                      alt={item.name} 
-                      style={{ 
-                        width: isMobile ? '48px' : '64px', 
-                        height: isMobile ? '48px' : '64px', 
-                        borderRadius: '12px', 
-                        objectFit: 'cover',
-                        border: '2px solid #f59e0b'
-                      }} 
-                    />
-                  ) : (
-                    <div style={{ 
-                      width: isMobile ? '48px' : '64px', 
-                      height: isMobile ? '48px' : '64px', 
-                      background: 'linear-gradient(135deg, #fef3c7, #fde68a)',
-                      borderRadius: '12px', 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      fontSize: isMobile ? '24px' : '32px',
-                      border: '2px solid #f59e0b'
-                    }}>
-                      ⭐
-                    </div>
-                  )}
+                {/* 🔥 ICON SAHAJA - TANPA GAMBAR */}
+                <div style={{ 
+                  flexShrink: 0,
+                  width: isMobile ? '44px' : '56px',
+                  height: isMobile ? '44px' : '56px',
+                  background: 'linear-gradient(135deg, #fef3c7, #f59e0b)',
+                  borderRadius: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: isMobile ? '22px' : '28px',
+                  boxShadow: '0 2px 12px rgba(245,158,11,0.2)',
+                  border: '2px solid #f59e0b'
+                }}>
+                  🍽️
                 </div>
                 
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ 
                     fontWeight: 'bold', 
-                    fontSize: isMobile ? '13px' : '16px', 
+                    fontSize: isMobile ? '13px' : '15px', 
                     color: '#1e293b',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
@@ -1403,15 +1388,15 @@ function CustomerDisplay() {
                   flexShrink: 0,
                   background: 'linear-gradient(135deg, #22c55e, #16a34a)',
                   color: 'white',
-                  padding: isMobile ? '4px 12px' : '6px 18px',
+                  padding: isMobile ? '4px 12px' : '6px 16px',
                   borderRadius: '30px',
                   fontWeight: 'bold',
-                  fontSize: isMobile ? '14px' : '18px',
+                  fontSize: isMobile ? '13px' : '16px',
                   boxShadow: '0 2px 12px rgba(34,197,94,0.3)',
-                  minWidth: isMobile ? '60px' : '80px',
+                  minWidth: isMobile ? '56px' : '72px',
                   textAlign: 'center'
                 }}>
-                  RM {item.price}
+                  RM {typeof item.price === 'number' ? item.price.toFixed(2) : Number(item.price).toFixed(2)}
                 </div>
               </div>
             ))}
@@ -1420,7 +1405,7 @@ function CustomerDisplay() {
           {specialMenuItems.length > (isMobile ? 4 : 8) && (
             <div style={{ 
               textAlign: 'center', 
-              marginTop: '10px',
+              marginTop: '12px',
               color: '#78350f',
               fontSize: isMobile ? '11px' : '13px',
               opacity: 0.7,

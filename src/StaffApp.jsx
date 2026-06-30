@@ -2748,117 +2748,239 @@ function StaffApp() {
   // PAYMENT MODAL
   // ============================================================
   const renderPaymentModal = () => {
-    if (!showPaymentModal || !selectedOrder) return null
-    
-    const subtotal = parseFloat(selectedOrder.subtotal || selectedOrder.total || 0)
-    const serviceCharge = selectedOrder.order_type === 'take_away' ? 0 : subtotal * (settings.service_charge / 100)
-    const tax = subtotal * (settings.tax / 100)
-    const grandTotal = subtotal + serviceCharge + tax
-    
-    return (
+  if (!showPaymentModal || !selectedOrder) return null
+  
+  const subtotal = parseFloat(selectedOrder.subtotal || selectedOrder.total || 0)
+  const serviceCharge = selectedOrder.order_type === 'take_away' ? 0 : subtotal * (settings.service_charge / 100)
+  const tax = subtotal * (settings.tax / 100)
+  const grandTotal = subtotal + serviceCharge + tax
+  
+  // 🔥 Check promo
+  const hasPromo = selectedOrder.has_bundle === true || selectedOrder.promo_applied === true
+  const bundlePromo = selectedOrder.bundle_promo || null
+  
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+      background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+      display: 'flex', justifyContent: 'center', alignItems: 'center',
+      zIndex: 3000, padding: '20px'
+    }}>
       <div style={{
-        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-        display: 'flex', justifyContent: 'center', alignItems: 'center',
-        zIndex: 3000, padding: '20px'
+        background: cardBg,
+        padding: isMobile ? '24px' : '32px',
+        borderRadius: '24px',
+        maxWidth: '480px',
+        width: '100%',
+        ...glassEffect,
+        maxHeight: '90vh',
+        overflowY: 'auto'
       }}>
-        <div style={{
-          background: cardBg,
-          padding: isMobile ? '24px' : '32px',
-          borderRadius: '24px',
-          maxWidth: '420px',
-          width: '100%',
-          ...glassEffect
+        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+          <h2 style={{ color: textColor, margin: 0 }}>💰 {t('record_payment')}</h2>
+          <p style={{ color: textMuted, fontSize: '13px' }}>{selectedOrder.customer_name || t('guest')}</p>
+        </div>
+        
+        {/* ============================================================
+            🔥 TAMBAH: SENARAI ITEM
+            ============================================================ */}
+        <div style={{ 
+          background: secondaryBg, 
+          padding: '12px 14px', 
+          borderRadius: '12px', 
+          marginBottom: '12px',
+          maxHeight: '200px',
+          overflowY: 'auto'
         }}>
-          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-            <h2 style={{ color: textColor, margin: 0 }}>💰 {t('record_payment')}</h2>
-            <p style={{ color: textMuted, fontSize: '13px' }}>{selectedOrder.customer_name || t('guest')}</p>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            fontSize: '11px', 
+            color: textMuted,
+            fontWeight: 'bold',
+            borderBottom: `1px solid ${borderColor}`,
+            paddingBottom: '6px',
+            marginBottom: '6px'
+          }}>
+            <span>{t('receipt_item')}</span>
+            <span style={{ textAlign: 'right' }}>{t('receipt_price')}</span>
           </div>
           
-          <div style={{ background: secondaryBg, padding: '14px', borderRadius: '16px', marginBottom: '16px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-              <span>{t('subtotal')}</span>
-              <span>RM {subtotal.toFixed(2)}</span>
-            </div>
-            {selectedOrder.order_type !== 'take_away' && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-                <span>{t('service_charge')} ({settings.service_charge}%)</span>
-                <span>RM {serviceCharge.toFixed(2)}</span>
+          {(selectedOrder.items || []).map((item, idx) => {
+            const isFree = item.isFree === true
+            const isBundleItem = item.isBundleItem === true
+            const itemTotal = (item.price || 0) * (item.quantity || 1)
+            
+            return (
+              <div key={idx} style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                fontSize: '13px', 
+                color: textColor,
+                padding: '4px 0',
+                borderBottom: idx !== (selectedOrder.items || []).length - 1 ? `1px solid ${borderColor}` : 'none',
+                opacity: isFree ? 0.7 : 1
+              }}>
+                <div>
+                  <span>
+                    {item.quantity || 1}x {item.name}
+                    {item.option && <span style={{ fontSize: '10px', color: textMuted }}> ({item.option})</span>}
+                    {item.size && <span style={{ fontSize: '10px', color: '#8b5cf6' }}> [{item.size}]</span>}
+                  </span>
+                  {isFree && (
+                    <span style={{ 
+                      fontSize: '9px', 
+                      color: '#22c55e', 
+                      fontWeight: 'bold', 
+                      marginLeft: '6px' 
+                    }}>
+                      🎁 FREE
+                    </span>
+                  )}
+                  {isBundleItem && (
+                    <span style={{ 
+                      fontSize: '9px', 
+                      color: '#8b5cf6', 
+                      fontWeight: 'bold', 
+                      marginLeft: '6px',
+                      background: 'rgba(139,92,246,0.15)',
+                      padding: '1px 8px',
+                      borderRadius: '10px'
+                    }}>
+                      📦 Bundle
+                    </span>
+                  )}
+                  {item.addons && (
+                    <div style={{ fontSize: '9px', color: '#8b5cf6' }}>
+                      ✨ + {item.addons}
+                    </div>
+                  )}
+                </div>
+                <span style={{ 
+                  color: isFree ? '#22c55e' : priceColor, 
+                  fontWeight: isFree ? 'bold' : 'normal',
+                  textAlign: 'right'
+                }}>
+                  {isFree ? 'RM 0.00' : `RM ${itemTotal.toFixed(2)}`}
+                </span>
               </div>
-            )}
+            )
+          })}
+        </div>
+        
+        {/* ============================================================
+            🔥 TAMBAH: MAKLUMAT PROMO
+            ============================================================ */}
+        {bundlePromo && (
+          <div style={{
+            background: 'rgba(139,92,246,0.08)',
+            border: `1px solid #8b5cf6`,
+            borderRadius: '10px',
+            padding: '8px 12px',
+            marginBottom: '12px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}>
+            <span style={{ color: '#8b5cf6', fontWeight: 'bold', fontSize: '12px' }}>
+              📦 {bundlePromo.name || 'Bundle Promo'}
+            </span>
+            <span style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '12px' }}>
+              Jimat RM {bundlePromo.savings?.toFixed(2) || '0.00'}
+            </span>
+          </div>
+        )}
+        
+        {/* ============================================================
+            RINGKASAN KEWANGAN
+            ============================================================ */}
+        <div style={{ background: secondaryBg, padding: '14px', borderRadius: '16px', marginBottom: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+            <span>{t('subtotal')}</span>
+            <span>RM {subtotal.toFixed(2)}</span>
+          </div>
+          {selectedOrder.order_type !== 'take_away' && (
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-              <span>{t('tax')} ({settings.tax}%)</span>
-              <span>RM {tax.toFixed(2)}</span>
+              <span>{t('service_charge')} ({settings.service_charge}%)</span>
+              <span>RM {serviceCharge.toFixed(2)}</span>
             </div>
-            <div style={{ borderTop: `1px solid ${borderColor}`, marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
-              <span>{t('total')}</span>
-              <span style={{ color: priceColor }}>RM {grandTotal.toFixed(2)}</span>
-            </div>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+            <span>{t('tax')} ({settings.tax}%)</span>
+            <span>RM {tax.toFixed(2)}</span>
           </div>
-          
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('payment_method')}</label>
-            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-              {['cash', 'tng', 'bank'].map(m => (
-                <button
-                  key={m}
-                  onClick={() => setPaymentMethod(m)}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    background: paymentMethod === m ? 'linear-gradient(135deg, #22c55e, #16a34a)' : secondaryBg,
-                    color: paymentMethod === m ? 'white' : textColor,
-                    border: paymentMethod === m ? 'none' : `1px solid ${borderColor}`,
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '13px'
-                  }}
-                >
-                  {m === 'cash' ? '💵' : m === 'tng' ? '📱' : '🏦'} {m === 'cash' ? t('cash') : m === 'tng' ? t('tng') : t('bank')}
-                </button>
-              ))}
-            </div>
-          </div>
-          
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={() => markAsPaid(selectedOrder)}
-              style={{
-                flex: 1,
-                padding: '12px',
-                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '40px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '13px' : '14px'
-              }}
-            >
-              ✅ {t('save')}
-            </button>
-            <button
-              onClick={() => { setShowPaymentModal(false); setSelectedOrder(null) }}
-              style={{
-                flex: 1,
-                padding: '12px',
-                background: '#64748b',
-                color: 'white',
-                border: 'none',
-                borderRadius: '40px',
-                cursor: 'pointer',
-                fontWeight: 'bold',
-                fontSize: isMobile ? '13px' : '14px'
-              }}
-            >
-              {t('cancel')}
-            </button>
+          <div style={{ borderTop: `1px solid ${borderColor}`, marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
+            <span>{t('total')}</span>
+            <span style={{ color: priceColor }}>RM {grandTotal.toFixed(2)}</span>
           </div>
         </div>
+        
+        {/* ============================================================
+            KAEDAH BAYARAN
+            ============================================================ */}
+        <div style={{ marginBottom: '16px' }}>
+          <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('payment_method')}</label>
+          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+            {['cash', 'tng', 'bank'].map(m => (
+              <button
+                key={m}
+                onClick={() => setPaymentMethod(m)}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  background: paymentMethod === m ? 'linear-gradient(135deg, #22c55e, #16a34a)' : secondaryBg,
+                  color: paymentMethod === m ? 'white' : textColor,
+                  border: paymentMethod === m ? 'none' : `1px solid ${borderColor}`,
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '13px'
+                }}
+              >
+                {m === 'cash' ? '💵' : m === 'tng' ? '📱' : '🏦'} {m === 'cash' ? t('cash') : m === 'tng' ? t('tng') : t('bank')}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={() => markAsPaid(selectedOrder)}
+            style={{
+              flex: 1,
+              padding: '12px',
+              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '40px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: isMobile ? '13px' : '14px'
+            }}
+          >
+            ✅ {t('save')}
+          </button>
+          <button
+            onClick={() => { setShowPaymentModal(false); setSelectedOrder(null) }}
+            style={{
+              flex: 1,
+              padding: '12px',
+              background: '#64748b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '40px',
+              cursor: 'pointer',
+              fontWeight: 'bold',
+              fontSize: isMobile ? '13px' : '14px'
+            }}
+          >
+            {t('cancel')}
+          </button>
+        </div>
       </div>
-    )
-  }
+    </div>
+  )
+}
 
   // ============================================================
   // RECEIPT MODAL

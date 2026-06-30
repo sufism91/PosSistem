@@ -385,22 +385,42 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // MAIN EFFECT - POLLING + REMINDER SOUND
+  // 🔥 MAIN EFFECT - LOAD + REALTIME + POLLING
   // ============================================================
   useEffect(() => {
     if (!kitchenEnabled) return
-    
+
+    // 🔥 LOAD INITIAL DATA
     loadOrders()
     loadCompletedOrders()
     
+    // 🔥 REALTIME SUBSCRIPTION - UNTUK SEMUA PERUBAHAN
+    const orderSub = supabase
+      .channel('kitchen_orders_realtime')
+      .on('postgres_changes', 
+        { event: '*', schema: 'public', table: 'customer_orders' },
+        () => {
+          console.log('🔄 Kitchen: Order changed via realtime, refreshing...')
+          loadOrders()
+          loadCompletedOrders()
+        }
+      )
+      .subscribe()
+
+    // 🔥 POLLING SETIAP 5 SAAT - SEBAGAI BACKUP
+    const pollInterval = setInterval(() => {
+      console.log('🔄 Kitchen: Polling refresh...')
+      loadOrders()
+      loadCompletedOrders()
+    }, 5000)
+
+    // 🔥 SOUND REMINDER POLLING
     let previousIds = new Set()
     let isFirstRun = true
     let reminderCount = 0
 
     const checkOrders = async () => {
       try {
-        console.log('🔍 Kitchen polling: Checking for orders...')
-        
         const { data } = await supabase
           .from('customer_orders')
           .select('id, status, order_number, table_number, order_type')
@@ -410,44 +430,35 @@ function KitchenApp() {
         const currentIds = new Set(data?.map(o => o.id) || [])
         const currentCount = currentIds.size
         
-        console.log(`📊 Kitchen polling: ${currentCount} orders`)
-        
         if (isFirstRun) {
-          console.log('📊 Kitchen polling: First run')
           previousIds = currentIds
           isFirstRun = false
-          
           if (currentCount > 0) {
-            console.log(`🔔 Kitchen reminder: ${currentCount} orders waiting!`)
             playKitchenSound()
             toast(`🔔 ${currentCount} ${t('order_waiting')}`, { duration: 2000, icon: '🔔' })
           }
           return
         }
         
-        let foundNew = false
+        // Check new orders
         for (const id of currentIds) {
           if (!previousIds.has(id)) {
-            console.log(`🔔🔔🔔 NEW ORDER! ID: ${id} 🔔🔔🔔`)
-            foundNew = true
             playKitchenSound()
-            
             const newOrder = data?.find(o => o.id === id)
             const orderType = newOrder?.order_type === 'take_away' 
               ? '🥡 Bungkus' 
               : `🍽️ Meja ${newOrder?.table_number || '?'}`
             toast.success(`🆕 ${t('new_order')} ${orderType}`, { duration: 3000 })
-            
             loadOrders()
             loadCompletedOrders()
             break
           }
         }
         
+        // Reminder every 15 seconds
         if (currentCount > 0) {
           reminderCount++
           if (reminderCount >= 5) {
-            console.log(`🔔 Kitchen reminder: ${currentCount} orders waiting`)
             playKitchenSound()
             toast(`🔔 ${currentCount} ${t('order_waiting')}`, { duration: 2000, icon: '🔔' })
             reminderCount = 0
@@ -459,14 +470,17 @@ function KitchenApp() {
         previousIds = currentIds
         
       } catch (err) {
-        console.error('Kitchen polling error:', err)
+        console.error('Kitchen check error:', err)
       }
     }
     
-    checkOrders()
-    const interval = setInterval(checkOrders, 3000)
-    
-    return () => clearInterval(interval)
+    const soundInterval = setInterval(checkOrders, 3000)
+
+    return () => {
+      orderSub.unsubscribe()
+      clearInterval(pollInterval)
+      clearInterval(soundInterval)
+    }
   }, [kitchenEnabled])
 
   // ============================================================
@@ -742,7 +756,7 @@ function KitchenApp() {
         </div>
         
         {/* ============================================================
-            🔥 FIX: BUTTON ACTIONS - TAMBAH BUTTON UNTUK 'pending'
+            🔥 BUTTON ACTIONS - TAMBAH BUTTON UNTUK 'pending'
             ============================================================ */}
         {showActionButtons && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
@@ -831,7 +845,7 @@ function KitchenApp() {
               </div>
             )}
             
-            {/* 🔥 FIX: Button Batal - SEMBUNYI untuk 'pending' dan 'ready' */}
+            {/* 🔥 Button Batal - SEMBUNYI untuk 'pending' dan 'ready' */}
             {order.status !== 'completed' && order.status !== 'ready' && order.status !== 'pending' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'cancelled')} 

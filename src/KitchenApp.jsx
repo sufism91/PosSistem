@@ -385,111 +385,53 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // 🔥 MAIN EFFECT - LOAD + REALTIME + POLLING
+  // 🔥 MAIN EFFECT - REALTIME (SOUND ONLY FOR NEW ORDERS) + POLLING
   // ============================================================
   useEffect(() => {
-  if (!kitchenEnabled) return
+    if (!kitchenEnabled) return
 
-  // LOAD INITIAL DATA
-  loadOrders()
-  loadCompletedOrders()
-  
-  // REALTIME SUBSCRIPTION
-  const orderSub = supabase
-    .channel('kitchen_orders_realtime')
-    .on('postgres_changes', 
-      { event: '*', schema: 'public', table: 'customer_orders' },
-      () => {
-        console.log('🔄 Kitchen: Order changed via realtime, refreshing...')
-        loadOrders()
-        loadCompletedOrders()
-      }
-    )
-    .subscribe()
-
-  // POLLING SETIAP 5 SAAT
-  const pollInterval = setInterval(() => {
-    console.log('🔄 Kitchen: Polling refresh...')
+    // LOAD INITIAL DATA
     loadOrders()
     loadCompletedOrders()
-  }, 5000)
-
-  // SOUND REMINDER - SETIAP 10 SAAT (bukan 3 saat)
-  let previousIds = new Set()
-  let isFirstRun = true
-  let reminderCount = 0
-
-  const checkOrders = async () => {
-    try {
-      const { data } = await supabase
-        .from('customer_orders')
-        .select('id, status, order_number, table_number, order_type, payment_status')
-        .in('status', ['pending', 'confirmed', 'preparing', 'ready'])
-        .eq('payment_status', PAYMENT_STATUS.UNPAID)
-        .order('created_at', { ascending: false })
-      
-      const currentIds = new Set(data?.map(o => o.id) || [])
-      const currentCount = currentIds.size
-      
-      console.log(`📊 Kitchen polling: ${currentCount} orders`)
-      
-      // FIRST RUN
-      if (isFirstRun) {
-        previousIds = currentIds
-        isFirstRun = false
-        if (currentCount > 0) {
+    
+    // ============================================================
+    // 🔥 REALTIME SUBSCRIPTION - SOUND UNTUK ORDER BARU SAHAJA
+    // ============================================================
+    const orderSub = supabase
+      .channel('kitchen_orders_realtime')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'customer_orders' },
+        (payload) => {
+          console.log('🆕 Kitchen: New order inserted!', payload.new)
+          
+          // 🔥 PLAY SOUND SEKALI SAHAJA UNTUK ORDER BARU
           playKitchenSound()
-          toast(`🔔 ${currentCount} ${t('order_waiting')}`, { duration: 2000, icon: '🔔' })
-        }
-        return
-      }
-      
-      // CHECK NEW ORDERS
-      for (const id of currentIds) {
-        if (!previousIds.has(id)) {
-          playKitchenSound()
-          const newOrder = data?.find(o => o.id === id)
-          const orderType = newOrder?.order_type === 'take_away' 
+          
+          const orderType = payload.new.order_type === 'take_away' 
             ? '🥡 Bungkus' 
-            : `🍽️ Meja ${newOrder?.table_number || '?'}`
+            : `🍽️ Meja ${payload.new.table_number || '?'}`
           toast.success(`🆕 ${t('new_order')} ${orderType}`, { duration: 3000 })
+          
           loadOrders()
           loadCompletedOrders()
-          break
         }
-      }
-      
-      // RESET bila TIADA orders
-      if (currentCount === 0) {
-        reminderCount = 0
-        previousIds = new Set()
-        return
-      }
-      
-      // REMINDER SOUND - setiap 50 saat (5 x 10 saat)
-      reminderCount++
-      if (reminderCount >= 5) {
-        playKitchenSound()
-        toast(`🔔 ${currentCount} ${t('order_waiting')}`, { duration: 2000, icon: '🔔' })
-        reminderCount = 0
-      }
-      
-      previousIds = currentIds
-      
-    } catch (err) {
-      console.error('Kitchen check error:', err)
-    }
-  }
-  
-  // 🔥 INTERVAL 10 SAAT (bukan 3 saat)
-  const soundInterval = setInterval(checkOrders, 10000)
+      )
+      .subscribe()
 
-  return () => {
-    orderSub.unsubscribe()
-    clearInterval(pollInterval)
-    clearInterval(soundInterval)
-  }
-}, [kitchenEnabled])
+    // ============================================================
+    // 🔥 POLLING SETIAP 5 SAAT - REFRESH TANPA SOUND
+    // ============================================================
+    const pollInterval = setInterval(() => {
+      console.log('🔄 Kitchen: Polling refresh...')
+      loadOrders()
+      loadCompletedOrders()
+    }, 5000)
+
+    return () => {
+      orderSub.unsubscribe()
+      clearInterval(pollInterval)
+    }
+  }, [kitchenEnabled])
 
   // ============================================================
   // HELPERS

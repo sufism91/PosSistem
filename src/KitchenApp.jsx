@@ -52,6 +52,7 @@ function KitchenApp() {
     complete: { en: '✅ Complete', ms: 'Selesai' },
     cancelled: { en: '❌ Cancelled', ms: 'Dibatalkan' },
     cancel: { en: '❌ Cancel', ms: 'Batal' },
+    accept_and_cook: { en: '✅ Accept & Start Cooking', ms: '✅ Terima & Mula Masak' },
     
     // Messages
     error_updating: { en: '❌ Error updating order!', ms: 'Ralat kemaskini pesanan!' },
@@ -164,7 +165,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // PLAY KITCHEN SOUND - CARA BASIC
+  // PLAY KITCHEN SOUND
   // ============================================================
   const playKitchenSound = () => {
     console.log('🔔 Kitchen: playKitchenSound called')
@@ -234,7 +235,7 @@ function KitchenApp() {
   }, [kitchenEnabled])
 
   // ============================================================
-  // 🔥 FIX: LOAD ORDERS - PASTIKAN 'pending' ADA DALAM FILTER
+  // LOAD ORDERS - Pisah Makanan & Minuman
   // ============================================================
   async function loadOrders() {
     try {
@@ -242,7 +243,6 @@ function KitchenApp() {
         .from('customer_orders')
         .select('*')
         .eq('payment_status', PAYMENT_STATUS.UNPAID)
-        // 🔥 FIX: Pastikan 'pending' ada dalam filter
         .in('status', ['pending', 'confirmed', 'preparing', 'ready'])
         .order('created_at', { ascending: false })
 
@@ -313,10 +313,10 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // 🔥 FIX: updateOrderStatus - BLOCK 'completed' DARI KITCHEN
+  // UPDATE ORDER STATUS - BLOCK 'completed' DARI KITCHEN
   // ============================================================
   async function updateOrderStatus(orderId, status) {
-    // 🔥 FIX: Kitchen TIDAK BOLEH set status ke 'completed'
+    // Kitchen TIDAK BOLEH set status ke 'completed'
     if (status === 'completed' || status === ORDER_STATUS.COMPLETED) {
       toast.warning('⚠️ Sila gunakan Staff App untuk proses pembayaran')
       return
@@ -371,7 +371,6 @@ function KitchenApp() {
     
     if (window.confirm(t('confirm_complete_all'))) {
       for (const order of ordersToComplete) {
-        // 🔥 FIX: Jangan guna 'completed', guna 'ready' sebagai status final
         const newStatus = 'ready'
         await supabase
           .from('customer_orders')
@@ -405,7 +404,6 @@ function KitchenApp() {
         const { data } = await supabase
           .from('customer_orders')
           .select('id, status, order_number, table_number, order_type')
-          // 🔥 FIX: Pastikan 'pending' dalam filter
           .in('status', ['pending', 'confirmed', 'preparing', 'ready'])
           .order('created_at', { ascending: false })
         
@@ -414,7 +412,6 @@ function KitchenApp() {
         
         console.log(`📊 Kitchen polling: ${currentCount} orders`)
         
-        // FIRST RUN
         if (isFirstRun) {
           console.log('📊 Kitchen polling: First run')
           previousIds = currentIds
@@ -428,7 +425,6 @@ function KitchenApp() {
           return
         }
         
-        // CHECK NEW ORDERS
         let foundNew = false
         for (const id of currentIds) {
           if (!previousIds.has(id)) {
@@ -448,7 +444,6 @@ function KitchenApp() {
           }
         }
         
-        // REMINDER SOUND SETIAP 15 SAAT (5 x 3 saat)
         if (currentCount > 0) {
           reminderCount++
           if (reminderCount >= 5) {
@@ -469,7 +464,7 @@ function KitchenApp() {
     }
     
     checkOrders()
-    const interval = setInterval(checkOrders, 3000)  // 3 SAAT
+    const interval = setInterval(checkOrders, 3000)
     
     return () => clearInterval(interval)
   }, [kitchenEnabled])
@@ -529,12 +524,13 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // RENDER ORDER CARD - 🔥 FIX: BUANG BUTTON COMPLETE
+  // RENDER ORDER CARD - DENGAN BUTTON UNTUK 'pending'
   // ============================================================
   const renderOrderCard = (order, showActionButtons = true) => {
     const waitingColor = getWaitingColor(order.created_at)
     const waitingBg = getWaitingBg(order.created_at)
-    const statusColor = order.status === 'confirmed' ? '#8b5cf6' :
+    const statusColor = order.status === 'pending' ? '#22c55e' :
+                        order.status === 'confirmed' ? '#8b5cf6' :
                         order.status === 'preparing' ? '#f59e0b' :
                         order.status === 'ready' ? '#22c55e' : '#6c757d'
     
@@ -602,7 +598,8 @@ function KitchenApp() {
               fontSize: isMobile ? '8px' : '10px',
               fontWeight: 'bold'
             }}>
-              {order.status === 'confirmed' ? '✅ Disahkan' :
+              {order.status === 'pending' ? '🆕 Baru' :
+               order.status === 'confirmed' ? '✅ Disahkan' :
                order.status === 'preparing' ? '🔪 Memasak' :
                order.status === 'ready' ? '✅ Sedia' : '📦 Selesai'}
             </span>
@@ -678,7 +675,6 @@ function KitchenApp() {
                   {item.quantity}x {item.name}
                 </span>
                 
-                {/* ===== TAMBAHAN: PAPARAN ADD-ON ===== */}
                 {item.addons && (
                   <span style={{ 
                     fontSize: isMobile ? '9px' : '10px', 
@@ -692,7 +688,6 @@ function KitchenApp() {
                     ✨ {item.addons}
                   </span>
                 )}
-                {/* ======================================== */}
                 
                 {item.option_type && (
                   <span style={{ 
@@ -746,8 +741,36 @@ function KitchenApp() {
           </span>
         </div>
         
+        {/* ============================================================
+            🔥 FIX: BUTTON ACTIONS - TAMBAH BUTTON UNTUK 'pending'
+            ============================================================ */}
         {showActionButtons && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
+            
+            {/* 🔥 BARU: Untuk order yang baru masuk (status: 'pending') */}
+            {order.status === 'pending' && (
+              <button 
+                onClick={() => updateOrderStatus(order.id, 'preparing')} 
+                style={{ 
+                  flex: 1,
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
+                  color: 'white', 
+                  padding: isMobile ? '10px' : '12px', 
+                  border: 'none', 
+                  borderRadius: '50px', 
+                  cursor: 'pointer', 
+                  fontWeight: 'bold',
+                  fontSize: isMobile ? '12px' : '13px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.98)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                ✅ {t('accept_and_cook')}
+              </button>
+            )}
+            
+            {/* Sedia ada: Untuk order yang dah diambil (status: 'confirmed') */}
             {order.status === 'confirmed' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'preparing')} 
@@ -792,10 +815,6 @@ function KitchenApp() {
               </button>
             )}
             
-            {/* ============================================================
-                🔥 FIX: BUANG BUTTON "COMPLETE" UNTUK STATUS 'ready'
-                Kitchen TIDAK BOLEH set status ke 'completed'
-                ============================================================ */}
             {order.status === 'ready' && (
               <div style={{ 
                 flex: 1,
@@ -812,7 +831,8 @@ function KitchenApp() {
               </div>
             )}
             
-            {order.status !== 'completed' && order.status !== 'ready' && (
+            {/* 🔥 FIX: Button Batal - SEMBUNYI untuk 'pending' dan 'ready' */}
+            {order.status !== 'completed' && order.status !== 'ready' && order.status !== 'pending' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'cancelled')} 
                 style={{ 
@@ -929,7 +949,7 @@ function KitchenApp() {
   const tabs = [
     { id: 'food', label: t('food_orders'), icon: '🍚', count: foodOrders.length, color: '#f59e0b' },
     { id: 'drink', label: t('drink_orders'), icon: '🥤', count: drinkOrders.length, color: '#3b82f6' },
-    { id: 'confirmed', label: t('confirmed_orders'), icon: '✅', count: confirmedOrders.length, color: '#8b5cf6' },
+    { id: 'confirmed', label: '📋 Disahkan', icon: '📋', count: confirmedOrders.length, color: '#8b5cf6' },
     { id: 'preparing', label: t('preparing_orders'), icon: '🔪', count: preparingOrders.length, color: '#f97316' },
     { id: 'ready', label: t('ready_orders'), icon: '✅', count: readyOrders.length, color: '#22c55e' },
     { id: 'completed', label: t('completed_orders'), icon: '📦', count: completedOrders.length, color: '#6c757d' },
@@ -1280,9 +1300,9 @@ function KitchenApp() {
                 ...glassEffect, 
                 borderRadius: '24px' 
               }}>
-                <span style={{ fontSize: isMobile ? '48px' : '72px', opacity: 0.5 }}>✅</span>
+                <span style={{ fontSize: isMobile ? '48px' : '72px', opacity: 0.5 }}>📋</span>
                 <h3 style={{ color: textColor, marginTop: '12px', fontSize: isMobile ? '16px' : '18px' }}>
-                  {t('no_confirmed_orders')}
+                  Tiada pesanan disahkan
                 </h3>
               </div>
             ) : (

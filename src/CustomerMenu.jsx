@@ -305,6 +305,38 @@ function CustomerMenu() {
   }
 
   // ============================================================
+  // ===== BUNDLE PROMO FUNCTIONS (MACAM STAFFAPP) =====
+  // ============================================================
+  function getBundlePromoForCart(cartItems) {
+    if (!cartItems || cartItems.length === 0) return null
+    
+    const bundlePromos = activePromos.filter(p => 
+      (p.type === 'bundle' || p.type === 'set_menu') && 
+      p.bundle_items && 
+      p.bundle_items.length > 0 &&
+      p.bundle_price > 0
+    )
+    
+    for (const promo of bundlePromos) {
+      const bundleItemIds = promo.bundle_items.map(i => i.id)
+      const cartItemIds = cartItems.map(i => i.id)
+      const allItemsInCart = bundleItemIds.every(id => cartItemIds.includes(id))
+      
+      if (allItemsInCart) {
+        return {
+          promo: promo,
+          bundleItems: promo.bundle_items,
+          bundlePrice: promo.bundle_price,
+          totalOriginalPrice: promo.bundle_items.reduce((sum, i) => sum + (i.price || 0), 0),
+          savings: promo.bundle_items.reduce((sum, i) => sum + (i.price || 0), 0) - promo.bundle_price
+        }
+      }
+    }
+    
+    return null
+  }
+
+  // ============================================================
   // LOAD DATA + REAL-TIME SUBSCRIPTIONS
   // ============================================================
   useEffect(() => {
@@ -722,16 +754,50 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ADD TO CART FUNCTIONS - WITH PROMO SUPPORT
+  // ADD TO CART FUNCTIONS - WITH PROMO & BUNDLE SUPPORT
   // ============================================================
   
-  // ===== ADD TO CART DIRECT (NO OPTIONS) =====
+  // ===== ADD TO CART DIRECT (NO OPTIONS) - WITH BUNDLE SUPPORT =====
   function addToCartDirect(item) {
     console.log('🛒 Adding to cart:', item.name)
-    const promo = getItemPromotion(item)
-    const finalPrice = getItemPriceWithPromo(item)
-    const isFree = finalPrice === 0
-    const hasPromo = promo !== null
+    
+    // 🔥 CHECK BUNDLE FIRST
+    const tempCart = [...cart, { ...item, quantity: 1, price: item.price }]
+    const bundleInCart = getBundlePromoForCart(tempCart)
+    const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => i.id === item.id)
+    
+    let finalPrice = item.price
+    let hasPromo = false
+    let promo = null
+    let isFree = false
+    let bundleName = null
+    let bundlePriceValue = null
+    
+    // If this item completes a bundle
+    if (bundleInCart && isInBundle) {
+      const bundleItemCount = bundleInCart.bundleItems.length
+      const perItemPrice = bundleInCart.bundlePrice / bundleItemCount
+      finalPrice = perItemPrice
+      hasPromo = true
+      bundleName = bundleInCart.promo.name
+      bundlePriceValue = bundleInCart.bundlePrice
+      isFree = finalPrice === 0
+      
+      setTimeout(() => {
+        toast.success(`📦 ${bundleInCart.promo.name} Aktif! ${bundleInCart.bundleItems.map(i => i.name).join(' + ')} = RM ${bundleInCart.bundlePrice.toFixed(2)} (Jimat RM ${bundleInCart.savings.toFixed(2)})`, {
+          duration: 4000
+        })
+      }, 200)
+    } else {
+      // Check regular promo
+      promo = getItemPromotion(item)
+      const promoPrice = getPromoPrice(item)
+      if (promoPrice !== null) {
+        finalPrice = promoPrice
+        hasPromo = true
+        isFree = finalPrice === 0
+      }
+    }
     
     console.log(`💰 ${item.name}: Final price = RM${finalPrice}, Has promo: ${hasPromo}`)
     
@@ -750,9 +816,12 @@ function CustomerMenu() {
         is_free: isFree,
         is_promo_item: hasPromo,
         promo_type: promo?.type || null,
-        promo_name: promo?.promo?.name || null,
+        promo_name: promo?.promo?.name || bundleName || null,
         original_price: item.price,
-        category: item.category || 'Makanan'
+        category: item.category || 'Makanan',
+        isBundleItem: bundleInCart && isInBundle,
+        bundleName: bundleName,
+        bundlePrice: bundlePriceValue
       }])
     }
     setShowCart(true)
@@ -766,7 +835,7 @@ function CustomerMenu() {
     }
   }
 
-  // ===== ADD TO CART WITH OPTION (SIZE) =====
+  // ===== ADD TO CART WITH OPTION (SIZE) - WITH BUNDLE SUPPORT =====
   async function addToCartWithOption(item, option) {
     const stockCheck = await checkOptionStock(option.id, 1)
     
@@ -784,16 +853,43 @@ function CustomerMenu() {
     setAddingItem(item.id)
     setTimeout(() => setAddingItem(null), 300)
     
+    // 🔥 CHECK BUNDLE
+    const tempCart = [...cart, { 
+      id: item.id, 
+      name: item.name, 
+      price: item.price, 
+      quantity: 1,
+      category: item.category
+    }]
+    const bundleInCart = getBundlePromoForCart(tempCart)
+    const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => i.id === item.id)
+    
     const promo = getItemPromotion(item)
     const promoPrice = getPromoPrice(item)
     const hasPromo = promo !== null && promoPrice !== null
     
     let basePrice = hasPromo ? promoPrice : item.price
-    const finalPrice = option.is_absolute_price 
+    let finalPrice = option.is_absolute_price 
       ? option.price_adjustment 
       : basePrice + option.price_adjustment
     
     const isFree = finalPrice === 0
+    let bundleName = null
+    let bundlePriceValue = null
+    
+    if (bundleInCart && isInBundle) {
+      const bundleItemCount = bundleInCart.bundleItems.length
+      const perItemPrice = bundleInCart.bundlePrice / bundleItemCount
+      finalPrice = perItemPrice
+      bundleName = bundleInCart.promo.name
+      bundlePriceValue = bundleInCart.bundlePrice
+      
+      setTimeout(() => {
+        toast.success(`📦 ${bundleInCart.promo.name} Aktif! ${bundleInCart.bundleItems.map(i => i.name).join(' + ')} = RM ${bundleInCart.bundlePrice.toFixed(2)} (Jimat RM ${bundleInCart.savings.toFixed(2)})`, {
+          duration: 4000
+        })
+      }, 200)
+    }
     
     const cartItem = {
       id: `${item.id}_${option.id}_${Date.now()}`,
@@ -806,10 +902,13 @@ function CustomerMenu() {
       option_id: option.id,
       option_stock: stockCheck.stock,
       is_free: isFree,
-      is_promo_item: hasPromo,
+      is_promo_item: hasPromo || (bundleInCart && isInBundle),
       promo_type: promo?.type || null,
-      promo_name: promo?.promo?.name || null,
-      category: item.category || 'Makanan'
+      promo_name: promo?.promo?.name || bundleName || null,
+      category: item.category || 'Makanan',
+      isBundleItem: bundleInCart && isInBundle,
+      bundleName: bundleName,
+      bundlePrice: bundlePriceValue
     }
     
     setCart([...cart, cartItem])
@@ -826,22 +925,46 @@ function CustomerMenu() {
     }
   }
 
-  // ===== ADD TO CART WITH ADD-ONS =====
+  // ===== ADD TO CART WITH ADD-ONS - WITH BUNDLE SUPPORT =====
   const addToCartWithAddons = (item, option, size) => {
+    // 🔥 CHECK BUNDLE
+    const tempCart = [...cart, { 
+      id: item.id, 
+      name: item.name, 
+      price: item.price, 
+      quantity: 1,
+      category: item.category
+    }]
+    const bundleInCart = getBundlePromoForCart(tempCart)
+    const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => i.id === item.id)
+    
     const promo = getItemPromotion(item)
     const promoPrice = getPromoPrice(item)
     const hasPromo = promo !== null && promoPrice !== null
     
     let basePrice = hasPromo ? promoPrice : item.price
+    let finalPrice = basePrice + getAddonTotal()
+    let isFree = finalPrice === 0
+    let bundleName = null
+    let bundlePriceValue = null
     
-    if (option) {
-      basePrice = option.is_absolute_price ? option.price_adjustment : basePrice + option.price_adjustment
+    if (bundleInCart && isInBundle) {
+      const bundleItemCount = bundleInCart.bundleItems.length
+      const perItemPrice = bundleInCart.bundlePrice / bundleItemCount
+      finalPrice = perItemPrice + getAddonTotal()
+      bundleName = bundleInCart.promo.name
+      bundlePriceValue = bundleInCart.bundlePrice
+      isFree = finalPrice === 0
+      
+      setTimeout(() => {
+        toast.success(`📦 ${bundleInCart.promo.name} Aktif! ${bundleInCart.bundleItems.map(i => i.name).join(' + ')} = RM ${bundleInCart.bundlePrice.toFixed(2)} (Jimat RM ${bundleInCart.savings.toFixed(2)})`, {
+          duration: 4000
+        })
+      }, 200)
     }
     
-    const addonTotal = getAddonTotal()
-    const finalPrice = basePrice + addonTotal
     const addonNames = getAddonNames()
-    const isFree = finalPrice === 0
+    const addonTotal = getAddonTotal()
     
     const cartItem = {
       id: `${item.id}_${option?.id || ''}_${Date.now()}`,
@@ -857,10 +980,13 @@ function CustomerMenu() {
       addon_ids: [...selectedAddons],
       addon_total: addonTotal,
       is_free: isFree,
-      is_promo_item: hasPromo,
+      is_promo_item: hasPromo || (bundleInCart && isInBundle),
       promo_type: promo?.type || null,
-      promo_name: promo?.promo?.name || null,
-      category: item.category || 'Makanan'
+      promo_name: promo?.promo?.name || bundleName || null,
+      category: item.category || 'Makanan',
+      isBundleItem: bundleInCart && isInBundle,
+      bundleName: bundleName,
+      bundlePrice: bundlePriceValue
     }
     
     setCart([...cart, cartItem])
@@ -873,7 +999,7 @@ function CustomerMenu() {
     
     if (isFree) {
       toast.success(`🎁 ${item.name} PERCUMA!`)
-    } else if (hasPromo) {
+    } else if (hasPromo || (bundleInCart && isInBundle)) {
       toast.success(`✓ ${item.name} - RM ${finalPrice.toFixed(2)} (Promo)`)
     } else {
       toast.success(`✓ ${item.name} ${translate('added')}`)
@@ -1143,7 +1269,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // SUBMIT ORDER - DENGAN KURANGKAN STOCK
+  // SUBMIT ORDER - DENGAN KURANGKAN STOCK (TANPA PRINT RECEIPT)
   // ============================================================
   const submitOrderConfirmed = async () => {
     setShowConfirmModal(false)
@@ -1180,7 +1306,10 @@ function CustomerMenu() {
       addons: item.addons || null,
       addon_ids: item.addon_ids || [],
       addon_total: item.addon_total || 0,
-      category: item.category || 'Makanan'
+      category: item.category || 'Makanan',
+      // 🔥 TAMBAH BUNDLE FIELDS
+      isBundleItem: item.isBundleItem || false,
+      bundleName: item.bundleName || null
     }))
     
     const orderNumber = 'ORD-' + Date.now()
@@ -1252,6 +1381,11 @@ function CustomerMenu() {
       const orderId = data?.[0]?.order_number || orderNumber
       toast.success(`✓ ${translate('order_number')} ${orderNumber} ${translate('order_sent')}`)
       
+      // ============================================================
+      // 🔥 CUSTOMER MENU TIDAK PRINT RECEIPT - Staff akan print di StaffApp
+      // ============================================================
+      // Receipt printing is handled by StaffApp, not CustomerMenu
+      
       setTimeout(() => {
         window.location.href = `/track?order=${orderId}`
       }, 2000)
@@ -1265,7 +1399,18 @@ function CustomerMenu() {
   // ============================================================
   // CART HELPERS
   // ============================================================
-  const getSubtotal = () => cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  const getSubtotal = () => {
+    // 🔥 CHECK BUNDLE IN CART
+    const bundleInCart = getBundlePromoForCart(cart)
+    if (bundleInCart) {
+      const bundleItemIds = bundleInCart.bundleItems.map(i => i.id)
+      const nonBundleItems = cart.filter(item => !bundleItemIds.includes(item.id))
+      let subtotal = nonBundleItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+      subtotal += bundleInCart.bundlePrice
+      return subtotal
+    }
+    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+  }
   const getServiceCharge = () => getSubtotal() * (serviceChargePercent / 100)
   const getTax = () => getSubtotal() * (taxPercent / 100)
   const getGrandTotal = () => getSubtotal() + getServiceCharge() + getTax()
@@ -1850,13 +1995,46 @@ function CustomerMenu() {
               const hasAddons = item.has_addons === true
               const hasDescription = item.description && item.description.trim() !== ''
               
-              // Check promo for this item
+              // 🔥 CHECK BUNDLE IN CART
+              const bundleInCart = getBundlePromoForCart(cart)
+              const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => i.id === item.id)
+              
+              // 🔥 Check regular promo
               const promo = getItemPromotion(item)
               const promoPrice = getPromoPrice(item)
               const hasPromo = promo !== null && promoPrice !== null
-              const finalPrice = hasPromo ? promoPrice : item.price
-              const isBOGO = promo?.type === 'bogo'
-              const savings = hasPromo ? (item.price - finalPrice) : 0
+              
+              // 🔥 Determine final price
+              let displayPrice = item.price
+              let displayOriginalPrice = null
+              let hasDiscount = false
+              let savings = 0
+              let promoLabel = ''
+              
+              // Check if this item is part of a complete bundle in cart
+              if (bundleInCart && isInBundle) {
+                const allItemsInCart = bundleInCart.bundleItems.every(i => 
+                  cart.some(c => c.id === i.id)
+                )
+                if (allItemsInCart) {
+                  const bundleItemCount = bundleInCart.bundleItems.length
+                  const perItemPrice = bundleInCart.bundlePrice / bundleItemCount
+                  displayPrice = perItemPrice
+                  displayOriginalPrice = item.price
+                  hasDiscount = true
+                  savings = bundleInCart.savings
+                  promoLabel = '📦 BUNDLE'
+                }
+              }
+              
+              // If not bundle, check regular promo
+              if (!hasDiscount && hasPromo) {
+                displayPrice = promoPrice
+                displayOriginalPrice = item.price
+                hasDiscount = true
+                savings = item.price - promoPrice
+                promoLabel = promo?.type === 'bogo' ? '🎁 BOGO' : '🔥 PROMO'
+              }
               
               return (
                 <div 
@@ -1868,8 +2046,8 @@ function CustomerMenu() {
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     cursor: 'pointer',
                     transform: isClicked ? 'scale(0.95)' : 'scale(1)',
-                    border: isClicked ? `2px solid ${successColor}` : (hasPromo ? `2px solid ${promoColor}` : 'none'),
-                    boxShadow: hasPromo ? '0 4px 20px rgba(239,68,68,0.15)' : '0 4px 12px rgba(0,0,0,0.06)'
+                    border: isClicked ? `2px solid ${successColor}` : (hasDiscount ? `2px solid ${promoColor}` : 'none'),
+                    boxShadow: hasDiscount ? '0 4px 20px rgba(239,68,68,0.15)' : '0 4px 12px rgba(0,0,0,0.06)'
                   }}
                   onClick={() => {
                     setClickedItemId(item.id)
@@ -1894,7 +2072,7 @@ function CustomerMenu() {
                 >
                   {/* ===== IMAGE ===== */}
                   <div style={{ 
-                    background: isPromoItem ? '#f3e8ff' : (hasPromo ? '#fef2f2' : (darkMode ? '#1a1a2e' : '#fef3c7')),
+                    background: isPromoItem ? '#f3e8ff' : (hasDiscount ? '#fef2f2' : (darkMode ? '#1a1a2e' : '#fef3c7')),
                     padding: isMobile ? '24px' : '28px',
                     textAlign: 'center',
                     position: 'relative',
@@ -1903,7 +2081,7 @@ function CustomerMenu() {
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}>
-                    {hasPromo && (
+                    {hasDiscount && (
                       <div style={{ 
                         position: 'absolute',
                         top: '8px',
@@ -1918,7 +2096,18 @@ function CustomerMenu() {
                         zIndex: 5,
                         animation: 'pulse 1.5s ease-in-out infinite'
                       }}>
-                        {isBOGO ? '🎁 BOGO' : '🔥 PROMO'}
+                        {promoLabel}
+                        {savings > 0 && (
+                          <span style={{
+                            fontSize: '7px',
+                            background: 'rgba(255,255,255,0.2)',
+                            padding: '1px 6px',
+                            borderRadius: '10px',
+                            marginLeft: '4px'
+                          }}>
+                            Jimat RM {savings.toFixed(2)}
+                          </span>
+                        )}
                       </div>
                     )}
                     {isPromoItem && (
@@ -2061,7 +2250,7 @@ function CustomerMenu() {
                         marginBottom: '4px',
                         flexWrap: 'wrap'
                       }}>
-                        {hasPromo ? (
+                        {hasDiscount ? (
                           <>
                             <span style={{ 
                               fontSize: isMobile ? '18px' : '22px',
@@ -2071,14 +2260,14 @@ function CustomerMenu() {
                               padding: '2px 10px',
                               borderRadius: '6px'
                             }}>
-                              RM {finalPrice.toFixed(2)}
+                              RM {displayPrice.toFixed(2)}
                             </span>
                             <span style={{ 
                               fontSize: isMobile ? '12px' : '14px',
                               color: textMuted,
                               textDecoration: 'line-through'
                             }}>
-                              RM {item.price.toFixed(2)}
+                              RM {displayOriginalPrice?.toFixed(2) || item.price.toFixed(2)}
                             </span>
                             {savings > 0 && (
                               <span style={{
@@ -2092,7 +2281,7 @@ function CustomerMenu() {
                                 Jimat RM {savings.toFixed(2)}
                               </span>
                             )}
-                            {isBOGO && (
+                            {promoLabel === '🎁 BOGO' && (
                               <span style={{ 
                                 background: promoColor,
                                 color: 'white',
@@ -2102,6 +2291,18 @@ function CustomerMenu() {
                                 fontWeight: 'bold'
                               }}>
                                 🎁 FREE 1
+                              </span>
+                            )}
+                            {promoLabel === '📦 BUNDLE' && (
+                              <span style={{ 
+                                background: '#8b5cf6',
+                                color: 'white',
+                                padding: '1px 8px',
+                                borderRadius: '10px',
+                                fontSize: isMobile ? '8px' : '9px',
+                                fontWeight: 'bold'
+                              }}>
+                                📦 Bundle
                               </span>
                             )}
                           </>
@@ -2186,14 +2387,14 @@ function CustomerMenu() {
                     <div style={{ 
                       width: '100%',
                       padding: isMobile ? '10px' : '12px',
-                      background: isAdding ? successColor : (isPromoItem ? '#8b5cf6' : (hasPromo ? promoColor : (hasSizeOptions || hasAddons ? accentColor : accentColor))),
+                      background: isAdding ? successColor : (isPromoItem ? '#8b5cf6' : (hasDiscount ? promoColor : (hasSizeOptions || hasAddons ? accentColor : accentColor))),
                       color: 'white',
                       borderRadius: '40px',
                       fontWeight: 'bold',
                       fontSize: isMobile ? '13px' : '15px',
                       transition: 'all 0.2s'
                     }}>
-                      {isAdding ? translate('added') : (isPromoItem ? translate('buy_promo') : (hasPromo ? `🔥 PROMO - RM ${finalPrice.toFixed(2)}` : ((hasSizeOptions || hasAddons) ? translate('select_size_btn') : translate('add'))))}
+                      {isAdding ? translate('added') : (isPromoItem ? translate('buy_promo') : (hasDiscount ? `🔥 PROMO - RM ${displayPrice.toFixed(2)}` : ((hasSizeOptions || hasAddons) ? translate('select_size_btn') : translate('add'))))}
                     </div>
                   </div>
                 </div>
@@ -2318,160 +2519,179 @@ function CustomerMenu() {
               </div>
             ) : (
               <>
-                {cart.map(item => (
-                  <div key={item.id} style={{ 
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    marginBottom: '10px',
-                    paddingBottom: '8px',
-                    borderBottom: `1px solid ${borderColor}`,
-                    gap: '6px'
-                  }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ 
-                        fontWeight: 'bold',
-                        fontSize: isMobile ? '12px' : '13px',
-                        color: textColor,
-                        wordBreak: 'break-word'
-                      }}>
-                        {item.name}
-                        {item.is_free && (
-                          <span style={{ 
-                            color: successColor,
-                            fontSize: '9px',
-                            marginLeft: '4px'
-                          }}>
-                            ({translate('free')})
-                          </span>
-                        )}
-                        {item.is_promo_item && (
-                          <span style={{ 
-                            color: promoColor,
-                            fontSize: '9px',
-                            marginLeft: '4px'
-                          }}>
-                            🔥 PROMO
-                          </span>
-                        )}
-                        {item.option_name && (
-                          <span style={{ 
-                            color: accentColor,
-                            fontSize: '9px',
-                            marginLeft: '4px'
-                          }}>
-                            ({item.option_name})
-                          </span>
-                        )}
-                        {item.addons && (
-                          <div style={{ 
-                            fontSize: '9px', 
-                            color: '#8b5cf6', 
-                            fontWeight: 'normal',
-                            marginTop: '2px'
-                          }}>
-                            ✨ + {item.addons} <span style={{ color: successColor }}>(+RM {item.addon_total?.toFixed(2) || '0.00'})</span>
-                          </div>
-                        )}
-                        {item.basePrice && item.basePrice !== item.price && (
-                          <div style={{ 
-                            fontSize: '9px', 
-                            color: '#94a3b8',
-                            textDecoration: 'line-through',
-                            marginTop: '1px'
-                          }}>
-                            RM {item.basePrice.toFixed(2)}
-                          </div>
-                        )}
-                      </div>
-                      <div style={{ 
-                        fontSize: isMobile ? '9px' : '10px',
-                        color: textMuted
-                      }}>
-                        RM {item.price.toFixed(2)} / each
-                      </div>
-                    </div>
-                    
-                    {/* Quantity Controls */}
-                    <div style={{ 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: '4px',
-                      background: secondaryBg,
-                      borderRadius: '30px',
-                      padding: '3px',
-                      border: `1px solid ${borderColor}`,
-                      flexShrink: 0
+                {cart.map(item => {
+                  const isBundleItem = item.isBundleItem || false
+                  const isPromoItem = item.is_promo_item || false
+                  
+                  return (
+                    <div key={item.id} style={{ 
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '10px',
+                      paddingBottom: '8px',
+                      borderBottom: `1px solid ${borderColor}`,
+                      gap: '6px',
+                      background: isBundleItem ? 'rgba(139,92,246,0.05)' : 'transparent',
+                      borderRadius: '4px'
                     }}>
-                      <button 
-                        onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
-                        style={{ 
-                          width: isMobile ? '26px' : '30px',
-                          height: isMobile ? '26px' : '30px',
-                          borderRadius: '50%',
-                          background: darkMode ? 'rgba(255,255,255,0.1)' : '#f1f5f9',
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: isMobile ? '14px' : '16px',
-                          color: textColor,
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ 
                           fontWeight: 'bold',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.2)' : '#e2e8f0'}
-                        onMouseLeave={e => e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.1)' : '#f1f5f9'}
-                      >
-                        −
-                      </button>
+                          fontSize: isMobile ? '12px' : '13px',
+                          color: textColor,
+                          wordBreak: 'break-word'
+                        }}>
+                          {item.name}
+                          {item.is_free && (
+                            <span style={{ 
+                              color: successColor,
+                              fontSize: '9px',
+                              marginLeft: '4px'
+                            }}>
+                              ({translate('free')})
+                            </span>
+                          )}
+                          {isBundleItem && (
+                            <span style={{ 
+                              color: '#8b5cf6',
+                              fontSize: '9px',
+                              marginLeft: '4px',
+                              background: 'rgba(139,92,246,0.15)',
+                              padding: '1px 8px',
+                              borderRadius: '10px'
+                            }}>
+                              📦 Bundle
+                            </span>
+                          )}
+                          {isPromoItem && !isBundleItem && (
+                            <span style={{ 
+                              color: promoColor,
+                              fontSize: '9px',
+                              marginLeft: '4px'
+                            }}>
+                              🔥 PROMO
+                            </span>
+                          )}
+                          {item.option_name && (
+                            <span style={{ 
+                              color: accentColor,
+                              fontSize: '9px',
+                              marginLeft: '4px'
+                            }}>
+                              ({item.option_name})
+                            </span>
+                          )}
+                          {item.addons && (
+                            <div style={{ 
+                              fontSize: '9px', 
+                              color: '#8b5cf6', 
+                              fontWeight: 'normal',
+                              marginTop: '2px'
+                            }}>
+                              ✨ + {item.addons} <span style={{ color: successColor }}>(+RM {item.addon_total?.toFixed(2) || '0.00'})</span>
+                            </div>
+                          )}
+                          {item.basePrice && item.basePrice !== item.price && (
+                            <div style={{ 
+                              fontSize: '9px', 
+                              color: '#94a3b8',
+                              textDecoration: 'line-through',
+                              marginTop: '1px'
+                            }}>
+                              RM {item.basePrice.toFixed(2)}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ 
+                          fontSize: isMobile ? '9px' : '10px',
+                          color: textMuted
+                        }}>
+                          RM {item.price.toFixed(2)} / each
+                        </div>
+                      </div>
+                      
+                      {/* Quantity Controls */}
+                      <div style={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: '4px',
+                        background: secondaryBg,
+                        borderRadius: '30px',
+                        padding: '3px',
+                        border: `1px solid ${borderColor}`,
+                        flexShrink: 0
+                      }}>
+                        <button 
+                          onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
+                          style={{ 
+                            width: isMobile ? '26px' : '30px',
+                            height: isMobile ? '26px' : '30px',
+                            borderRadius: '50%',
+                            background: darkMode ? 'rgba(255,255,255,0.1)' : '#f1f5f9',
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: isMobile ? '14px' : '16px',
+                            color: textColor,
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.2)' : '#e2e8f0'}
+                          onMouseLeave={e => e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.1)' : '#f1f5f9'}
+                        >
+                          −
+                        </button>
+                        
+                        <span style={{ 
+                          minWidth: '22px',
+                          textAlign: 'center',
+                          fontWeight: 'bold',
+                          fontSize: isMobile ? '14px' : '16px',
+                          color: textColor
+                        }}>
+                          {item.quantity}
+                        </span>
+                        
+                        <button 
+                          onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
+                          style={{ 
+                            width: isMobile ? '26px' : '30px',
+                            height: isMobile ? '26px' : '30px',
+                            borderRadius: '50%',
+                            background: `linear-gradient(135deg, ${accentColor}, #d97706)`,
+                            border: 'none',
+                            cursor: 'pointer',
+                            fontSize: isMobile ? '14px' : '16px',
+                            color: 'white',
+                            fontWeight: 'bold',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
+                          onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+                        >
+                          +
+                        </button>
+                      </div>
                       
                       <span style={{ 
-                        minWidth: '22px',
-                        textAlign: 'center',
                         fontWeight: 'bold',
-                        fontSize: isMobile ? '14px' : '16px',
-                        color: textColor
+                        color: successColor,
+                        fontSize: isMobile ? '12px' : '13px',
+                        minWidth: '65px',
+                        textAlign: 'right',
+                        flexShrink: 0
                       }}>
-                        {item.quantity}
+                        RM {(item.price * item.quantity).toFixed(2)}
                       </span>
-                      
-                      <button 
-                        onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
-                        style={{ 
-                          width: isMobile ? '26px' : '30px',
-                          height: isMobile ? '26px' : '30px',
-                          borderRadius: '50%',
-                          background: `linear-gradient(135deg, ${accentColor}, #d97706)`,
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: isMobile ? '14px' : '16px',
-                          color: 'white',
-                          fontWeight: 'bold',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'all 0.2s'
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.1)'}
-                        onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-                      >
-                        +
-                      </button>
                     </div>
-                    
-                    <span style={{ 
-                      fontWeight: 'bold',
-                      color: successColor,
-                      fontSize: isMobile ? '12px' : '13px',
-                      minWidth: '65px',
-                      textAlign: 'right',
-                      flexShrink: 0
-                    }}>
-                      RM {(item.price * item.quantity).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
+                  )
+                })}
                 
                 <div style={{ 
                   background: secondaryBg,

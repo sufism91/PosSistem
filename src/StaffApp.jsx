@@ -186,7 +186,23 @@ function StaffApp() {
     tax: 6,
     restaurant_name: 'Restoran Kita',
     kitchen_enabled: true,
-    notification_sound: true
+    notification_sound: true,
+    // 🔥 TAMBAH RECEIPT SETTINGS
+    receipt_logo_url: '',
+    receipt_company_name: '',
+    receipt_company_address: '',
+    receipt_company_phone: '',
+    receipt_header: 'Terima Kasih!',
+    receipt_footer: 'Sila datang lagi',
+    receipt_thank_you: 'Terima Kasih!',
+    receipt_show_logo: true,
+    receipt_show_qr: true,
+    receipt_show_items: true,
+    receipt_show_tax: true,
+    receipt_show_service: true,
+    receipt_paper_size: '58mm',
+    receipt_font_size: 'normal',
+    receipt_logo_size: 'medium',
   })
 
   // ============================================================
@@ -951,7 +967,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== SEND ORDER =====
+  // ===== SEND ORDER - WITH RECEIPT PRINT USING SETTINGS =====
   // ============================================================
   const sendOrder = async () => {
     if (cart.length === 0) { toast.error(t('cart_empty_msg')); return }
@@ -1065,8 +1081,10 @@ function StaffApp() {
         console.log('📨 Telegram notification sent for order:', order.order_number)
       }
       
-      // ===== PRINT RECEIPT =====
-      if (data && data.length > 0) {
+      // ============================================================
+      // ===== PRINT RECEIPT - GUNA SETTING DARI MANAGESETTING =====
+      // ============================================================
+      if (data && data.length > 0 && settings.auto_print) {
         const order = data[0]
         try {
           const receiptHTML = generateReceiptHTML({
@@ -1102,14 +1120,30 @@ function StaffApp() {
               items: bundleInCart.bundleItems.map(i => i.name)
             } : null
           }, {
+            // 🔥 GUNA SETTING DARI MANAGESETTING
             restaurant_name: settings.restaurant_name,
             service_charge_percent: settings.service_charge,
             tax_percent: settings.tax,
             payment_method: 'cash',
-            darkMode: darkMode
+            darkMode: darkMode,
+            // 🔥 RECEIPT SETTINGS
+            receipt_logo_url: settings.receipt_logo_url || '',
+            receipt_company_name: settings.receipt_company_name || '',
+            receipt_company_address: settings.receipt_company_address || '',
+            receipt_company_phone: settings.receipt_company_phone || '',
+            receipt_header: settings.receipt_header || 'Terima Kasih!',
+            receipt_footer: settings.receipt_footer || 'Sila datang lagi',
+            receipt_thank_you: settings.receipt_thank_you || 'Terima Kasih!',
+            receipt_show_logo: settings.receipt_show_logo !== false,
+            receipt_show_qr: settings.receipt_show_qr !== false,
+            receipt_show_items: settings.receipt_show_items !== false,
+            receipt_show_tax: settings.receipt_show_tax !== false,
+            receipt_show_service: settings.receipt_show_service !== false,
+            receipt_paper_size: settings.receipt_paper_size || '58mm',
+            receipt_font_size: settings.receipt_font_size || 'normal',
+            receipt_logo_size: settings.receipt_logo_size || 'medium'
           })
           
-          // Print receipt using window print
           const printWindow = window.open('', '_blank', 'width=400,height=600')
           if (printWindow) {
             printWindow.document.write(receiptHTML)
@@ -1123,6 +1157,7 @@ function StaffApp() {
           console.error('Error printing receipt:', receiptError)
         }
       }
+      // ============================================================
       
       setCart([])
       setCustomerName('')
@@ -1204,7 +1239,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PRINT RECEIPT LEGACY
+  // PRINT RECEIPT - FALLBACK
   // ============================================================
   const printReceiptLegacy = (order) => {
     try {
@@ -1223,7 +1258,22 @@ function StaffApp() {
         service_charge_percent: settings.service_charge,
         tax_percent: settings.tax,
         payment_method: order.payment_method || 'cash',
-        darkMode: darkMode
+        darkMode: darkMode,
+        receipt_logo_url: settings.receipt_logo_url || '',
+        receipt_company_name: settings.receipt_company_name || '',
+        receipt_company_address: settings.receipt_company_address || '',
+        receipt_company_phone: settings.receipt_company_phone || '',
+        receipt_header: settings.receipt_header || 'Terima Kasih!',
+        receipt_footer: settings.receipt_footer || 'Sila datang lagi',
+        receipt_thank_you: settings.receipt_thank_you || 'Terima Kasih!',
+        receipt_show_logo: settings.receipt_show_logo !== false,
+        receipt_show_qr: settings.receipt_show_qr !== false,
+        receipt_show_items: settings.receipt_show_items !== false,
+        receipt_show_tax: settings.receipt_show_tax !== false,
+        receipt_show_service: settings.receipt_show_service !== false,
+        receipt_paper_size: settings.receipt_paper_size || '58mm',
+        receipt_font_size: settings.receipt_font_size || 'normal',
+        receipt_logo_size: settings.receipt_logo_size || 'medium'
       })
       
       const printWindow = window.open('', '_blank', 'width=400,height=600')

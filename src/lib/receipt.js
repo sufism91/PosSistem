@@ -48,23 +48,33 @@ export function generateReceiptHTML(order = {}, settings = {}) {
   const bundlePromo = order.bundle_promo || null
 
   // ============================================================
-  // ===== FORMAT ITEMS DENGAN LABEL PROMO =====
+  // ===== FORMAT ITEMS DENGAN LABEL PROMO & HARGA =====
   // ============================================================
   const formattedItems = items.map(item => {
+    // 🔥 Tentukan sama ada item ada promo
+    const isFree = item.isFree === true
+    const isBundleItem = item.isBundleItem === true
+    const hasPromo = item.promoType !== null && item.promoType !== undefined
+    const promoName = item.promoName || ''
+    const originalPrice = item.originalPrice || item.price || 0
+    const displayPrice = isFree ? 0 : item.price || 0
+    const savings = hasPromo && !isFree ? (originalPrice - displayPrice) : 0
+    
+    // 🔥 Build item name with tags
     let nameWithTags = item.name || 'Item'
     
-    // 🔥 TAMBAH LABEL PROMO
-    if (item.isBundleItem || item.isBundle) {
-      nameWithTags = `📦 ${nameWithTags} (Bundle)`
-    } else if (item.isFree) {
+    // Add promo tags
+    if (isFree) {
       nameWithTags = `🎁 ${nameWithTags} (FREE)`
-    } else if (item.promoType === 'bogo') {
+    } else if (isBundleItem) {
+      nameWithTags = `📦 ${nameWithTags} (Bundle)`
+    } else if (hasPromo && promoName) {
+      nameWithTags = `🔥 ${nameWithTags} (${promoName})`
+    } else if (hasPromo && item.promoType === 'bogo') {
       nameWithTags = `🎁 ${nameWithTags} (BOGO)`
-    } else if (item.promoName) {
-      nameWithTags = `🔥 ${nameWithTags} (Promo)`
     }
     
-    // Tambah option/size/addons
+    // Add option/size/addons
     if (item.option) {
       nameWithTags += ` (${item.option})`
     }
@@ -78,12 +88,18 @@ export function generateReceiptHTML(order = {}, settings = {}) {
     return {
       name: nameWithTags,
       quantity: item.quantity || 1,
-      price: item.price || 0,
-      subtotal: (item.price || 0) * (item.quantity || 1),
-      isFree: item.isFree || false,
-      isBundleItem: item.isBundleItem || false,
-      promoType: item.promoType || null,
-      promoName: item.promoName || null
+      price: displayPrice,
+      originalPrice: originalPrice,
+      subtotal: displayPrice * (item.quantity || 1),
+      originalSubtotal: originalPrice * (item.quantity || 1),
+      isFree: isFree,
+      isBundleItem: isBundleItem,
+      hasPromo: hasPromo,
+      promoName: promoName,
+      promoType: item.promoType,
+      savings: savings,
+      // 🔥 Untuk display price with strike-through
+      showOriginal: hasPromo && !isFree && originalPrice !== displayPrice
     }
   })
 
@@ -209,6 +225,16 @@ export function generateReceiptHTML(order = {}, settings = {}) {
           color: #ef4444;
           font-weight: bold;
         }
+        .items .price-original {
+          text-decoration: line-through;
+          color: ${isDark ? '#94a3b8' : '#94a3b8'};
+          font-size: ${fontSize - 2}px;
+          margin-right: 4px;
+        }
+        .items .price-discount {
+          color: #22c55e;
+          font-weight: bold;
+        }
         .total-row {
           font-size: ${isLarge ? 20 : 18}px;
           font-weight: bold;
@@ -310,6 +336,8 @@ export function generateReceiptHTML(order = {}, settings = {}) {
           .header .sub { color: #666 !important; }
           .items th, .items td { color: black !important; }
           .items th { color: #666 !important; border-bottom-color: #ccc !important; }
+          .items .price-original { color: #94a3b8 !important; }
+          .items .price-discount { color: #22c55e !important; }
           .total-row { color: #22c55e !important; }
           .footer { color: #666 !important; border-top-color: #ccc !important; }
           .label { color: #666 !important; }
@@ -365,20 +393,39 @@ export function generateReceiptHTML(order = {}, settings = {}) {
               </tr>
             </thead>
             <tbody>
-              ${formattedItems.map(item => `
-                <tr>
-                  <td style="text-align:left">
-                    ${item.isFree ? `<span class="item-free">${item.name}</span>` : 
-                      item.isBundleItem ? `<span class="item-bundle">${item.name}</span>` :
-                      item.promoName ? `<span class="item-promo">${item.name}</span>` :
-                      item.name}
-                    ${item.addons ? `<div class="option-label">✨ ${item.addons}</div>` : ''}
-                    ${item.isFree ? `<div class="item-free">🎁 FREE</div>` : ''}
-                  </td>
-                  <td style="text-align:center">${item.quantity}</td>
-                  <td style="text-align:right">${item.isFree ? 'FREE' : `RM ${item.subtotal.toFixed(2)}`}</td>
-                </tr>
-              `).join('')}
+              ${formattedItems.map(item => {
+                // 🔥 Build price display
+                let priceDisplay = ''
+                if (item.isFree) {
+                  priceDisplay = `<span class="item-free">FREE</span>`
+                } else if (item.showOriginal) {
+                  priceDisplay = `
+                    <span class="price-original">RM ${item.originalSubtotal.toFixed(2)}</span>
+                    <span class="price-discount">RM ${item.subtotal.toFixed(2)}</span>
+                  `
+                } else {
+                  priceDisplay = `RM ${item.subtotal.toFixed(2)}`
+                }
+                
+                // 🔥 Build item name class
+                let nameClass = ''
+                if (item.isFree) nameClass = 'item-free'
+                else if (item.isBundleItem) nameClass = 'item-bundle'
+                else if (item.hasPromo) nameClass = 'item-promo'
+                
+                return `
+                  <tr>
+                    <td style="text-align:left">
+                      <span class="${nameClass}">${item.name}</span>
+                      ${item.addons ? `<div class="option-label">✨ ${item.addons}</div>` : ''}
+                      ${item.isFree ? `<div class="item-free">🎁 FREE</div>` : ''}
+                      ${item.hasPromo && !item.isFree && item.savings > 0 ? `<div class="option-label" style="color:#22c55e;">🔥 Jimat RM ${item.savings.toFixed(2)}</div>` : ''}
+                    </td>
+                    <td style="text-align:center">${item.quantity}</td>
+                    <td style="text-align:right">${priceDisplay}</td>
+                  </tr>
+                `
+              }).join('')}
             </tbody>
           </table>
           <div class="divider"></div>

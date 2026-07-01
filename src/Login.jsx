@@ -10,10 +10,22 @@ function Login() {
   const { language, setLanguage } = useLanguage()
   const navigate = useNavigate()
   
+  // ===== EMAIL LOGIN STATE =====
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
+  
+  // ===== PIN LOGIN STATE =====
+  const [username, setUsername] = useState('')
+  const [pin, setPin] = useState('')
+  const [pinLoading, setPinLoading] = useState(false)
+  const [showPin, setShowPin] = useState(false)
+  
+  // ===== LOGIN METHOD =====
+  const [loginMethod, setLoginMethod] = useState('email') // 'email' or 'pin'
+  
+  // ===== RESTAURANT SETTINGS =====
   const [restaurantName, setRestaurantName] = useState('Restoran Kita')
   const [restaurantLogo, setRestaurantLogo] = useState('')
   const [isMobile, setIsMobile] = useState(false)
@@ -32,17 +44,30 @@ function Login() {
     login_title: { en: 'POS System for Small & Medium Restaurants', ms: 'Sistem POS untuk Restoran Kecil & Sederhana' },
     email: { en: 'Email', ms: 'Emel' },
     password: { en: 'Password', ms: 'Kata Laluan' },
+    pin: { en: 'PIN', ms: 'PIN' },
+    username: { en: 'Username', ms: 'Nama Pengguna' },
     enter_email: { en: 'Enter email address', ms: 'Masukkan alamat emel' },
     enter_password: { en: 'Enter password', ms: 'Masukkan kata laluan' },
+    enter_username: { en: 'Enter username', ms: 'Masukkan nama pengguna' },
+    enter_pin: { en: 'Enter PIN', ms: 'Masukkan PIN' },
     login: { en: 'Login', ms: 'Log Masuk' },
     logging_in: { en: 'Logging in...', ms: 'Log masuk...' },
     english: { en: 'Bahasa Melayu', ms: 'English' },
+    email_login: { en: 'Email Login', ms: 'Log Masuk Emel' },
+    pin_login: { en: 'PIN Login', ms: 'Log Masuk PIN' },
+    switch_to_email: { en: 'Login with Email', ms: 'Log Masuk dengan Emel' },
+    switch_to_pin: { en: 'Login with PIN', ms: 'Log Masuk dengan PIN' },
+    staff_login: { en: 'Staff Login', ms: 'Log Masuk Staff' },
     
     // Error Messages
     enter_credentials: { en: 'Please enter email and password', ms: 'Sila masukkan emel dan kata laluan' },
+    enter_pin_credentials: { en: 'Please enter username and PIN', ms: 'Sila masukkan nama pengguna dan PIN' },
     invalid_credentials: { en: 'Invalid email or password', ms: 'Emel atau kata laluan salah' },
+    invalid_pin: { en: 'Invalid username or PIN', ms: 'Nama pengguna atau PIN salah' },
     login_error: { en: 'Login error. Please try again.', ms: 'Ralat log masuk. Sila cuba lagi.' },
     welcome: { en: 'Welcome', ms: 'Selamat datang' },
+    staff_not_found: { en: 'Staff not found', ms: 'Staff tidak dijumpai' },
+    pin_login_disabled: { en: 'This account requires email+password login', ms: 'Akaun ini memerlukan log masuk emel+kata laluan' },
     
     // Footer
     powered_by: { en: 'Powered by', ms: 'Dikuasakan oleh' },
@@ -97,6 +122,24 @@ function Login() {
   useEffect(() => {
     loadRestaurantInfo()
     loadLoginSettings()
+    
+    // Check if already logged in
+    const savedAuth = sessionStorage.getItem('staffAuth')
+    if (savedAuth) {
+      try {
+        const user = JSON.parse(savedAuth)
+        if (user.role) {
+          const redirectMap = {
+            admin: '/dashboard',
+            manager: '/dashboard',
+            staff: '/staff',
+            cashier: '/staff',
+            kitchen: '/kitchen'
+          }
+          navigate(redirectMap[user.role] || '/staff')
+        }
+      } catch (e) {}
+    }
   }, [])
 
   async function loadRestaurantInfo() {
@@ -129,9 +172,9 @@ function Login() {
   }
 
   // ============================================================
-  // HANDLE LOGIN - SUPABASE AUTH
+  // HANDLE EMAIL LOGIN - SUPABASE AUTH
   // ============================================================
-  const handleSubmit = async (e) => {
+  const handleEmailLogin = async (e) => {
     e.preventDefault()
     
     if (!email || !password) {
@@ -158,7 +201,7 @@ function Login() {
       // ✅ Get staff details using auth_id
       const { data: staffData, error: staffError } = await supabase
         .from('staff')
-        .select('id, username, name, role')
+        .select('id, username, name, role, login_method')
         .eq('auth_id', data.user.id)
         .single()
 
@@ -175,25 +218,25 @@ function Login() {
         email: data.user.email,
         username: staffData.username,
         name: staffData.name || staffData.username || 'Staff',
-        role: staffData.role || 'staff'
+        role: staffData.role || 'staff',
+        login_method: staffData.login_method || 'email_password'
       }
       
-      // 💾 Save to sessionStorage for backward compatibility
+      // 💾 Save to sessionStorage
       sessionStorage.setItem('staffAuth', JSON.stringify(userData))
       
       toast.success(`${t('welcome')}, ${userData.name}!`)
       
       // 🚀 Redirect based on role
       setTimeout(() => {
-        if (userData.role === 'admin') {
-          navigate('/dashboard')
-        } else if (userData.role === 'staff') {
-          navigate('/staff')
-        } else if (userData.role === 'kitchen') {
-          navigate('/kitchen')
-        } else {
-          navigate('/dashboard')
+        const redirectMap = {
+          admin: '/dashboard',
+          manager: '/dashboard',
+          staff: '/staff',
+          cashier: '/staff',
+          kitchen: '/kitchen'
         }
+        navigate(redirectMap[userData.role] || '/staff')
       }, 500)
 
     } catch (err) {
@@ -201,6 +244,82 @@ function Login() {
       toast.error(t('login_error'))
     } finally {
       setLoading(false)
+    }
+  }
+
+  // ============================================================
+  // HANDLE PIN LOGIN
+  // ============================================================
+  const handlePinLogin = async (e) => {
+    e.preventDefault()
+    
+    if (!username || !pin) {
+      toast.error(t('enter_pin_credentials'))
+      return
+    }
+
+    setPinLoading(true)
+
+    try {
+      // 🔐 Get staff by username
+      const { data: staffData, error } = await supabase
+        .from('staff')
+        .select('id, username, name, role, pin, login_method')
+        .eq('username', username.toLowerCase().trim())
+        .single()
+
+      if (error || !staffData) {
+        console.error('Staff fetch error:', error)
+        toast.error(t('staff_not_found'))
+        setPinLoading(false)
+        return
+      }
+
+      // ✅ Check if login method is PIN
+      if (staffData.login_method !== 'pin') {
+        toast.error(t('pin_login_disabled'))
+        setPinLoading(false)
+        return
+      }
+
+      // ✅ Verify PIN
+      if (staffData.pin !== pin.trim()) {
+        toast.error(t('invalid_pin'))
+        setPinLoading(false)
+        return
+      }
+
+      // 📦 Prepare user data
+      const userData = {
+        id: staffData.id,
+        username: staffData.username,
+        name: staffData.name || staffData.username || 'Staff',
+        role: staffData.role || 'staff',
+        login_method: 'pin'
+      }
+      
+      // 💾 Save to sessionStorage
+      sessionStorage.setItem('staffAuth', JSON.stringify(userData))
+      
+      toast.success(`${t('welcome')}, ${userData.name}!`)
+      
+      // 🚀 Redirect based on role
+      setTimeout(() => {
+        const redirectMap = {
+          admin: '/dashboard',
+          manager: '/dashboard',
+          staff: '/staff',
+          cashier: '/staff',
+          kitchen: '/kitchen'
+        }
+        navigate(redirectMap[userData.role] || '/staff')
+      }, 500)
+
+    } catch (err) {
+      console.error('PIN login error:', err)
+      toast.error(t('login_error'))
+    } finally {
+      setPinLoading(false)
     }
   }
 
@@ -447,51 +566,96 @@ function Login() {
           {/* ===== TOP TOGGLES ===== */}
           <div style={{ 
             display: 'flex', 
-            justifyContent: 'flex-end', 
+            justifyContent: 'space-between', 
+            alignItems: 'center',
             gap: '10px', 
             marginBottom: isMobile ? '16px' : '32px' 
           }}>
-            <button 
-              onClick={toggleDarkMode} 
-              style={{ 
-                background: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', 
-                color: textColor, 
-                padding: '8px', 
-                border: `1px solid ${borderColor}`, 
-                borderRadius: '40px', 
-                cursor: 'pointer', 
-                width: '40px', 
-                height: '40px', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                fontSize: '18px',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.95)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              {darkMode ? '☀️' : '🌙'}
-            </button>
+            {/* 🔥 LOGIN METHOD TOGGLE */}
+            <div style={{ 
+              display: 'flex', 
+              background: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+              borderRadius: '40px',
+              padding: '4px',
+              border: `1px solid ${borderColor}`
+            }}>
+              <button
+                onClick={() => setLoginMethod('email')}
+                style={{
+                  padding: isMobile ? '6px 14px' : '8px 20px',
+                  borderRadius: '40px',
+                  border: 'none',
+                  background: loginMethod === 'email' ? primaryGradient : 'transparent',
+                  color: loginMethod === 'email' ? 'white' : textColor,
+                  cursor: 'pointer',
+                  fontWeight: loginMethod === 'email' ? 'bold' : '500',
+                  fontSize: isMobile ? '10px' : '12px',
+                  transition: 'all 0.3s'
+                }}
+              >
+                📧 {t('email_login')}
+              </button>
+              <button
+                onClick={() => setLoginMethod('pin')}
+                style={{
+                  padding: isMobile ? '6px 14px' : '8px 20px',
+                  borderRadius: '40px',
+                  border: 'none',
+                  background: loginMethod === 'pin' ? primaryGradient : 'transparent',
+                  color: loginMethod === 'pin' ? 'white' : textColor,
+                  cursor: 'pointer',
+                  fontWeight: loginMethod === 'pin' ? 'bold' : '500',
+                  fontSize: isMobile ? '10px' : '12px',
+                  transition: 'all 0.3s'
+                }}
+              >
+                🔢 {t('pin_login')}
+              </button>
+            </div>
             
-            <button 
-              onClick={() => setLanguage(language === 'bm' ? 'en' : 'bm')} 
-              style={{ 
-                background: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', 
-                color: textColor, 
-                padding: '8px 18px', 
-                border: `1px solid ${borderColor}`, 
-                borderRadius: '40px', 
-                cursor: 'pointer', 
-                fontSize: '12px', 
-                fontWeight: '600',
-                transition: 'all 0.2s'
-              }}
-              onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.95)'}
-              onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              {language === 'bm' ? '🇺🇸 EN' : '🇲🇾 BM'}
-            </button>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button 
+                onClick={toggleDarkMode} 
+                style={{ 
+                  background: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', 
+                  color: textColor, 
+                  padding: '8px', 
+                  border: `1px solid ${borderColor}`, 
+                  borderRadius: '40px', 
+                  cursor: 'pointer', 
+                  width: '40px', 
+                  height: '40px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  fontSize: '18px',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.95)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {darkMode ? '☀️' : '🌙'}
+              </button>
+              
+              <button 
+                onClick={() => setLanguage(language === 'bm' ? 'en' : 'bm')} 
+                style={{ 
+                  background: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', 
+                  color: textColor, 
+                  padding: '8px 18px', 
+                  border: `1px solid ${borderColor}`, 
+                  borderRadius: '40px', 
+                  cursor: 'pointer', 
+                  fontSize: '12px', 
+                  fontWeight: '600',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'scale(0.95)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {language === 'bm' ? '🇺🇸 EN' : '🇲🇾 BM'}
+              </button>
+            </div>
           </div>
           
           {/* ===== WELCOME TEXT ===== */}
@@ -510,194 +674,388 @@ function Login() {
               fontSize: '14px', 
               marginTop: '6px' 
             }}>
-              {loginSubtitleText}
+              {loginMethod === 'email' ? loginSubtitleText : t('staff_login')}
             </p>
           </div>
 
-          {/* ===== LOGIN FORM ===== */}
-          <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '18px' }}>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '6px', 
-                fontWeight: '600', 
-                color: textColor, 
-                fontSize: '13px' 
-              }}>
-                📧 {t('email')}
-              </label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ 
-                  position: 'absolute', 
-                  left: '16px', 
-                  top: '50%', 
-                  transform: 'translateY(-50%)', 
-                  fontSize: '16px', 
-                  color: textMuted,
-                  opacity: 0.6
+          {/* ========================================================== */}
+          {/* 🔥 EMAIL LOGIN FORM */}
+          {/* ========================================================== */}
+          {loginMethod === 'email' && (
+            <form onSubmit={handleEmailLogin}>
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '6px', 
+                  fontWeight: '600', 
+                  color: textColor, 
+                  fontSize: '13px' 
                 }}>
-                  📧
-                </span>
-                <input 
-                  type="email" 
-                  value={email} 
-                  onChange={(e) => setEmail(e.target.value)} 
-                  placeholder={t('enter_email')} 
-                  autoComplete="email" 
-                  style={{ 
-                    width: '100%', 
-                    padding: isMobile ? '14px 16px 14px 48px' : '16px 16px 16px 48px', 
-                    borderRadius: '24px', 
-                    border: `1px solid ${inputBorder}`, 
-                    background: inputBg, 
-                    color: textColor, 
-                    fontSize: isMobile ? '14px' : '15px', 
-                    outline: 'none', 
-                    transition: 'all 0.25s',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={e => { 
-                    e.currentTarget.style.borderColor = '#2563eb'; 
-                    e.currentTarget.style.boxShadow = '0 0 0 4px rgba(37,99,235,0.12)' 
-                  }}
-                  onBlur={e => { 
-                    e.currentTarget.style.borderColor = inputBorder; 
-                    e.currentTarget.style.boxShadow = 'none' 
-                  }} 
-                />
-              </div>
-            </div>
-
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ 
-                display: 'block', 
-                marginBottom: '6px', 
-                fontWeight: '600', 
-                color: textColor, 
-                fontSize: '13px' 
-              }}>
-                🔒 {t('password')}
-              </label>
-              <div style={{ position: 'relative' }}>
-                <span style={{ 
-                  position: 'absolute', 
-                  left: '16px', 
-                  top: '50%', 
-                  transform: 'translateY(-50%)', 
-                  fontSize: '16px', 
-                  color: textMuted,
-                  opacity: 0.6
-                }}>
-                  🔑
-                </span>
-                <input 
-                  type={showPassword ? 'text' : 'password'} 
-                  value={password} 
-                  onChange={(e) => setPassword(e.target.value)} 
-                  placeholder={t('enter_password')} 
-                  autoComplete="current-password"
-                  style={{ 
-                    width: '100%', 
-                    padding: isMobile ? '14px 16px 14px 48px' : '16px 16px 16px 48px', 
-                    paddingRight: '50px', 
-                    borderRadius: '24px', 
-                    border: `1px solid ${inputBorder}`, 
-                    background: inputBg, 
-                    color: textColor, 
-                    fontSize: isMobile ? '14px' : '15px', 
-                    outline: 'none', 
-                    transition: 'all 0.25s',
-                    boxSizing: 'border-box'
-                  }}
-                  onFocus={e => { 
-                    e.currentTarget.style.borderColor = '#2563eb'; 
-                    e.currentTarget.style.boxShadow = '0 0 0 4px rgba(37,99,235,0.12)' 
-                  }}
-                  onBlur={e => { 
-                    e.currentTarget.style.borderColor = inputBorder; 
-                    e.currentTarget.style.boxShadow = 'none' 
-                  }} 
-                />
-                <button 
-                  type="button" 
-                  onClick={() => setShowPassword(!showPassword)} 
-                  style={{ 
+                  📧 {t('email')}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ 
                     position: 'absolute', 
-                    right: '16px', 
+                    left: '16px', 
                     top: '50%', 
                     transform: 'translateY(-50%)', 
-                    background: 'none', 
-                    border: 'none', 
-                    cursor: 'pointer', 
-                    fontSize: '18px', 
-                    color: textMuted, 
-                    padding: '4px',
-                    opacity: 0.7,
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = '1'}
-                  onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
+                    fontSize: '16px', 
+                    color: textMuted,
+                    opacity: 0.6
+                  }}>
+                    📧
+                  </span>
+                  <input 
+                    type="email" 
+                    value={email} 
+                    onChange={(e) => setEmail(e.target.value)} 
+                    placeholder={t('enter_email')} 
+                    autoComplete="email" 
+                    style={{ 
+                      width: '100%', 
+                      padding: isMobile ? '14px 16px 14px 48px' : '16px 16px 16px 48px', 
+                      borderRadius: '24px', 
+                      border: `1px solid ${inputBorder}`, 
+                      background: inputBg, 
+                      color: textColor, 
+                      fontSize: isMobile ? '14px' : '15px', 
+                      outline: 'none', 
+                      transition: 'all 0.25s',
+                      boxSizing: 'border-box'
+                    }}
+                    onFocus={e => { 
+                      e.currentTarget.style.borderColor = '#2563eb'; 
+                      e.currentTarget.style.boxShadow = '0 0 0 4px rgba(37,99,235,0.12)' 
+                    }}
+                    onBlur={e => { 
+                      e.currentTarget.style.borderColor = inputBorder; 
+                      e.currentTarget.style.boxShadow = 'none' 
+                    }} 
+                  />
+                </div>
               </div>
-            </div>
 
-            <button 
-              type="submit" 
-              disabled={loading} 
-              style={{ 
-                width: '100%', 
-                padding: isMobile ? '14px' : '16px', 
-                background: primaryGradient, 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '60px', 
-                fontSize: isMobile ? '15px' : '16px', 
-                fontWeight: 'bold', 
-                cursor: loading ? 'not-allowed' : 'pointer', 
-                opacity: loading ? 0.7 : 1, 
-                transition: 'all 0.3s', 
-                boxShadow: `0 8px 24px -4px ${primaryGlow}`,
-                position: 'relative',
-                overflow: 'hidden'
-              }}
-              onMouseEnter={e => {
-                if (!loading) {
-                  e.currentTarget.style.transform = 'scale(0.98)'
-                  e.currentTarget.style.boxShadow = `0 4px 16px -2px ${primaryGlow}`
-                }
-              }}
-              onMouseLeave={e => {
-                if (!loading) {
-                  e.currentTarget.style.transform = 'scale(1)'
-                  e.currentTarget.style.boxShadow = `0 8px 24px -4px ${primaryGlow}`
-                }
-              }}
-            >
-              {loading ? (
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                  <span className="spinner"></span> {t('logging_in')}
-                </span>
-              ) : (
-                <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                  <span>🔑</span> {t('login')} <span>→</span>
-                </span>
-              )}
-              
-              {/* Shine effect */}
-              <span style={{
-                position: 'absolute',
-                top: '-50%',
-                left: '-50%',
-                width: '200%',
-                height: '200%',
-                background: 'linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%)',
-                animation: 'shine 3s infinite',
-                pointerEvents: 'none'
-              }} />
-            </button>
-          </form>
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '6px', 
+                  fontWeight: '600', 
+                  color: textColor, 
+                  fontSize: '13px' 
+                }}>
+                  🔒 {t('password')}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ 
+                    position: 'absolute', 
+                    left: '16px', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)', 
+                    fontSize: '16px', 
+                    color: textMuted,
+                    opacity: 0.6
+                  }}>
+                    🔑
+                  </span>
+                  <input 
+                    type={showPassword ? 'text' : 'password'} 
+                    value={password} 
+                    onChange={(e) => setPassword(e.target.value)} 
+                    placeholder={t('enter_password')} 
+                    autoComplete="current-password"
+                    style={{ 
+                      width: '100%', 
+                      padding: isMobile ? '14px 16px 14px 48px' : '16px 16px 16px 48px', 
+                      paddingRight: '50px', 
+                      borderRadius: '24px', 
+                      border: `1px solid ${inputBorder}`, 
+                      background: inputBg, 
+                      color: textColor, 
+                      fontSize: isMobile ? '14px' : '15px', 
+                      outline: 'none', 
+                      transition: 'all 0.25s',
+                      boxSizing: 'border-box'
+                    }}
+                    onFocus={e => { 
+                      e.currentTarget.style.borderColor = '#2563eb'; 
+                      e.currentTarget.style.boxShadow = '0 0 0 4px rgba(37,99,235,0.12)' 
+                    }}
+                    onBlur={e => { 
+                      e.currentTarget.style.borderColor = inputBorder; 
+                      e.currentTarget.style.boxShadow = 'none' 
+                    }} 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)} 
+                    style={{ 
+                      position: 'absolute', 
+                      right: '16px', 
+                      top: '50%', 
+                      transform: 'translateY(-50%)', 
+                      background: 'none', 
+                      border: 'none', 
+                      cursor: 'pointer', 
+                      fontSize: '18px', 
+                      color: textMuted, 
+                      padding: '4px',
+                      opacity: 0.7,
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
+                  >
+                    {showPassword ? '🙈' : '👁️'}
+                  </button>
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={loading} 
+                style={{ 
+                  width: '100%', 
+                  padding: isMobile ? '14px' : '16px', 
+                  background: primaryGradient, 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '60px', 
+                  fontSize: isMobile ? '15px' : '16px', 
+                  fontWeight: 'bold', 
+                  cursor: loading ? 'not-allowed' : 'pointer', 
+                  opacity: loading ? 0.7 : 1, 
+                  transition: 'all 0.3s', 
+                  boxShadow: `0 8px 24px -4px ${primaryGlow}`,
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                onMouseEnter={e => {
+                  if (!loading) {
+                    e.currentTarget.style.transform = 'scale(0.98)'
+                    e.currentTarget.style.boxShadow = `0 4px 16px -2px ${primaryGlow}`
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!loading) {
+                    e.currentTarget.style.transform = 'scale(1)'
+                    e.currentTarget.style.boxShadow = `0 8px 24px -4px ${primaryGlow}`
+                  }
+                }}
+              >
+                {loading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <span className="spinner"></span> {t('logging_in')}
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <span>🔑</span> {t('login')} <span>→</span>
+                  </span>
+                )}
+                
+                {/* Shine effect */}
+                <span style={{
+                  position: 'absolute',
+                  top: '-50%',
+                  left: '-50%',
+                  width: '200%',
+                  height: '200%',
+                  background: 'linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%)',
+                  animation: 'shine 3s infinite',
+                  pointerEvents: 'none'
+                }} />
+              </button>
+            </form>
+          )}
+
+          {/* ========================================================== */}
+          {/* 🔥 PIN LOGIN FORM */}
+          {/* ========================================================== */}
+          {loginMethod === 'pin' && (
+            <form onSubmit={handlePinLogin}>
+              <div style={{ marginBottom: '18px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '6px', 
+                  fontWeight: '600', 
+                  color: textColor, 
+                  fontSize: '13px' 
+                }}>
+                  👤 {t('username')}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ 
+                    position: 'absolute', 
+                    left: '16px', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)', 
+                    fontSize: '16px', 
+                    color: textMuted,
+                    opacity: 0.6
+                  }}>
+                    👤
+                  </span>
+                  <input 
+                    type="text" 
+                    value={username} 
+                    onChange={(e) => setUsername(e.target.value)} 
+                    placeholder={t('enter_username')} 
+                    autoComplete="username"
+                    style={{ 
+                      width: '100%', 
+                      padding: isMobile ? '14px 16px 14px 48px' : '16px 16px 16px 48px', 
+                      borderRadius: '24px', 
+                      border: `1px solid ${inputBorder}`, 
+                      background: inputBg, 
+                      color: textColor, 
+                      fontSize: isMobile ? '14px' : '15px', 
+                      outline: 'none', 
+                      transition: 'all 0.25s',
+                      boxSizing: 'border-box'
+                    }}
+                    onFocus={e => { 
+                      e.currentTarget.style.borderColor = '#2563eb'; 
+                      e.currentTarget.style.boxShadow = '0 0 0 4px rgba(37,99,235,0.12)' 
+                    }}
+                    onBlur={e => { 
+                      e.currentTarget.style.borderColor = inputBorder; 
+                      e.currentTarget.style.boxShadow = 'none' 
+                    }} 
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '6px', 
+                  fontWeight: '600', 
+                  color: textColor, 
+                  fontSize: '13px' 
+                }}>
+                  🔢 {t('pin')}
+                </label>
+                <div style={{ position: 'relative' }}>
+                  <span style={{ 
+                    position: 'absolute', 
+                    left: '16px', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)', 
+                    fontSize: '16px', 
+                    color: textMuted,
+                    opacity: 0.6
+                  }}>
+                    🔢
+                  </span>
+                  <input 
+                    type={showPin ? 'text' : 'password'} 
+                    value={pin} 
+                    onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))} 
+                    placeholder={t('enter_pin')} 
+                    maxLength="6"
+                    autoComplete="off"
+                    style={{ 
+                      width: '100%', 
+                      padding: isMobile ? '14px 16px 14px 48px' : '16px 16px 16px 48px', 
+                      paddingRight: '50px', 
+                      borderRadius: '24px', 
+                      border: `1px solid ${inputBorder}`, 
+                      background: inputBg, 
+                      color: textColor, 
+                      fontSize: isMobile ? '14px' : '15px', 
+                      outline: 'none', 
+                      transition: 'all 0.25s',
+                      boxSizing: 'border-box'
+                    }}
+                    onFocus={e => { 
+                      e.currentTarget.style.borderColor = '#2563eb'; 
+                      e.currentTarget.style.boxShadow = '0 0 0 4px rgba(37,99,235,0.12)' 
+                    }}
+                    onBlur={e => { 
+                      e.currentTarget.style.borderColor = inputBorder; 
+                      e.currentTarget.style.boxShadow = 'none' 
+                    }} 
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPin(!showPin)} 
+                    style={{ 
+                      position: 'absolute', 
+                      right: '16px', 
+                      top: '50%', 
+                      transform: 'translateY(-50%)', 
+                      background: 'none', 
+                      border: 'none', 
+                      cursor: 'pointer', 
+                      fontSize: '18px', 
+                      color: textMuted, 
+                      padding: '4px',
+                      opacity: 0.7,
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.opacity = '1'}
+                    onMouseLeave={e => e.currentTarget.style.opacity = '0.7'}
+                  >
+                    {showPin ? '🙈' : '👁️'}
+                  </button>
+                </div>
+              </div>
+
+              <button 
+                type="submit" 
+                disabled={pinLoading} 
+                style={{ 
+                  width: '100%', 
+                  padding: isMobile ? '14px' : '16px', 
+                  background: primaryGradient, 
+                  color: 'white', 
+                  border: 'none', 
+                  borderRadius: '60px', 
+                  fontSize: isMobile ? '15px' : '16px', 
+                  fontWeight: 'bold', 
+                  cursor: pinLoading ? 'not-allowed' : 'pointer', 
+                  opacity: pinLoading ? 0.7 : 1, 
+                  transition: 'all 0.3s', 
+                  boxShadow: `0 8px 24px -4px ${primaryGlow}`,
+                  position: 'relative',
+                  overflow: 'hidden'
+                }}
+                onMouseEnter={e => {
+                  if (!pinLoading) {
+                    e.currentTarget.style.transform = 'scale(0.98)'
+                    e.currentTarget.style.boxShadow = `0 4px 16px -2px ${primaryGlow}`
+                  }
+                }}
+                onMouseLeave={e => {
+                  if (!pinLoading) {
+                    e.currentTarget.style.transform = 'scale(1)'
+                    e.currentTarget.style.boxShadow = `0 8px 24px -4px ${primaryGlow}`
+                  }
+                }}
+              >
+                {pinLoading ? (
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <span className="spinner"></span> {t('logging_in')}
+                  </span>
+                ) : (
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <span>🔑</span> {t('login')} <span>→</span>
+                  </span>
+                )}
+                
+                {/* Shine effect */}
+                <span style={{
+                  position: 'absolute',
+                  top: '-50%',
+                  left: '-50%',
+                  width: '200%',
+                  height: '200%',
+                  background: 'linear-gradient(45deg, transparent 40%, rgba(255,255,255,0.1) 50%, transparent 60%)',
+                  animation: 'shine 3s infinite',
+                  pointerEvents: 'none'
+                }} />
+              </button>
+            </form>
+          )}
 
           {/* ===== MOBILE BRANDING ===== */}
           {isMobile && (

@@ -45,45 +45,73 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
   }
 
   // ============================================================
-  // CHECK AUTH - SUPABASE
+  // CHECK AUTH - PREFER SESSIONSTORAGE (PIN LOGIN)
   // ============================================================
   useEffect(() => {
     const checkAuth = async () => {
       setLoading(true)
       
-      // 1. Check Supabase session
-      const { data: { session } } = await supabase.auth.getSession()
+      // 🔥 PREFER SESSIONSTORAGE (untuk PIN login)
+      const savedAuth = sessionStorage.getItem('staffAuth')
       
-      if (session?.user) {
-        // 2. Get staff role from database
-        const { data: staffData } = await supabase
-          .from('staff')
-          .select('role, name')
-          .eq('auth_id', session.user.id)
-          .single()
+      if (savedAuth) {
+        try {
+          const auth = JSON.parse(savedAuth)
+          setUserRole(auth.role)
+          setUserName(auth.name || auth.username || 'User')
+          setLoading(false)
+          return
+        } catch (e) {
+          console.warn('Failed to parse staffAuth:', e)
+        }
+      }
+
+      // 🔥 FALLBACK: Check Supabase session (untuk email+password login)
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
         
-        if (staffData) {
-          setUserRole(staffData.role)
-          setUserName(staffData.name || 'User')
-        } else {
-          // Fallback to sessionStorage for backward compatibility
-          const savedAuth = sessionStorage.getItem('staffAuth')
-          if (savedAuth) {
-            try {
-              const auth = JSON.parse(savedAuth)
-              setUserRole(auth.role)
-              setUserName(auth.name || auth.username || 'User')
-            } catch (e) {
-              setUserRole(null)
-              setUserName('')
-            }
+        if (session?.user) {
+          // Get staff role from database
+          const { data: staffData } = await supabase
+            .from('staff')
+            .select('role, name')
+            .eq('auth_id', session.user.id)
+            .single()
+          
+          if (staffData) {
+            setUserRole(staffData.role)
+            setUserName(staffData.name || 'User')
+            
+            // Save to sessionStorage for future use
+            sessionStorage.setItem('staffAuth', JSON.stringify({
+              id: session.user.id,
+              username: staffData.name || 'User',
+              name: staffData.name || 'User',
+              role: staffData.role,
+              login_method: 'email_password'
+            }))
           } else {
             setUserRole(null)
             setUserName('')
           }
+        } else {
+          setUserRole(null)
+          setUserName('')
         }
-      } else {
-        // Check sessionStorage as fallback
+      } catch (error) {
+        console.warn('Supabase auth check failed:', error)
+        setUserRole(null)
+        setUserName('')
+      }
+      
+      setLoading(false)
+    }
+    
+    checkAuth()
+
+    // 🔥 Listen for storage changes (for sessionStorage updates)
+    const handleStorageChange = (e) => {
+      if (e.key === 'staffAuth') {
         const savedAuth = sessionStorage.getItem('staffAuth')
         if (savedAuth) {
           try {
@@ -99,56 +127,65 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
           setUserName('')
         }
       }
-      
-      setLoading(false)
     }
     
-    checkAuth()
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        if (session?.user) {
-          const { data: staffData } = await supabase
-            .from('staff')
-            .select('role, name')
-            .eq('auth_id', session.user.id)
-            .single()
-          
-          if (staffData) {
-            setUserRole(staffData.role)
-            setUserName(staffData.name || 'User')
+    // 🔥 Listen for auth changes from Supabase
+    let subscription = null
+    try {
+      const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          if (session?.user) {
+            const { data: staffData } = await supabase
+              .from('staff')
+              .select('role, name')
+              .eq('auth_id', session.user.id)
+              .single()
+            
+            if (staffData) {
+              setUserRole(staffData.role)
+              setUserName(staffData.name || 'User')
+              sessionStorage.setItem('staffAuth', JSON.stringify({
+                id: session.user.id,
+                username: staffData.name || 'User',
+                name: staffData.name || 'User',
+                role: staffData.role,
+                login_method: 'email_password'
+              }))
+            }
+          } else {
+            // 🔥 Only clear if not using PIN login
+            const savedAuth = sessionStorage.getItem('staffAuth')
+            if (savedAuth) {
+              try {
+                const auth = JSON.parse(savedAuth)
+                // If user has PIN login, don't clear
+                if (auth.login_method === 'pin') {
+                  setUserRole(auth.role)
+                  setUserName(auth.name || auth.username || 'User')
+                  return
+                }
+              } catch (e) {}
+            }
+            setUserRole(null)
+            setUserName('')
+            sessionStorage.removeItem('staffAuth')
           }
-        } else {
-          setUserRole(null)
-          setUserName('')
+          setLoading(false)
         }
-        setLoading(false)
-      }
-    )
-
-    // Listen for storage changes (for sessionStorage fallback)
-    const handleStorageChange = () => {
-      const savedAuth = sessionStorage.getItem('staffAuth')
-      if (savedAuth) {
-        try {
-          const auth = JSON.parse(savedAuth)
-          setUserRole(auth.role)
-          setUserName(auth.name || auth.username || 'User')
-        } catch (e) {
-          setUserRole(null)
-          setUserName('')
-        }
-      } else {
-        setUserRole(null)
-        setUserName('')
-      }
+      )
+      subscription = sub
+    } catch (error) {
+      console.warn('Auth subscription error:', error)
     }
     
     window.addEventListener('storage', handleStorageChange)
     
     return () => {
-      subscription.unsubscribe()
+      if (subscription) {
+        try {
+          subscription.unsubscribe()
+        } catch (e) {}
+      }
       window.removeEventListener('storage', handleStorageChange)
     }
   }, [])
@@ -223,11 +260,12 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
 
   // Check if user role is allowed
   if (!allowedRoles.includes(userRole)) {
-    // Redirect based on role
+    // 🔥 Redirect based on role
     const roleRedirects = {
       kitchen: '/kitchen',
       staff: '/staff',
-      admin: '/dashboard'
+      cashier: '/staff',
+      manager: '/dashboard'
     }
     
     const redirectPath = roleRedirects[userRole] || '/login'
@@ -281,8 +319,8 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
             margin: '0 0 20px 0'
           }}>
             {language === 'bm' 
-              ? `Anda tidak mempunyai akses ke halaman ini. Mengalihkan ke ${userRole === 'admin' ? 'Dashboard' : userRole === 'kitchen' ? 'Dapur' : 'POS'}...`
-              : `You don't have access to this page. Redirecting to ${userRole === 'admin' ? 'Dashboard' : userRole === 'kitchen' ? 'Kitchen' : 'POS'}...`
+              ? `Anda tidak mempunyai akses ke halaman ini. Mengalihkan...`
+              : `You don't have access to this page. Redirecting...`
             }
           </p>
           

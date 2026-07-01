@@ -93,9 +93,7 @@ function AppWrapper() {
   }, [location])
 
   // ============================================================
-  // ============================================================
   // TELEGRAM NOTIFICATION - REALTIME (FULLY FIXED)
-  // ============================================================
   // ============================================================
   useEffect(() => {
     let isMounted = true
@@ -103,9 +101,8 @@ function AppWrapper() {
     let lastOrderId = null
     let lastOrderTime = 0
 
-    // Function to send Telegram notification
     async function sendTelegramNotification(order) {
-      // ===== CEK DUPLIKAT =====
+      // CEK DUPLIKAT
       if (order.id === lastOrderId && Date.now() - lastOrderTime < 3000) {
         console.log('⚠️ Duplicate order detected, skipping Telegram...')
         return
@@ -153,40 +150,35 @@ function AppWrapper() {
 
         const orderItems = order.items || []
         
-        // ===== FORMAT ITEM DENGAN SEMUA DETAIL =====
+        // FORMAT ITEM DENGAN SEMUA DETAIL
         let itemList = ''
         let hasItems = false
         
         if (orderItems.length > 0) {
-          // Group items untuk promosi
           const promoItems = orderItems.filter(item => item.is_promo_item === true)
           const regularItems = orderItems.filter(item => !item.is_promo_item && !item.is_free)
           const freeItems = orderItems.filter(item => item.is_free === true)
           
-          // ===== 1. REGULAR ITEMS =====
+          // REGULAR ITEMS
           if (regularItems.length > 0) {
             itemList += '  📌 <b>Item Pesanan:</b>\n'
             regularItems.forEach(item => {
               let line = `  • ${item.name}`
               
-              // Option (Panas/Sejuk/Bungkus)
               if (item.option_name || item.option) {
                 const opt = item.option_name || item.option
                 const emoji = opt === 'Panas' ? '🔥' : opt === 'Sejuk' ? '🧊' : opt === 'Bungkus' ? '📦' : ''
                 line += ` ${emoji}(${opt})`
               }
               
-              // Size
               if (item.size || item.size_name) {
                 line += ` [${item.size || item.size_name}]`
               }
               
-              // Quantity & Price
               const qty = item.quantity || 1
               const price = item.price || 0
               line += `\n    x${qty} = RM ${(price * qty).toFixed(2)}`
               
-              // ===== ADD-ON =====
               if (item.addons) {
                 let addonText = item.addons
                 if (Array.isArray(item.addons)) {
@@ -205,7 +197,7 @@ function AppWrapper() {
             hasItems = true
           }
           
-          // ===== 2. PROMO BUNDLE/SET ITEMS =====
+          // PROMO BUNDLE/SET ITEMS
           const promoBundleItems = orderItems.filter(item => 
             item.is_promo_item === true && 
             (item.promo_type === 'bundle' || item.promo_type === 'set_menu')
@@ -215,7 +207,6 @@ function AppWrapper() {
             if (hasItems) itemList += '\n'
             itemList += '  🏷️ <b>Promosi Bundle/Set:</b>\n'
             
-            // Group by promo_name
             const promoGroups = {}
             promoBundleItems.forEach(item => {
               const key = item.promo_name || 'Promo'
@@ -240,7 +231,7 @@ function AppWrapper() {
             hasItems = true
           }
           
-          // ===== 3. FREE ITEMS (BOGO) =====
+          // FREE ITEMS (BOGO)
           if (freeItems.length > 0) {
             if (hasItems) itemList += '\n'
             itemList += '  🎁 <b>Item Percuma (BOGO):</b>\n'
@@ -258,7 +249,7 @@ function AppWrapper() {
             hasItems = true
           }
           
-          // ===== 4. TRIGGER ITEMS FOR BOGO =====
+          // TRIGGER ITEMS FOR BOGO
           const triggerItems = orderItems.filter(item => 
             item.is_promo_item === true && 
             item.promo_type === 'bogo' && 
@@ -281,7 +272,7 @@ function AppWrapper() {
             hasItems = true
           }
           
-          // ===== 5. OTHER PROMO ITEMS =====
+          // OTHER PROMO ITEMS
           const otherPromoItems = orderItems.filter(item => 
             item.is_promo_item === true && 
             !item.promo_type && 
@@ -315,7 +306,6 @@ function AppWrapper() {
           itemList = '  • Tiada item'
         }
 
-        // ===== GRAND TOTAL =====
         const totalAmount = order.total || order.total_amount || 0
 
         const message = `
@@ -337,7 +327,6 @@ ${itemList}
         `
 
         console.log('📨 Sending to Telegram...')
-        console.log('Message:', message)
 
         const response = await fetch(
           `https://api.telegram.org/bot${config.telegram_bot_token}/sendMessage`,
@@ -365,7 +354,7 @@ ${itemList}
       }
     }
 
-    // Subscribe to new orders (REALTIME) - SEKALI JE
+    // Subscribe to new orders (REALTIME)
     if (isMounted) {
       subscription = supabase
         .channel('telegram-orders-channel')
@@ -387,7 +376,6 @@ ${itemList}
         })
     }
 
-    // Cleanup
     return () => {
       console.log('🔌 Unsubscribing from Telegram channel')
       isMounted = false
@@ -395,12 +383,7 @@ ${itemList}
         subscription.unsubscribe()
       }
     }
-  }, []) // ← Kosong = jalan SEKALI je!
-  // ============================================================
-  // ============================================================
-  // END TELEGRAM NOTIFICATION
-  // ============================================================
-  // ============================================================
+  }, [])
 
   // ============================================================
   // COMPLETE TRANSLATIONS FOR APP
@@ -445,34 +428,41 @@ ${itemList}
         <Route path="/display" element={<CustomerDisplay />} />
         <Route path="/track" element={<TrackOrder />} />
         
-        {/* ===== PROTECTED ROUTES ===== */}
+        {/* ========================================================== */}
+        {/* 🔥 PROTECTED ROUTES - ROLE BASED ACCESS */}
+        {/* ========================================================== */}
+        
+        {/* Dashboard - Admin & Manager sahaja */}
         <Route 
           path="/dashboard" 
           element={
-            <ProtectedRoute allowedRoles={['admin', 'staff']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <Dashboard />
             </ProtectedRoute>
           } 
         />
         
+        {/* Staff POS - Admin, Manager, Cashier, Staff sahaja */}
         <Route 
           path="/staff" 
           element={
-            <ProtectedRoute allowedRoles={['admin', 'staff']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'cashier', 'staff']}>
               <StaffApp />
             </ProtectedRoute>
           } 
         />
         
+        {/* Kitchen - Admin, Manager, Kitchen sahaja */}
         <Route 
           path="/kitchen" 
           element={
-            <ProtectedRoute allowedRoles={['admin', 'staff', 'kitchen']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager', 'kitchen']}>
               <KitchenApp />
             </ProtectedRoute>
           } 
         />
         
+        {/* Admin Report - Admin sahaja */}
         <Route 
           path="/admin-report" 
           element={
@@ -482,24 +472,27 @@ ${itemList}
           } 
         />
         
+        {/* Manage Menu - Admin & Manager sahaja */}
         <Route 
           path="/manage-menu" 
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <ManageMenu />
             </ProtectedRoute>
           } 
         />
         
+        {/* Manage Categories - Admin & Manager sahaja */}
         <Route 
           path="/manage-categories" 
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <ManageCategories />
             </ProtectedRoute>
           } 
         />
         
+        {/* Manage Staff - Admin SAHAJA */}
         <Route 
           path="/manage-staff" 
           element={
@@ -509,24 +502,27 @@ ${itemList}
           } 
         />
         
+        {/* Manage Tables - Admin & Manager sahaja */}
         <Route 
           path="/manage-tables" 
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <ManageTables />
             </ProtectedRoute>
           } 
         />
         
+        {/* Table QR - Admin & Manager sahaja */}
         <Route 
           path="/table-qrs" 
           element={
-            <ProtectedRoute allowedRoles={['admin']}>
+            <ProtectedRoute allowedRoles={['admin', 'manager']}>
               <TableQRs />
             </ProtectedRoute>
           } 
         />
         
+        {/* Manage Settings - Admin SAHAJA */}
         <Route 
           path="/manage-settings" 
           element={

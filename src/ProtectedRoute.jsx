@@ -57,12 +57,24 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
       if (savedAuth) {
         try {
           const auth = JSON.parse(savedAuth)
+          
+          // 🔥 If role is not in allowedRoles, force logout
+          if (allowedRoles.length > 0 && !allowedRoles.includes(auth.role)) {
+            console.warn(`🚫 Role ${auth.role} not allowed for this page. Logging out...`)
+            sessionStorage.removeItem('staffAuth')
+            setUserRole(null)
+            setUserName('')
+            setLoading(false)
+            return
+          }
+          
           setUserRole(auth.role)
           setUserName(auth.name || auth.username || 'User')
           setLoading(false)
           return
         } catch (e) {
           console.warn('Failed to parse staffAuth:', e)
+          sessionStorage.removeItem('staffAuth')
         }
       }
 
@@ -79,6 +91,17 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
             .single()
           
           if (staffData) {
+            // 🔥 Check if role is allowed
+            if (allowedRoles.length > 0 && !allowedRoles.includes(staffData.role)) {
+              console.warn(`🚫 Role ${staffData.role} not allowed. Logging out...`)
+              await supabase.auth.signOut()
+              sessionStorage.removeItem('staffAuth')
+              setUserRole(null)
+              setUserName('')
+              setLoading(false)
+              return
+            }
+            
             setUserRole(staffData.role)
             setUserName(staffData.name || 'User')
             
@@ -116,6 +139,13 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
         if (savedAuth) {
           try {
             const auth = JSON.parse(savedAuth)
+            // 🔥 Check role on storage change
+            if (allowedRoles.length > 0 && !allowedRoles.includes(auth.role)) {
+              sessionStorage.removeItem('staffAuth')
+              setUserRole(null)
+              setUserName('')
+              return
+            }
             setUserRole(auth.role)
             setUserName(auth.name || auth.username || 'User')
           } catch (e) {
@@ -142,6 +172,15 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
               .single()
             
             if (staffData) {
+              // 🔥 Check role
+              if (allowedRoles.length > 0 && !allowedRoles.includes(staffData.role)) {
+                await supabase.auth.signOut()
+                sessionStorage.removeItem('staffAuth')
+                setUserRole(null)
+                setUserName('')
+                setLoading(false)
+                return
+              }
               setUserRole(staffData.role)
               setUserName(staffData.name || 'User')
               sessionStorage.setItem('staffAuth', JSON.stringify({
@@ -160,6 +199,13 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
                 const auth = JSON.parse(savedAuth)
                 // If user has PIN login, don't clear
                 if (auth.login_method === 'pin') {
+                  // 🔥 Check role
+                  if (allowedRoles.length > 0 && !allowedRoles.includes(auth.role)) {
+                    sessionStorage.removeItem('staffAuth')
+                    setUserRole(null)
+                    setUserName('')
+                    return
+                  }
                   setUserRole(auth.role)
                   setUserName(auth.name || auth.username || 'User')
                   return
@@ -188,7 +234,7 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
       }
       window.removeEventListener('storage', handleStorageChange)
     }
-  }, [])
+  }, [allowedRoles])
 
   // ============================================================
   // LOADING STATE
@@ -262,10 +308,11 @@ function ProtectedRoute({ children, allowedRoles = [] }) {
   if (!allowedRoles.includes(userRole)) {
     // 🔥 Redirect based on role
     const roleRedirects = {
+      admin: '/dashboard',
+      manager: '/dashboard',
       kitchen: '/kitchen',
       staff: '/staff',
-      cashier: '/staff',
-      manager: '/dashboard'
+      cashier: '/staff'
     }
     
     const redirectPath = roleRedirects[userRole] || '/login'

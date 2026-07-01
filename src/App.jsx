@@ -93,7 +93,7 @@ function AppWrapper() {
   }, [location])
 
   // ============================================================
-  // TELEGRAM NOTIFICATION - REALTIME (FULLY FIXED)
+  // TELEGRAM NOTIFICATION - REALTIME
   // ============================================================
   useEffect(() => {
     let isMounted = true
@@ -425,11 +425,16 @@ ${itemList}
         {/* ===== PUBLIC ROUTES ===== */}
         <Route path="/login" element={<Login />} />
         <Route path="/menu" element={<CustomerMenu />} />
-        <Route path="/display" element={<CustomerDisplay />} />
         <Route path="/track" element={<TrackOrder />} />
         
         {/* ========================================================== */}
-        {/* 🔥 PROTECTED ROUTES - ROLE BASED ACCESS */}
+        {/* 🔥 CUSTOMER DISPLAY - PUBLIC (untuk cashier) */}
+        {/* ========================================================== */}
+        <Route path="/display" element={<CustomerDisplay />} />
+        <Route path="/customer-display" element={<CustomerDisplay />} />
+        
+        {/* ========================================================== */}
+        {/* 🔥 PROTECTED ROUTES - STRICT ROLE ACCESS */}
         {/* ========================================================== */}
         
         {/* Dashboard - Admin & Manager sahaja */}
@@ -452,7 +457,7 @@ ${itemList}
           } 
         />
         
-        {/* Kitchen - Admin, Manager, Kitchen sahaja */}
+        {/* 🔥 Kitchen - Admin, Manager, Kitchen sahaja (BUKAN staff/cashier) */}
         <Route 
           path="/kitchen" 
           element={

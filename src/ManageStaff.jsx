@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
 import Sidebar from './components/Sidebar'
-import { supabase, supabaseAdmin } from './lib/supabase'
+import { supabase } from './lib/supabase'
 import toast from 'react-hot-toast'
 
 function ManageStaff() {
@@ -29,7 +29,8 @@ function ManageStaff() {
     confirmPassword: '',
     role: 'staff',
     name: '',
-    permissions: 'pos'
+    permissions: 'pos',
+    pin: ''
   })
 
   // ============================================================
@@ -80,6 +81,7 @@ function ManageStaff() {
     password_reset_success: { en: 'Password reset successfully!', ms: 'Kata laluan berjaya direset!' },
     password_required: { en: 'Password is required!', ms: 'Kata laluan diperlukan!' },
     password_min_length: { en: 'Password must be at least 6 characters!', ms: 'Kata laluan sekurang-kurangnya 6 aksara!' },
+    pin_min_length: { en: 'PIN must be at least 4 digits!', ms: 'PIN sekurang-kurangnya 4 digit!' },
     not_match: { en: 'do not match!', ms: 'tidak sepadan!' },
     required: { en: 'is required!', ms: 'diperlukan!' },
     already_exists: { en: 'already exists!', ms: 'sudah wujud!' },
@@ -92,6 +94,9 @@ function ManageStaff() {
     kitchen: { en: 'Kitchen', ms: 'Dapur' },
     select_access: { en: 'Select which apps this staff can access', ms: 'Pilih aplikasi yang boleh diakses oleh kakitangan ini' },
     update_email: { en: 'Update Email', ms: 'Kemaskini Emel' },
+    pin: { en: 'PIN', ms: 'PIN' },
+    login_method: { en: 'Login Method', ms: 'Kaedah Log Masuk' },
+    email_password: { en: 'Email + Password', ms: 'Emel + Kata Laluan' },
   }
 
   const t = (key) => {
@@ -188,29 +193,19 @@ function ManageStaff() {
   }
 
   // ============================================================
-  // CRUD FUNCTIONS - DENGAN SERVICE ROLE KEY
+  // CRUD FUNCTIONS
   // ============================================================
   
-  // ✅ ADD STAFF
+  // ✅ ADD STAFF - Hybrid Login
   async function addStaff() {
-    if (!formData.email || !formData.username || !formData.password) {
-      setMessage(`⚠️ ${t('email')}, ${t('username')} & ${t('password')} ${t('required')}`)
+    // Validation
+    if (!formData.username) {
+      setMessage(`⚠️ ${t('username')} ${t('required')}`)
       setTimeout(() => setMessage(''), 3000)
       return
     }
 
-    if (formData.password !== formData.confirmPassword) {
-      setMessage(`⚠️ ${t('password')} & ${t('confirm_password')} ${t('not_match')}`)
-      setTimeout(() => setMessage(''), 3000)
-      return
-    }
-
-    if (formData.password.length < 6) {
-      setMessage(`⚠️ ${t('password_min_length')}`)
-      setTimeout(() => setMessage(''), 3000)
-      return
-    }
-
+    // Check existing username
     const existing = staff.find(s => s.username === formData.username.toLowerCase())
     if (existing) {
       setMessage(`⚠️ ${t('username')} "${formData.username}" ${t('already_exists')}`)
@@ -219,41 +214,92 @@ function ManageStaff() {
     }
 
     try {
-      // 1. Create user using ADMIN client (service role)
-      const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-        email: formData.email.toLowerCase(),
-        password: formData.password,
-        email_confirm: true,
-        user_metadata: {
-          name: formData.name || formData.username,
-          role: formData.role
+      let loginMethod = 'pin'
+      let authId = null
+      let email = null
+      let pin = formData.pin || null
+
+      // 🔥 If Admin or Manager → Email + Password
+      if (formData.role === 'admin' || formData.role === 'manager') {
+        if (!formData.email || !formData.password) {
+          setMessage(`⚠️ ${t('email')} & ${t('password')} ${t('required')} for ${formData.role}!`)
+          setTimeout(() => setMessage(''), 3000)
+          return
         }
-      })
+        
+        if (formData.password !== formData.confirmPassword) {
+          setMessage(`⚠️ ${t('password')} & ${t('confirm_password')} ${t('not_match')}`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        if (formData.password.length < 6) {
+          setMessage(`⚠️ ${t('password_min_length')}`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
 
-      if (authError) throw authError
-
-      // 2. Insert into staff table
-      let permissions = formData.permissions
-      if (formData.role === 'admin') {
-        permissions = 'all'
+        // 🔥 CALL BACKEND API (bukan supabaseAdmin terus)
+        const response = await fetch('http://localhost:3001/api/admin/create-user', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: formData.email.toLowerCase(),
+            password: formData.password,
+            name: formData.name || formData.username,
+            role: formData.role
+          })
+        })
+        
+        const result = await response.json()
+        
+        if (!response.ok) {
+          throw new Error(result.error || 'Failed to create user')
+        }
+        
+        authId = result.user.user.id
+        email = formData.email.toLowerCase()
+        loginMethod = 'email_password'
+        pin = null // PIN not needed for admin/manager
+        
+      } else {
+        // 🔥 Staff/Cashier/Kitchen → PIN only
+        loginMethod = 'pin'
+        
+        if (!formData.pin || formData.pin.length < 4) {
+          setMessage(`⚠️ ${t('pin_min_length')}`)
+          setTimeout(() => setMessage(''), 3000)
+          return
+        }
+        
+        // Email & Password not needed for staff
+        email = null
+        authId = null
       }
 
+      // Insert into staff table
+      const permissions = formData.role === 'admin' ? 'all' : formData.permissions
+      
       const { error: staffError } = await supabase.from('staff').insert([{
         username: formData.username.toLowerCase(),
         name: formData.name || formData.username,
         role: formData.role,
         permissions: permissions,
-        auth_id: authData.user.id,
-        password: null
+        pin: pin,
+        email: email,
+        auth_id: authId,
+        login_method: loginMethod,
+        created_at: new Date().toISOString()
       }])
 
       if (staffError) throw staffError
 
-      setMessage(`✅ ${t('staff_added')}`)
-      toast.success(t('staff_added'))
+      const loginLabel = loginMethod === 'email_password' ? '📧 Email+Password' : '🔢 PIN'
+      setMessage(`✅ ${t('staff_added')} (${loginLabel})`)
+      toast.success(`${t('staff_added')} (${loginLabel})`)
       setTimeout(() => setMessage(''), 3000)
       setShowAddModal(false)
-      setFormData({ email: '', username: '', password: '', confirmPassword: '', role: 'staff', name: '', permissions: 'pos' })
+      resetForm()
       loadStaff()
 
     } catch (error) {
@@ -279,7 +325,22 @@ function ManageStaff() {
       const updateData = {
         role: formData.role,
         name: formData.name || formData.username,
-        permissions: permissions
+        permissions: permissions,
+        updated_at: new Date().toISOString()
+      }
+
+      // If staff is admin/manager, update login method and email
+      if (formData.role === 'admin' || formData.role === 'manager') {
+        if (formData.email) {
+          updateData.email = formData.email.toLowerCase()
+          updateData.login_method = 'email_password'
+        }
+      } else {
+        // Staff/Cashier/Kitchen
+        updateData.login_method = 'pin'
+        if (formData.pin) {
+          updateData.pin = formData.pin
+        }
       }
 
       // Update staff table
@@ -290,36 +351,29 @@ function ManageStaff() {
 
       if (staffError) throw staffError
 
-      // Update auth user metadata
-      if (selectedStaff.auth_id) {
-        const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-          selectedStaff.auth_id,
-          {
-            user_metadata: {
-              name: formData.name || formData.username,
-              role: formData.role
-            }
+      // Update auth user metadata if admin/manager
+      if (selectedStaff.auth_id && (formData.role === 'admin' || formData.role === 'manager')) {
+        try {
+          const response = await fetch('http://localhost:3001/api/admin/update-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: selectedStaff.auth_id,
+              updates: {
+                user_metadata: {
+                  name: formData.name || formData.username,
+                  role: formData.role
+                }
+              }
+            })
+          })
+          const result = await response.json()
+          if (!response.ok) {
+            console.warn('Auth update warning:', result.error)
           }
-        )
-        if (authError) console.error('Auth update error:', authError)
-      }
-
-      // Update password if provided
-      if (formData.password) {
-        if (formData.password !== formData.confirmPassword) {
-          setMessage(`⚠️ ${t('password')} & ${t('confirm_password')} ${t('not_match')}`)
-          return
+        } catch (authErr) {
+          console.warn('Auth update error:', authErr)
         }
-        if (formData.password.length < 6) {
-          setMessage(`⚠️ ${t('password_min_length')}`)
-          return
-        }
-
-        const { error: passError } = await supabaseAdmin.auth.admin.updateUserById(
-          selectedStaff.auth_id,
-          { password: formData.password }
-        )
-        if (passError) throw passError
       }
 
       setMessage(`✅ ${t('staff_updated')}`)
@@ -327,7 +381,7 @@ function ManageStaff() {
       setTimeout(() => setMessage(''), 3000)
       setShowEditModal(false)
       setSelectedStaff(null)
-      setFormData({ email: '', username: '', password: '', confirmPassword: '', role: 'staff', name: '', permissions: 'pos' })
+      resetForm()
       loadStaff()
 
     } catch (error) {
@@ -337,39 +391,7 @@ function ManageStaff() {
     }
   }
 
-  // ✅ UPDATE EMAIL
-  async function updateStaffEmail() {
-    if (!formData.email) {
-      setMessage(`⚠️ ${t('email')} ${t('required')}`)
-      return
-    }
-
-    try {
-      if (!selectedStaff?.auth_id) {
-        toast.error('Staff not linked to auth')
-        return
-      }
-
-      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-        selectedStaff.auth_id,
-        { email: formData.email.toLowerCase() }
-      )
-
-      if (authError) throw authError
-
-      setMessage(`✅ Email updated successfully!`)
-      toast.success('Email updated!')
-      setTimeout(() => setMessage(''), 3000)
-      loadStaff()
-
-    } catch (error) {
-      console.error('Update email error:', error)
-      setMessage(`❌ ${t('error_updating')}: ${error.message}`)
-      toast.error(error.message)
-    }
-  }
-
-  // ✅ RESET PASSWORD
+  // ✅ RESET PASSWORD (for admin/manager only)
   async function resetPassword() {
     if (!resetPasswordData.password) {
       setMessage(`⚠️ ${t('password_required')}`)
@@ -390,12 +412,26 @@ function ManageStaff() {
     }
 
     try {
-      const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
-        selectedStaff.auth_id,
-        { password: resetPasswordData.password }
-      )
+      // Only for admin/manager
+      if (selectedStaff.login_method !== 'email_password') {
+        setMessage(`⚠️ This staff uses PIN login. Cannot reset password.`)
+        setTimeout(() => setMessage(''), 3000)
+        return
+      }
 
-      if (authError) throw authError
+      const response = await fetch('http://localhost:3001/api/admin/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: selectedStaff.auth_id,
+          password: resetPasswordData.password
+        })
+      })
+      
+      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result.error)
+      }
 
       setMessage(`✅ ${t('password_reset_success')}`)
       toast.success(t('password_reset_success'))
@@ -438,11 +474,21 @@ function ManageStaff() {
 
       if (fetchError) throw fetchError
 
+      // Delete auth user if exists
       if (staffData?.auth_id) {
-        const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(
-          staffData.auth_id
-        )
-        if (authError) console.error('Auth delete error:', authError)
+        try {
+          const response = await fetch('http://localhost:3001/api/admin/delete-user', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ userId: staffData.auth_id })
+          })
+          const result = await response.json()
+          if (!response.ok) {
+            console.warn('Auth delete warning:', result.error)
+          }
+        } catch (authErr) {
+          console.warn('Auth delete error:', authErr)
+        }
       }
 
       const { error: staffError } = await supabase
@@ -467,21 +513,40 @@ function ManageStaff() {
   // ============================================================
   // HELPERS
   // ============================================================
+  const resetForm = () => {
+    setFormData({
+      email: '',
+      username: '',
+      password: '',
+      confirmPassword: '',
+      role: 'staff',
+      name: '',
+      permissions: 'pos',
+      pin: ''
+    })
+    setSelectedStaff(null)
+  }
+
   const openEditModal = (staffMember) => {
     setSelectedStaff(staffMember)
     setFormData({
-      email: '',
+      email: staffMember.email || '',
       username: staffMember.username,
       password: '',
       confirmPassword: '',
       role: staffMember.role,
       name: staffMember.name || '',
-      permissions: staffMember.permissions || (staffMember.role === 'admin' ? 'all' : 'pos')
+      permissions: staffMember.permissions || (staffMember.role === 'admin' ? 'all' : 'pos'),
+      pin: staffMember.pin || ''
     })
     setShowEditModal(true)
   }
 
   const openResetPasswordModal = (staffMember) => {
+    if (staffMember.login_method !== 'email_password') {
+      toast.info('Staff ini guna PIN login. Tak perlu reset password.')
+      return
+    }
     setSelectedStaff(staffMember)
     setResetPasswordData({ password: '', confirmPassword: '' })
     setShowResetPasswordModal(true)
@@ -491,11 +556,17 @@ function ManageStaff() {
     if (role === 'admin') {
       return { bg: 'linear-gradient(135deg, #ef4444, #dc2626)', icon: '👑', text: t('admin'), access: t('full_access_role') }
     }
+    if (role === 'manager') {
+      return { bg: 'linear-gradient(135deg, #f59e0b, #d97706)', icon: '📋', text: 'Manager', access: t('full_access_role') }
+    }
     if (role === 'kitchen') {
       if (permissions === 'both') {
         return { bg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', icon: '🍳+🧾', text: t('kitchen_staff'), access: t('both_access') }
       }
       return { bg: 'linear-gradient(135deg, #06b6d4, #0891b2)', icon: '🍳', text: t('kitchen_staff'), access: t('kitchen_only') }
+    }
+    if (role === 'cashier') {
+      return { bg: 'linear-gradient(135deg, #22c55e, #16a34a)', icon: '🧾', text: 'Cashier', access: t('pos_only') }
     }
     if (permissions === 'both') {
       return { bg: 'linear-gradient(135deg, #8b5cf6, #7c3aed)', icon: '🧾+🍳', text: t('staff'), access: t('both_access') }
@@ -508,7 +579,9 @@ function ManageStaff() {
 
   const getAvatarIcon = (role, permissions) => {
     if (role === 'admin') return '👑'
+    if (role === 'manager') return '📋'
     if (role === 'kitchen') return '🍳'
+    if (role === 'cashier') return '🧾'
     if (permissions === 'both') return '🧾+🍳'
     if (permissions === 'kitchen') return '🍳'
     return '🧾'
@@ -516,18 +589,24 @@ function ManageStaff() {
 
   const getPermissionsText = (permissions, role) => {
     if (role === 'admin') return `👑 ${t('admin')} - ${t('full_access_role')}`
+    if (role === 'manager') return `📋 Manager - ${t('full_access_role')}`
     if (permissions === 'both') return `🧾 ${t('pos')} + 🍳 ${t('kitchen')}`
     if (permissions === 'kitchen') return `🍳 ${t('kitchen_only')}`
     return `🧾 ${t('pos_only')}`
+  }
+
+  const getLoginMethodLabel = (loginMethod) => {
+    if (loginMethod === 'email_password') return '📧 Email+Password'
+    return '🔢 PIN'
   }
 
   // ============================================================
   // STATS
   // ============================================================
   const totalStaff = staff.length
-  const adminCount = staff.filter(s => s.role === 'admin').length
+  const adminCount = staff.filter(s => s.role === 'admin' || s.role === 'manager').length
   const kitchenCount = staff.filter(s => s.role === 'kitchen' || s.permissions === 'kitchen' || s.permissions === 'both').length
-  const staffCount = staff.filter(s => s.role === 'staff').length
+  const staffCount = staff.filter(s => s.role === 'staff' || s.role === 'cashier').length
 
   // ============================================================
   // LOADING STATE
@@ -691,6 +770,7 @@ function ManageStaff() {
               const roleBadge = getRoleBadge(member.role, member.permissions)
               const avatarIcon = getAvatarIcon(member.role, member.permissions)
               const permissionsText = getPermissionsText(member.permissions, member.role)
+              const loginLabel = getLoginMethodLabel(member.login_method)
               
               return (
                 <div key={member.id} style={{ ...glassEffect, borderRadius: '20px', padding: isMobile ? '14px 16px' : '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
@@ -702,6 +782,7 @@ function ManageStaff() {
                       <div style={{ fontWeight: 'bold', fontSize: isMobile ? '15px' : '17px', color: textColor }}>{member.name || member.username}</div>
                       <div style={{ fontSize: isMobile ? '11px' : '12px', color: textMuted, marginTop: '2px' }}>@{member.username}</div>
                       <div style={{ fontSize: isMobile ? '10px' : '11px', color: '#8b5cf6', marginTop: '2px' }}>{permissionsText}</div>
+                      <div style={{ fontSize: isMobile ? '9px' : '10px', color: '#3b82f6', marginTop: '1px' }}>{loginLabel}</div>
                     </div>
                   </div>
                   
@@ -712,7 +793,9 @@ function ManageStaff() {
                     
                     <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                       <button onClick={() => openEditModal(member)} style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', color: 'white', padding: isMobile ? '6px 12px' : '8px 16px', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold', fontSize: isMobile ? '10px' : '12px', transition: 'all 0.2s' }}>✏️ {t('edit')}</button>
-                      <button onClick={() => openResetPasswordModal(member)} style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', padding: isMobile ? '6px 12px' : '8px 16px', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold', fontSize: isMobile ? '10px' : '12px', transition: 'all 0.2s' }}>🔑 {t('reset_password')}</button>
+                      {member.login_method === 'email_password' && (
+                        <button onClick={() => openResetPasswordModal(member)} style={{ background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', padding: isMobile ? '6px 12px' : '8px 16px', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold', fontSize: isMobile ? '10px' : '12px', transition: 'all 0.2s' }}>🔑 {t('reset_password')}</button>
+                      )}
                       <button onClick={() => setShowDeleteConfirm({ id: member.id, username: member.username, name: member.name })} style={{ background: 'linear-gradient(135deg, #ef4444, #dc2626)', color: 'white', padding: isMobile ? '6px 12px' : '8px 16px', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold', fontSize: isMobile ? '10px' : '12px', transition: 'all 0.2s' }}>🗑️ {t('delete')}</button>
                     </div>
                   </div>
@@ -743,35 +826,73 @@ function ManageStaff() {
             <div style={{ background: cardBg, padding: isMobile ? '24px' : '32px', borderRadius: '32px', maxWidth: '480px', width: '90%', ...glassEffect, animation: 'popIn 0.3s ease' }}>
               <h2 style={{ marginTop: 0, color: textColor, fontSize: isMobile ? '20px' : '22px', fontWeight: 'bold' }}>{t('add_staff_title')}</h2>
               
-              <label style={labelStyle}>📧 {t('email')} *</label>
-              <input type="email" placeholder={t('email')} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} style={inputStyle} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }} />
-              
+              {/* 🔥 Username */}
               <label style={labelStyle}>👤 {t('username')} *</label>
-              <input type="text" placeholder={t('username')} value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} style={inputStyle} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }} />
+              <input type="text" placeholder={t('username')} value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} style={inputStyle} />
               
-              <label style={labelStyle}>🔒 {t('password')} * ({t('min_6_chars')})</label>
-              <div style={{ position: 'relative', marginBottom: '14px' }}>
-                <input type={showPassword ? "text" : "password"} placeholder={t('password')} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} style={{ ...inputStyle, paddingRight: '45px', marginBottom: 0 }} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: textMuted }}>{showPassword ? '🙈' : '👁️'}</button>
-              </div>
-              
-              <label style={labelStyle}>🔒 {t('confirm_password')} *</label>
-              <input type="password" placeholder={t('confirm_password')} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} style={inputStyle} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }} />
-              
+              {/* 🔥 Full Name */}
               <label style={labelStyle}>📛 {t('full_name')}</label>
-              <input type="text" placeholder={t('full_name')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} style={inputStyle} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }} />
+              <input type="text" placeholder={t('full_name')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} style={inputStyle} />
               
-              <label style={labelStyle}>🎭 {t('role')}</label>
-              <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} style={inputStyle} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }}>
+              {/* 🔥 ROLE */}
+              <label style={labelStyle}>🎭 {t('role')} *</label>
+              <select value={formData.role} onChange={(e) => {
+                setFormData({ 
+                  ...formData, 
+                  role: e.target.value,
+                  email: '',
+                  password: '',
+                  confirmPassword: '',
+                  pin: ''
+                })
+              }} style={inputStyle}>
                 <option value="staff">👤 {t('staff')}</option>
+                <option value="cashier">🧾 Cashier</option>
                 <option value="kitchen">🍳 {t('kitchen_staff')}</option>
+                <option value="manager">📋 Manager</option>
                 <option value="admin">👑 {t('admin')}</option>
               </select>
               
-              {formData.role !== 'admin' && (
+              {/* 🔥 Admin/Manager - Email + Password */}
+              {(formData.role === 'admin' || formData.role === 'manager') && (
+                <>
+                  <label style={labelStyle}>📧 {t('email')} *</label>
+                  <input type="email" placeholder={t('email')} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} style={inputStyle} />
+                  
+                  <label style={labelStyle}>🔒 {t('password')} * ({t('min_6_chars')})</label>
+                  <div style={{ position: 'relative', marginBottom: '14px' }}>
+                    <input type={showPassword ? "text" : "password"} placeholder={t('password')} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} style={{ ...inputStyle, paddingRight: '45px', marginBottom: 0 }} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: textMuted }}>{showPassword ? '🙈' : '👁️'}</button>
+                  </div>
+                  
+                  <label style={labelStyle}>🔒 {t('confirm_password')} *</label>
+                  <input type="password" placeholder={t('confirm_password')} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} style={inputStyle} />
+                </>
+              )}
+              
+              {/* 🔥 Staff/Cashier/Kitchen - PIN */}
+              {(formData.role === 'staff' || formData.role === 'cashier' || formData.role === 'kitchen') && (
+                <>
+                  <label style={labelStyle}>🔢 {t('pin')} * (min 4 digits)</label>
+                  <input 
+                    type="password" 
+                    placeholder="e.g. 1234" 
+                    maxLength="6"
+                    value={formData.pin} 
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      pin: e.target.value.replace(/\D/g, '') 
+                    })} 
+                    style={inputStyle}
+                  />
+                </>
+              )}
+              
+              {/* 🔥 Permissions - for non-admin */}
+              {formData.role !== 'admin' && formData.role !== 'manager' && (
                 <div style={{ marginBottom: '24px' }}>
                   <label style={labelStyle}>🚪 {t('access')}</label>
-                  <select value={formData.permissions} onChange={(e) => setFormData({ ...formData, permissions: e.target.value })} style={inputStyle} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }}>
+                  <select value={formData.permissions} onChange={(e) => setFormData({ ...formData, permissions: e.target.value })} style={inputStyle}>
                     <option value="pos">🧾 {t('pos_only')}</option>
                     <option value="kitchen">🍳 {t('kitchen_only')}</option>
                     <option value="both">🧾 + 🍳 {t('both_access')}</option>
@@ -780,9 +901,25 @@ function ManageStaff() {
                 </div>
               )}
               
+              {/* 🔥 Login Method Info */}
+              <div style={{ 
+                background: secondaryBg, 
+                padding: '10px 14px', 
+                borderRadius: '12px', 
+                marginBottom: '16px',
+                fontSize: isMobile ? '11px' : '12px',
+                color: textMuted
+              }}>
+                {formData.role === 'admin' || formData.role === 'manager' ? (
+                  <span>🔐 {t('login_method')}: <strong>📧 {t('email_password')}</strong></span>
+                ) : (
+                  <span>🔐 {t('login_method')}: <strong>🔢 {t('pin')}</strong></span>
+                )}
+              </div>
+              
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button onClick={addStaff} style={{ flex: 1, background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', padding: '14px', border: 'none', borderRadius: '60px', cursor: 'pointer', fontWeight: 'bold' }}>{t('add')}</button>
-                <button onClick={() => setShowAddModal(false)} style={{ flex: 1, background: '#64748b', color: 'white', padding: '14px', border: 'none', borderRadius: '60px', cursor: 'pointer' }}>{t('cancel')}</button>
+                <button onClick={() => { setShowAddModal(false); resetForm() }} style={{ flex: 1, background: '#64748b', color: 'white', padding: '14px', border: 'none', borderRadius: '60px', cursor: 'pointer' }}>{t('cancel')}</button>
               </div>
             </div>
           </div>
@@ -794,36 +931,70 @@ function ManageStaff() {
             <div style={{ background: cardBg, padding: isMobile ? '24px' : '32px', borderRadius: '32px', maxWidth: '480px', width: '90%', ...glassEffect, animation: 'popIn 0.3s ease' }}>
               <h2 style={{ marginTop: 0, color: textColor, fontSize: isMobile ? '20px' : '22px', fontWeight: 'bold' }}>{t('edit_staff_title')}</h2>
               
+              {/* Username - disabled */}
               <label style={labelStyle}>👤 {t('username')}</label>
               <input type="text" value={formData.username} disabled style={{ ...inputStyle, background: darkMode ? '#2a2a3e' : '#f0f0f0', color: darkMode ? '#888' : '#999', cursor: 'not-allowed' }} />
               
-              <label style={labelStyle}>📧 {t('email')}</label>
-              <input type="email" placeholder={t('email')} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} style={inputStyle} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }} />
-              <button onClick={updateStaffEmail} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', padding: '10px', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '14px' }}>📧 {t('update_email')}</button>
+              {/* Email - for admin/manager only */}
+              {(selectedStaff.login_method === 'email_password' || formData.role === 'admin' || formData.role === 'manager') && (
+                <>
+                  <label style={labelStyle}>📧 {t('email')}</label>
+                  <input type="email" placeholder={t('email')} value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} style={inputStyle} />
+                  <button onClick={updateStaffEmail} style={{ width: '100%', background: 'linear-gradient(135deg, #3b82f6, #2563eb)', color: 'white', padding: '10px', border: 'none', borderRadius: '40px', cursor: 'pointer', fontWeight: 'bold', marginBottom: '14px' }}>📧 {t('update_email')}</button>
+                </>
+              )}
               
-              <label style={labelStyle}>🔒 {t('password_optional')}</label>
-              <div style={{ position: 'relative', marginBottom: '14px' }}>
-                <input type={showPassword ? "text" : "password"} placeholder={t('password_optional')} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} style={{ ...inputStyle, paddingRight: '45px', marginBottom: 0 }} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }} />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: textMuted }}>{showPassword ? '🙈' : '👁️'}</button>
-              </div>
+              {/* PIN - for staff only */}
+              {selectedStaff.login_method === 'pin' && (
+                <>
+                  <label style={labelStyle}>🔢 {t('pin')}</label>
+                  <input 
+                    type="password" 
+                    placeholder="New PIN" 
+                    maxLength="6"
+                    value={formData.pin} 
+                    onChange={(e) => setFormData({ 
+                      ...formData, 
+                      pin: e.target.value.replace(/\D/g, '') 
+                    })} 
+                    style={inputStyle}
+                  />
+                </>
+              )}
               
-              <label style={labelStyle}>🔒 {t('confirm_password')}</label>
-              <input type="password" placeholder={t('confirm_password')} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} style={inputStyle} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }} />
+              {/* Password - optional for admin/manager */}
+              {(selectedStaff.login_method === 'email_password') && (
+                <>
+                  <label style={labelStyle}>🔒 {t('password_optional')}</label>
+                  <div style={{ position: 'relative', marginBottom: '14px' }}>
+                    <input type={showPassword ? "text" : "password"} placeholder={t('password_optional')} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} style={{ ...inputStyle, paddingRight: '45px', marginBottom: 0 }} />
+                    <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: textMuted }}>{showPassword ? '🙈' : '👁️'}</button>
+                  </div>
+                  
+                  <label style={labelStyle}>🔒 {t('confirm_password')}</label>
+                  <input type="password" placeholder={t('confirm_password')} value={formData.confirmPassword} onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })} style={inputStyle} />
+                </>
+              )}
               
+              {/* Full Name */}
               <label style={labelStyle}>📛 {t('full_name')}</label>
-              <input type="text" placeholder={t('full_name')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} style={inputStyle} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }} />
+              <input type="text" placeholder={t('full_name')} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} style={inputStyle} />
               
+              {/* Role */}
               <label style={labelStyle}>🎭 {t('role')}</label>
               <select value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value })} disabled={selectedStaff.username === 'admin' || (currentUser && currentUser.id === selectedStaff.id)} style={{ ...inputStyle, background: (selectedStaff.username === 'admin' || (currentUser && currentUser.id === selectedStaff.id)) ? (darkMode ? '#2a2a3e' : '#f0f0f0') : inputBg, cursor: (selectedStaff.username === 'admin' || (currentUser && currentUser.id === selectedStaff.id)) ? 'not-allowed' : 'pointer' }}>
                 <option value="staff">👤 {t('staff')}</option>
+                <option value="cashier">🧾 Cashier</option>
                 <option value="kitchen">🍳 {t('kitchen_staff')}</option>
+                <option value="manager">📋 Manager</option>
                 <option value="admin">👑 {t('admin')}</option>
               </select>
               
-              {formData.role !== 'admin' && selectedStaff.username !== 'admin' && (
+              {/* Permissions */}
+              {formData.role !== 'admin' && formData.role !== 'manager' && selectedStaff.username !== 'admin' && (
                 <div style={{ marginBottom: '24px' }}>
                   <label style={labelStyle}>🚪 {t('access')}</label>
-                  <select value={formData.permissions} onChange={(e) => setFormData({ ...formData, permissions: e.target.value })} style={inputStyle} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }}>
+                  <select value={formData.permissions} onChange={(e) => setFormData({ ...formData, permissions: e.target.value })} style={inputStyle}>
                     <option value="pos">🧾 {t('pos_only')}</option>
                     <option value="kitchen">🍳 {t('kitchen_only')}</option>
                     <option value="both">🧾 + 🍳 {t('both_access')}</option>
@@ -838,7 +1009,7 @@ function ManageStaff() {
               
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button onClick={updateStaff} style={{ flex: 1, background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', padding: '14px', border: 'none', borderRadius: '60px', cursor: 'pointer', fontWeight: 'bold' }}>{t('save')}</button>
-                <button onClick={() => setShowEditModal(false)} style={{ flex: 1, background: '#64748b', color: 'white', padding: '14px', border: 'none', borderRadius: '60px', cursor: 'pointer' }}>{t('cancel')}</button>
+                <button onClick={() => { setShowEditModal(false); resetForm() }} style={{ flex: 1, background: '#64748b', color: 'white', padding: '14px', border: 'none', borderRadius: '60px', cursor: 'pointer' }}>{t('cancel')}</button>
               </div>
             </div>
           </div>
@@ -856,16 +1027,16 @@ function ManageStaff() {
               
               <label style={labelStyle}>🔒 {t('new_password')} * ({t('min_6_chars')})</label>
               <div style={{ position: 'relative', marginBottom: '14px' }}>
-                <input type={showPassword ? "text" : "password"} placeholder={t('new_password')} value={resetPasswordData.password} onChange={(e) => setResetPasswordData({ ...resetPasswordData, password: e.target.value })} style={{ ...inputStyle, paddingRight: '45px', marginBottom: 0 }} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }} />
+                <input type={showPassword ? "text" : "password"} placeholder={t('new_password')} value={resetPasswordData.password} onChange={(e) => setResetPasswordData({ ...resetPasswordData, password: e.target.value })} style={{ ...inputStyle, paddingRight: '45px', marginBottom: 0 }} />
                 <button type="button" onClick={() => setShowPassword(!showPassword)} style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', color: textMuted }}>{showPassword ? '🙈' : '👁️'}</button>
               </div>
               
               <label style={labelStyle}>🔒 {t('confirm_new_password')} *</label>
-              <input type="password" placeholder={t('confirm_new_password')} value={resetPasswordData.confirmPassword} onChange={(e) => setResetPasswordData({ ...resetPasswordData, confirmPassword: e.target.value })} style={{ ...inputStyle, marginBottom: '24px' }} onFocus={e => { e.currentTarget.style.borderColor = '#3b82f6'; e.currentTarget.style.boxShadow = '0 0 0 3px rgba(59,130,246,0.12)' }} onBlur={e => { e.currentTarget.style.borderColor = inputBorder; e.currentTarget.style.boxShadow = 'none' }} />
+              <input type="password" placeholder={t('confirm_new_password')} value={resetPasswordData.confirmPassword} onChange={(e) => setResetPasswordData({ ...resetPasswordData, confirmPassword: e.target.value })} style={{ ...inputStyle, marginBottom: '24px' }} />
               
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button onClick={resetPassword} style={{ flex: 1, background: 'linear-gradient(135deg, #22c55e, #16a34a)', color: 'white', padding: '14px', border: 'none', borderRadius: '60px', cursor: 'pointer', fontWeight: 'bold' }}>🔑 {t('reset')}</button>
-                <button onClick={() => setShowResetPasswordModal(false)} style={{ flex: 1, background: '#64748b', color: 'white', padding: '14px', border: 'none', borderRadius: '60px', cursor: 'pointer' }}>{t('cancel')}</button>
+                <button onClick={() => { setShowResetPasswordModal(false); setSelectedStaff(null); setResetPasswordData({ password: '', confirmPassword: '' }) }} style={{ flex: 1, background: '#64748b', color: 'white', padding: '14px', border: 'none', borderRadius: '60px', cursor: 'pointer' }}>{t('cancel')}</button>
               </div>
             </div>
           </div>

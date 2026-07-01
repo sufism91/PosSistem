@@ -913,7 +913,7 @@ function KitchenApp() {
   const tabs = [
     { id: 'food', label: t('food_orders'), icon: '🍚', count: foodOrders.length, color: '#f59e0b' },
     { id: 'drink', label: t('drink_orders'), icon: '🥤', count: drinkOrders.length, color: '#3b82f6' },
-    { id: 'confirmed', label: '📋 Disahkan', icon: '📋', count: confirmedOrders.length, color: '#8b5cf6' },
+    { id: 'confirmed', label: ' Disahkan', icon: '📋', count: confirmedOrders.length, color: '#8b5cf6' },
     { id: 'preparing', label: t('preparing_orders'), icon: '🔪', count: preparingOrders.length, color: '#f97316' },
     { id: 'ready', label: t('ready_orders'), icon: '✅', count: readyOrders.length, color: '#22c55e' },
     { id: 'completed', label: t('completed_orders'), icon: '📦', count: completedOrders.length, color: '#6c757d' },

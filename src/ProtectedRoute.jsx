@@ -4,7 +4,7 @@ import { useTheme } from './context/ThemeContext'
 import { useLanguage } from './context/LanguageContext'
 import { supabase } from './lib/supabase'
 
-function ProtectedRoute({ children, allowedRoles = [], requiredPermission = null }) {
+function ProtectedRoute({ children, allowedRoles = [] }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const { darkMode } = useTheme()
@@ -12,7 +12,7 @@ function ProtectedRoute({ children, allowedRoles = [], requiredPermission = null
   const location = useLocation()
 
   // ============================================================
-  // COMPLETE TRANSLATIONS
+  // TRANSLATIONS
   // ============================================================
   const translations = {
     loading: { en: 'Loading...', ms: 'Memuatkan...' },
@@ -45,7 +45,7 @@ function ProtectedRoute({ children, allowedRoles = [], requiredPermission = null
   }
 
   // ============================================================
-  // 🔥 PERMISSIONS MAP - Tentukan permission yang diperlukan untuk setiap page
+  // 🔥 PERMISSIONS MAP
   // ============================================================
   const getRequiredPermission = (path) => {
     const pageMap = {
@@ -64,28 +64,17 @@ function ProtectedRoute({ children, allowedRoles = [], requiredPermission = null
   }
 
   // ============================================================
-  // CHECK AUTH - WITH PERMISSIONS
+  // CHECK AUTH
   // ============================================================
   useEffect(() => {
     const checkAuth = async () => {
       setLoading(true)
       
-      // 🔥 Check sessionStorage (PIN login)
       const savedAuth = sessionStorage.getItem('staffAuth')
       
       if (savedAuth) {
         try {
           const auth = JSON.parse(savedAuth)
-          
-          // 🔥 If allowedRoles provided, check role
-          if (allowedRoles.length > 0 && !allowedRoles.includes(auth.role)) {
-            console.warn(`🚫 Role ${auth.role} not allowed for this page. Logging out...`)
-            sessionStorage.removeItem('staffAuth')
-            setUser(null)
-            setLoading(false)
-            return
-          }
-          
           setUser(auth)
           setLoading(false)
           return
@@ -95,7 +84,6 @@ function ProtectedRoute({ children, allowedRoles = [], requiredPermission = null
         }
       }
 
-      // 🔥 Check Supabase session (email+password login)
       try {
         const { data: { session } } = await supabase.auth.getSession()
         
@@ -107,16 +95,6 @@ function ProtectedRoute({ children, allowedRoles = [], requiredPermission = null
             .single()
           
           if (staffData) {
-            // 🔥 Check if role is allowed
-            if (allowedRoles.length > 0 && !allowedRoles.includes(staffData.role)) {
-              console.warn(`🚫 Role ${staffData.role} not allowed. Logging out...`)
-              await supabase.auth.signOut()
-              sessionStorage.removeItem('staffAuth')
-              setUser(null)
-              setLoading(false)
-              return
-            }
-            
             const userData = {
               id: staffData.id,
               username: staffData.username,
@@ -125,7 +103,6 @@ function ProtectedRoute({ children, allowedRoles = [], requiredPermission = null
               permissions: staffData.permissions || 'pos',
               login_method: staffData.login_method || 'email_password'
             }
-            
             setUser(userData)
             sessionStorage.setItem('staffAuth', JSON.stringify(userData))
           } else {
@@ -144,19 +121,12 @@ function ProtectedRoute({ children, allowedRoles = [], requiredPermission = null
     
     checkAuth()
 
-    // Listen for storage changes
     const handleStorageChange = (e) => {
       if (e.key === 'staffAuth') {
         const savedAuth = sessionStorage.getItem('staffAuth')
         if (savedAuth) {
           try {
-            const auth = JSON.parse(savedAuth)
-            if (allowedRoles.length > 0 && !allowedRoles.includes(auth.role)) {
-              sessionStorage.removeItem('staffAuth')
-              setUser(null)
-              return
-            }
-            setUser(auth)
+            setUser(JSON.parse(savedAuth))
           } catch (e) {
             setUser(null)
           }
@@ -166,77 +136,9 @@ function ProtectedRoute({ children, allowedRoles = [], requiredPermission = null
       }
     }
     
-    // 🔥 Listen for auth changes from Supabase
-    let subscription = null
-    try {
-      const { data: { subscription: sub } } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          if (session?.user) {
-            const { data: staffData } = await supabase
-              .from('staff')
-              .select('*')
-              .eq('auth_id', session.user.id)
-              .single()
-            
-            if (staffData) {
-              if (allowedRoles.length > 0 && !allowedRoles.includes(staffData.role)) {
-                await supabase.auth.signOut()
-                sessionStorage.removeItem('staffAuth')
-                setUser(null)
-                setLoading(false)
-                return
-              }
-              
-              const userData = {
-                id: staffData.id,
-                username: staffData.username,
-                name: staffData.name || 'User',
-                role: staffData.role || 'staff',
-                permissions: staffData.permissions || 'pos',
-                login_method: staffData.login_method || 'email_password'
-              }
-              setUser(userData)
-              sessionStorage.setItem('staffAuth', JSON.stringify(userData))
-            }
-          } else {
-            // 🔥 Only clear if not using PIN login
-            const savedAuth = sessionStorage.getItem('staffAuth')
-            if (savedAuth) {
-              try {
-                const auth = JSON.parse(savedAuth)
-                if (auth.login_method === 'pin') {
-                  if (allowedRoles.length > 0 && !allowedRoles.includes(auth.role)) {
-                    sessionStorage.removeItem('staffAuth')
-                    setUser(null)
-                    return
-                  }
-                  setUser(auth)
-                  return
-                }
-              } catch (e) {}
-            }
-            setUser(null)
-            sessionStorage.removeItem('staffAuth')
-          }
-          setLoading(false)
-        }
-      )
-      subscription = sub
-    } catch (error) {
-      console.warn('Auth subscription error:', error)
-    }
-    
     window.addEventListener('storage', handleStorageChange)
-    
-    return () => {
-      if (subscription) {
-        try {
-          subscription.unsubscribe()
-        } catch (e) {}
-      }
-      window.removeEventListener('storage', handleStorageChange)
-    }
-  }, [allowedRoles])
+    return () => window.removeEventListener('storage', handleStorageChange)
+  }, [])
 
   // ============================================================
   // LOADING STATE
@@ -294,51 +196,26 @@ function ProtectedRoute({ children, allowedRoles = [], requiredPermission = null
   }
 
   // ============================================================
-  // 🔥 PERMISSION CHECK (BARU)
+  // 🔥 PERMISSION CHECK (UTAMA)
   // ============================================================
   const currentPath = location.pathname
-  const requiredPerm = getRequiredPermission(currentPath)
   
   // Admin can access everything
   if (user.role === 'admin') {
     return children
   }
 
-  // If allowedRoles provided, check role (backward compatibility)
-  if (allowedRoles.length > 0) {
-    if (!allowedRoles.includes(user.role)) {
-      const roleRedirects = {
-        admin: '/dashboard',
-        manager: '/dashboard',
-        kitchen: '/kitchen',
-        staff: '/staff',
-        cashier: '/staff'
-      }
-      const redirectPath = roleRedirects[user.role] || '/login'
-      return <Navigate to={redirectPath} replace />
-    }
-    return children
-  }
-
+  // 🔥 Check by permissions
+  const requiredPerm = getRequiredPermission(currentPath)
+  
   // If no permission required, allow access
   if (!requiredPerm) {
     return children
   }
 
-  // 🔥 Check permissions
   const userPerms = user.permissions || 'pos'
   
-  // Special case: 'pos' permission cannot access kitchen
-  if (requiredPerm === 'kitchen' && userPerms === 'pos') {
-    return <Navigate to="/staff" replace />
-  }
-  
-  // Special case: 'kitchen' permission cannot access pos
-  if (requiredPerm === 'pos' && userPerms === 'kitchen') {
-    return <Navigate to="/kitchen" replace />
-  }
-
-  // Check if user has the required permission
+  // 🔥 Check if user has the required permission
   const hasPermission = userPerms === requiredPerm || userPerms === 'both'
   
   if (!hasPermission) {

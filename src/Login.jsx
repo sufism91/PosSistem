@@ -198,10 +198,10 @@ function Login() {
         return
       }
 
-      // ✅ Get staff details using auth_id
+      // ✅ Get staff details using auth_id - 🔥 TAMBAH permissions
       const { data: staffData, error: staffError } = await supabase
         .from('staff')
-        .select('id, username, name, role, login_method')
+        .select('id, username, name, role, permissions, login_method')
         .eq('auth_id', data.user.id)
         .single()
 
@@ -212,13 +212,14 @@ function Login() {
         return
       }
 
-      // 📦 Prepare user data
+      // 📦 Prepare user data - 🔥 TAMBAH permissions
       const userData = {
         id: staffData.id,
         email: data.user.email,
         username: staffData.username,
         name: staffData.name || staffData.username || 'Staff',
         role: staffData.role || 'staff',
+        permissions: staffData.permissions || 'pos',
         login_method: staffData.login_method || 'email_password'
       }
       
@@ -261,10 +262,10 @@ function Login() {
     setPinLoading(true)
 
     try {
-      // 🔐 Get staff by username
+      // 🔐 Get staff by username - 🔥 TAMBAH permissions
       const { data: staffData, error } = await supabase
         .from('staff')
-        .select('id, username, name, role, pin, login_method')
+        .select('id, username, name, role, permissions, pin, login_method')
         .eq('username', username.toLowerCase().trim())
         .single()
 
@@ -289,12 +290,13 @@ function Login() {
         return
       }
 
-      // 📦 Prepare user data
+      // 📦 Prepare user data - 🔥 TAMBAH permissions
       const userData = {
         id: staffData.id,
         username: staffData.username,
         name: staffData.name || staffData.username || 'Staff',
         role: staffData.role || 'staff',
+        permissions: staffData.permissions || 'pos',
         login_method: 'pin'
       }
       

@@ -391,6 +391,54 @@ function ManageStaff() {
     }
   }
 
+  // ✅ UPDATE EMAIL (for admin/manager only)
+  async function updateStaffEmail() {
+    if (!formData.email) {
+      setMessage(`⚠️ ${t('email')} ${t('required')}`)
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+
+    try {
+      if (!selectedStaff?.auth_id) {
+        toast.error('Staff not linked to auth')
+        return
+      }
+
+      const response = await fetch('http://localhost:3001/api/admin/update-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: selectedStaff.auth_id,
+          updates: { email: formData.email.toLowerCase() }
+        })
+      })
+      
+      const result = await response.json()
+      if (!response.ok) {
+        throw new Error(result.error)
+      }
+
+      // Update email in staff table
+      const { error: staffError } = await supabase
+        .from('staff')
+        .update({ email: formData.email.toLowerCase() })
+        .eq('id', selectedStaff.id)
+
+      if (staffError) throw staffError
+
+      setMessage(`✅ Email updated successfully!`)
+      toast.success('Email updated!')
+      setTimeout(() => setMessage(''), 3000)
+      loadStaff()
+
+    } catch (error) {
+      console.error('Update email error:', error)
+      setMessage(`❌ ${t('error_updating')}: ${error.message}`)
+      toast.error(error.message)
+    }
+  }
+
   // ✅ RESET PASSWORD (for admin/manager only)
   async function resetPassword() {
     if (!resetPasswordData.password) {

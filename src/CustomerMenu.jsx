@@ -48,6 +48,7 @@ function CustomerMenu() {
   const [serviceChargePercent, setServiceChargePercent] = useState(6)
   const [taxPercent, setTaxPercent] = useState(6)
   const [isMobile, setIsMobile] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false) // 🔥 FIX: Prevent double submit
   
   const [showSizeModal, setShowSizeModal] = useState(false)
   const [selectedSizeItem, setSelectedSizeItem] = useState(null)
@@ -188,7 +189,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ===== CLEAN CATEGORY NAME - Remove "(Makanan)" etc =====
+  // ===== CLEAN CATEGORY NAME =====
   // ============================================================
   const cleanCategoryName = (name) => {
     if (!name) return name
@@ -196,7 +197,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ===== GET ORDERED CATEGORIES - CLEAN NAMES & PROPER ORDER =====
+  // ===== GET ORDERED CATEGORIES =====
   // ============================================================
   const getOrderedCategories = () => {
     const sorted = [...categories].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
@@ -211,7 +212,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ===== GET CATEGORIES FOR MENU - CLEAN NAMES =====
+  // ===== GET CATEGORIES FOR MENU =====
   // ============================================================
   const getCategoriesForMenu = () => {
     const ordered = getOrderedCategories()
@@ -223,7 +224,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ===== GET CATEGORY ICON - Match cleaned names =====
+  // ===== GET CATEGORY ICON =====
   // ============================================================
   const getCategoryIcon = (catName) => {
     if (catName === 'All') return '🍽️'
@@ -236,7 +237,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ===== GET DEFAULT ICON - Match cleaned names =====
+  // ===== GET DEFAULT ICON =====
   // ============================================================
   const getDefaultIcon = (category) => {
     const foundCat = categories.find(c => cleanCategoryName(c.name) === category)
@@ -249,16 +250,14 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ===== PROMOTION HELPERS - UNTUK MENU ITEMS =====
+  // ===== 🔥 FIX 1: PROMOTION HELPERS =====
   // ============================================================
   function getItemPromotion(item) {
     if (!item) return null
-    console.log('🔍 Checking promo for:', item.name, 'Active promos:', activePromos.length)
     for (const promo of activePromos) {
       if (promo.type === 'bogo') {
         const trigger = promo.trigger_items?.[0]
         if (trigger && item.id === trigger.id) {
-          console.log('✅ BOGO promo found:', promo.name)
           return { 
             type: 'bogo', 
             trigger: trigger, 
@@ -269,7 +268,6 @@ function CustomerMenu() {
       } else if (promo.type === 'bundle' || promo.type === 'set_menu') {
         const found = (promo.bundle_items || []).find(i => i.id === item.id)
         if (found) {
-          console.log('✅ Bundle promo found:', promo.name)
           return { 
             type: promo.type, 
             bundleItems: promo.bundle_items, 
@@ -294,18 +292,16 @@ function CustomerMenu() {
     return null
   }
 
+  // 🔥 FIX 1: Function untuk dapatkan harga dengan promo
   function getItemPriceWithPromo(item) {
     if (!item) return 0
     const promoPrice = getPromoPrice(item)
     const finalPrice = promoPrice !== null ? promoPrice : (item.price || 0)
-    if (promoPrice !== null) {
-      console.log(`💰 ${item.name}: Original RM${item.price} → Promo RM${finalPrice}`)
-    }
     return finalPrice
   }
 
   // ============================================================
-  // ===== BUNDLE PROMO FUNCTIONS (MACAM STAFFAPP) =====
+  // ===== BUNDLE PROMO FUNCTIONS =====
   // ============================================================
   function getBundlePromoForCart(cartItems) {
     if (!cartItems || cartItems.length === 0) return null
@@ -410,7 +406,6 @@ function CustomerMenu() {
     await loadPromotions()
     await loadSpecialMenu()
     setLoading(false)
-    console.log('✅ All data loaded with promotions!')
   }
 
   async function loadRestaurantInfo() {
@@ -522,14 +517,11 @@ function CustomerMenu() {
 
   async function loadPromotions() {
     try {
-      console.log('🔄 Loading promotions...')
       const { data } = await supabase
         .from('promotions')
         .select('*')
         .eq('is_active', true)
         .order('id', { ascending: false })
-      
-      console.log('📊 Raw promotions count:', data?.length || 0)
       
       const today = new Date().toISOString().split('T')[0]
       const active = (data || []).filter(promo => {
@@ -538,7 +530,6 @@ function CustomerMenu() {
         return true
       })
       
-      console.log('✅ Active promotions:', active.length)
       setActivePromos(active)
       
       const items = []
@@ -585,7 +576,6 @@ function CustomerMenu() {
         }
       })
       setPromoItems(items)
-      console.log('✅ Promo items:', items.length)
       
     } catch (err) {
       console.error('Error loading promotions:', err)
@@ -607,7 +597,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ===== GET FILTERED MENU - Sorted by category order =====
+  // ===== GET FILTERED MENU =====
   // ============================================================
   const getFilteredMenu = () => {
     if (selectedCategory === '🔥 Promosi') {
@@ -668,7 +658,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // MENU OPTIONS FUNCTIONS - WITH STOCK
+  // MENU OPTIONS FUNCTIONS
   // ============================================================
   async function loadMenuOptions(menuId) {
     const { data } = await supabase
@@ -723,7 +713,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // CHECK STOCK SEBELUM ADD TO CART
+  // CHECK STOCK
   // ============================================================
   async function checkOptionStock(optionId, quantity = 1) {
     try {
@@ -754,57 +744,67 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ADD TO CART FUNCTIONS - WITH PROMO & BUNDLE SUPPORT
+  // 🔥 FIX 1: ADD TO CART DIRECT - DENGAN PROMO PRICE
   // ============================================================
-  
-  // ===== ADD TO CART DIRECT (NO OPTIONS) - WITH BUNDLE SUPPORT =====
   function addToCartDirect(item) {
-    console.log('🛒 Adding to cart:', item.name)
+    const finalPrice = getItemPriceWithPromo(item)
+    const hasPromo = getPromoPrice(item) !== null
+    const promo = getItemPromotion(item)
+    const isFree = finalPrice === 0
     
-    // 🔥 CHECK BUNDLE FIRST
-    const tempCart = [...cart, { ...item, quantity: 1, price: item.price }]
+    // Check bundle
+    const tempCart = [...cart, { ...item, quantity: 1, price: finalPrice }]
     const bundleInCart = getBundlePromoForCart(tempCart)
     const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => i.id === item.id)
     
-    let finalPrice = item.price
-    let hasPromo = false
-    let promo = null
-    let isFree = false
     let bundleName = null
     let bundlePriceValue = null
     
-    // If this item completes a bundle
     if (bundleInCart && isInBundle) {
       const bundleItemCount = bundleInCart.bundleItems.length
       const perItemPrice = bundleInCart.bundlePrice / bundleItemCount
-      finalPrice = perItemPrice
-      hasPromo = true
-      bundleName = bundleInCart.promo.name
-      bundlePriceValue = bundleInCart.bundlePrice
-      isFree = finalPrice === 0
       
-      setTimeout(() => {
-        toast.success(`📦 ${bundleInCart.promo.name} Aktif! ${bundleInCart.bundleItems.map(i => i.name).join(' + ')} = RM ${bundleInCart.bundlePrice.toFixed(2)} (Jimat RM ${bundleInCart.savings.toFixed(2)})`, {
-          duration: 4000
-        })
-      }, 200)
-    } else {
-      // Check regular promo
-      promo = getItemPromotion(item)
-      const promoPrice = getPromoPrice(item)
-      if (promoPrice !== null) {
-        finalPrice = promoPrice
-        hasPromo = true
-        isFree = finalPrice === 0
+      const existingIndex = cart.findIndex(x => x.id === item.id && !x.option_id && !x.addons)
+      if (existingIndex >= 0) {
+        const updatedCart = [...cart]
+        updatedCart[existingIndex] = {
+          ...updatedCart[existingIndex],
+          price: perItemPrice,
+          isBundleItem: true,
+          bundleName: bundleInCart.promo.name,
+          bundlePrice: bundleInCart.bundlePrice,
+          original_price: item.price
+        }
+        setCart(updatedCart)
+        toast.success(`📦 ${bundleInCart.promo.name} Aktif! ${bundleInCart.bundleItems.map(i => i.name).join(' + ')} = RM ${bundleInCart.bundlePrice.toFixed(2)}`, { duration: 4000 })
+        setShowCart(true)
+        return
       }
+      
+      const cartItem = {
+        ...item,
+        price: perItemPrice,
+        quantity: 1,
+        is_free: isFree,
+        is_promo_item: true,
+        promo_type: promo?.type || null,
+        promo_name: promo?.promo?.name || bundleInCart.promo.name || null,
+        original_price: item.price,
+        category: item.category || 'Makanan',
+        isBundleItem: true,
+        bundleName: bundleInCart.promo.name,
+        bundlePrice: bundleInCart.bundlePrice
+      }
+      setCart([...cart, cartItem])
+      setShowCart(true)
+      toast.success(`📦 ${bundleInCart.promo.name} - ${item.name} (RM ${perItemPrice.toFixed(2)})`)
+      return
     }
     
-    console.log(`💰 ${item.name}: Final price = RM${finalPrice}, Has promo: ${hasPromo}`)
-    
-    const existing = cart.find(x => x.id === item.id && !x.option_id && !x.addons)
+    const existing = cart.find(x => x.id === item.id && !x.option_id && !x.addons && !x.isBundleItem)
     if (existing) {
       setCart(cart.map(x => 
-        x.id === item.id && !x.option_id && !x.addons 
+        x.id === item.id && !x.option_id && !x.addons && !x.isBundleItem
           ? { ...x, quantity: x.quantity + 1 } 
           : x
       ))
@@ -816,12 +816,12 @@ function CustomerMenu() {
         is_free: isFree,
         is_promo_item: hasPromo,
         promo_type: promo?.type || null,
-        promo_name: promo?.promo?.name || bundleName || null,
+        promo_name: promo?.promo?.name || null,
         original_price: item.price,
         category: item.category || 'Makanan',
-        isBundleItem: bundleInCart && isInBundle,
-        bundleName: bundleName,
-        bundlePrice: bundlePriceValue
+        isBundleItem: false,
+        bundleName: null,
+        bundlePrice: null
       }])
     }
     setShowCart(true)
@@ -835,7 +835,9 @@ function CustomerMenu() {
     }
   }
 
-  // ===== ADD TO CART WITH OPTION (SIZE) - WITH BUNDLE SUPPORT =====
+  // ============================================================
+  // 🔥 FIX 1: ADD TO CART WITH OPTION - DENGAN PROMO PRICE
+  // ============================================================
   async function addToCartWithOption(item, option) {
     const stockCheck = await checkOptionStock(option.id, 1)
     
@@ -853,27 +855,26 @@ function CustomerMenu() {
     setAddingItem(item.id)
     setTimeout(() => setAddingItem(null), 300)
     
-    // 🔥 CHECK BUNDLE
+    const basePrice = getItemPriceWithPromo(item)
+    const promo = getItemPromotion(item)
+    const hasPromo = promo !== null
+    
+    let finalPrice = option.is_absolute_price 
+      ? option.price_adjustment 
+      : basePrice + option.price_adjustment
+    
+    const isFree = finalPrice === 0
+    
     const tempCart = [...cart, { 
       id: item.id, 
       name: item.name, 
-      price: item.price, 
+      price: finalPrice, 
       quantity: 1,
       category: item.category
     }]
     const bundleInCart = getBundlePromoForCart(tempCart)
     const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => i.id === item.id)
     
-    const promo = getItemPromotion(item)
-    const promoPrice = getPromoPrice(item)
-    const hasPromo = promo !== null && promoPrice !== null
-    
-    let basePrice = hasPromo ? promoPrice : item.price
-    let finalPrice = option.is_absolute_price 
-      ? option.price_adjustment 
-      : basePrice + option.price_adjustment
-    
-    const isFree = finalPrice === 0
     let bundleName = null
     let bundlePriceValue = null
     
@@ -925,26 +926,27 @@ function CustomerMenu() {
     }
   }
 
-  // ===== ADD TO CART WITH ADD-ONS - WITH BUNDLE SUPPORT =====
+  // ============================================================
+  // 🔥 FIX 1: ADD TO CART WITH ADD-ONS - DENGAN PROMO PRICE
+  // ============================================================
   const addToCartWithAddons = (item, option, size) => {
-    // 🔥 CHECK BUNDLE
+    const basePrice = getItemPriceWithPromo(item)
+    const promo = getItemPromotion(item)
+    const hasPromo = promo !== null
+    
+    let finalPrice = basePrice + getAddonTotal()
+    let isFree = finalPrice === 0
+    
     const tempCart = [...cart, { 
       id: item.id, 
       name: item.name, 
-      price: item.price, 
+      price: finalPrice, 
       quantity: 1,
       category: item.category
     }]
     const bundleInCart = getBundlePromoForCart(tempCart)
     const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => i.id === item.id)
     
-    const promo = getItemPromotion(item)
-    const promoPrice = getPromoPrice(item)
-    const hasPromo = promo !== null && promoPrice !== null
-    
-    let basePrice = hasPromo ? promoPrice : item.price
-    let finalPrice = basePrice + getAddonTotal()
-    let isFree = finalPrice === 0
     let bundleName = null
     let bundlePriceValue = null
     
@@ -1017,7 +1019,6 @@ function CustomerMenu() {
     const promoPrice = getPromoPrice(item)
     const hasPromo = promo !== null && promoPrice !== null
     
-    // Check if item has size options
     if (item.has_options) {
       loadMenuOptions(item.id).then(options => {
         if (options && options.length > 0) {
@@ -1042,7 +1043,6 @@ function CustomerMenu() {
       return
     }
     
-    // Check if item has add-ons
     if (item.has_addons) {
       loadAddons(item.id).then(() => {
         setSelectedSizeItem({ 
@@ -1057,7 +1057,6 @@ function CustomerMenu() {
       return
     }
     
-    // Check if item is a drink
     const hasDrinkOpts = drinkOptions[item.name] && drinkOptions[item.name].length > 0
     const isDrink = item.category === 'Minuman'
     
@@ -1085,6 +1084,9 @@ function CustomerMenu() {
   const selectedDrinkOptionData = selectedDrink ? drinkOptions[selectedDrink.name]?.find(opt => opt.type === selectedOption) : null
   const selectedDrinkPreviewImage = selectedDrink ? getDrinkOptionImage(selectedDrink, selectedDrinkOptionData) : ''
 
+  // ============================================================
+  // 🔥 FIX 1: ADD DRINK TO CART - DENGAN PROMO PRICE
+  // ============================================================
   const addDrinkToCart = () => {
     if (!selectedDrink) return
     const options = drinkOptions[selectedDrink.name]
@@ -1094,11 +1096,9 @@ function CustomerMenu() {
     setAddingItem(selectedDrink.id)
     setTimeout(() => setAddingItem(null), 300)
     
-    // Check promo for drink
+    const finalPrice = getItemPriceWithPromo(selectedDrink)
     const promo = getItemPromotion(selectedDrink)
-    const promoPrice = getPromoPrice(selectedDrink)
-    const hasPromo = promo !== null && promoPrice !== null
-    const finalPrice = hasPromo ? promoPrice : selected.price
+    const hasPromo = promo !== null
     const isFree = finalPrice === 0
     
     let optionLabel = ''
@@ -1227,7 +1227,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // QUANTITY CONTROL IN CART - WITH STOCK CHECK
+  // QUANTITY CONTROL
   // ============================================================
   const updateCartQuantity = async (id, newQuantity) => {
     if (newQuantity <= 0) {
@@ -1269,9 +1269,13 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // SUBMIT ORDER - DENGAN KURANGKAN STOCK (TANPA PRINT RECEIPT)
+  // 🔥 FIX 2 & 4: SUBMIT ORDER - 'pending' + FIX STUCK
   // ============================================================
   const submitOrderConfirmed = async () => {
+    // 🔥 FIX 4: Prevent double submit
+    if (isSubmitting) return
+    setIsSubmitting(true)
+    
     setShowConfirmModal(false)
     
     for (const item of cart) {
@@ -1279,11 +1283,13 @@ function CustomerMenu() {
         const stockCheck = await checkOptionStock(item.option_id, item.quantity)
         if (!stockCheck.available) {
           toast.error(`❌ "${item.option_name}" ${translate('out_of_stock')}! Stok sedia ada: ${stockCheck.stock}`)
+          setIsSubmitting(false)
           setShowConfirmModal(true)
           return
         }
         if (stockCheck.stock < item.quantity) {
           toast.error(`❌ Stok tidak mencukupi untuk "${item.option_name}". Stok sedia ada: ${stockCheck.stock}`)
+          setIsSubmitting(false)
           setShowConfirmModal(true)
           return
         }
@@ -1307,7 +1313,6 @@ function CustomerMenu() {
       addon_ids: item.addon_ids || [],
       addon_total: item.addon_total || 0,
       category: item.category || 'Makanan',
-      // 🔥 TAMBAH BUNDLE FIELDS
       isBundleItem: item.isBundleItem || false,
       bundleName: item.bundleName || null
     }))
@@ -1320,6 +1325,7 @@ function CustomerMenu() {
     const tax = getTax()
 
     try {
+      // 🔥 FIX 2: Guna ORDER_STATUS.PENDING bukan 'new'
       const { data, error } = await supabase.from('customer_orders').insert([normalizeOrderForInsert({
         order_number: orderNumber,
         order_type: 'dine_in',
@@ -1332,14 +1338,15 @@ function CustomerMenu() {
         tax: tax,
         total: total,
         notes: notes,
-        status: 'new',
-        order_status: 'new',
+        status: ORDER_STATUS.PENDING,
+        order_status: ORDER_STATUS.PENDING,
         payment_status: PAYMENT_STATUS.UNPAID
       })]).select()
 
       if (error) {
         console.error('Submit error:', error)
         toast.error(translate('error_submit') + ': ' + error.message)
+        setIsSubmitting(false)
         return
       }
 
@@ -1381,36 +1388,42 @@ function CustomerMenu() {
       const orderId = data?.[0]?.order_number || orderNumber
       toast.success(`✓ ${translate('order_number')} ${orderNumber} ${translate('order_sent')}`)
       
-      // ============================================================
-      // 🔥 CUSTOMER MENU TIDAK PRINT RECEIPT - Staff akan print di StaffApp
-      // ============================================================
-      // Receipt printing is handled by StaffApp, not CustomerMenu
-      
+      // 🔥 FIX 4: Use window.location.replace instead of href to prevent back button issues
       setTimeout(() => {
-        window.location.href = `/track?order=${orderId}`
-      }, 2000)
+        setIsSubmitting(false)
+        window.location.replace(`/track?order=${orderId}`)
+      }, 1500)
       
     } catch (err) {
       console.error('Exception:', err)
       toast.error(translate('error_submit'))
+      setIsSubmitting(false)
     }
   }
 
   // ============================================================
-  // CART HELPERS
+  // 🔥 FIX 3: CART HELPERS - SUBTOTAL DENGAN BUNDLE
   // ============================================================
   const getSubtotal = () => {
-    // 🔥 CHECK BUNDLE IN CART
     const bundleInCart = getBundlePromoForCart(cart)
     if (bundleInCart) {
       const bundleItemIds = bundleInCart.bundleItems.map(i => i.id)
-      const nonBundleItems = cart.filter(item => !bundleItemIds.includes(item.id))
+      const nonBundleItems = cart.filter(item => {
+        if (bundleItemIds.includes(item.id)) return false
+        if (item.isBundleItem) return false
+        return true
+      })
       let subtotal = nonBundleItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
       subtotal += bundleInCart.bundlePrice
       return subtotal
     }
-    return cart.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    
+    return cart.reduce((sum, item) => {
+      if (item.isBundleItem) return sum
+      return sum + (item.price * item.quantity)
+    }, 0)
   }
+  
   const getServiceCharge = () => getSubtotal() * (serviceChargePercent / 100)
   const getTax = () => getSubtotal() * (taxPercent / 100)
   const getGrandTotal = () => getSubtotal() + getServiceCharge() + getTax()
@@ -1454,7 +1467,7 @@ function CustomerMenu() {
   const cartItemCount = getCartItemCount()
 
   // ============================================================
-  // RENDER
+  // ===== RENDER =====
   // ============================================================
   return (
     <div style={{ minHeight: '100vh', background: bgColor }}>
@@ -1901,7 +1914,7 @@ function CustomerMenu() {
         </div>
       </div>
 
-      {/* ===== CATEGORY FILTERS - CLEAN NAMES & SORTED ===== */}
+      {/* ===== CATEGORY FILTERS ===== */}
       <div style={{ maxWidth: '1280px', margin: '12px auto', padding: isMobile ? '0 12px' : '0 20px' }}>
         <div style={{ 
           display: 'flex',
@@ -1995,23 +2008,19 @@ function CustomerMenu() {
               const hasAddons = item.has_addons === true
               const hasDescription = item.description && item.description.trim() !== ''
               
-              // 🔥 CHECK BUNDLE IN CART
               const bundleInCart = getBundlePromoForCart(cart)
               const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => i.id === item.id)
               
-              // 🔥 Check regular promo
               const promo = getItemPromotion(item)
               const promoPrice = getPromoPrice(item)
               const hasPromo = promo !== null && promoPrice !== null
               
-              // 🔥 Determine final price
               let displayPrice = item.price
               let displayOriginalPrice = null
               let hasDiscount = false
               let savings = 0
               let promoLabel = ''
               
-              // Check if this item is part of a complete bundle in cart
               if (bundleInCart && isInBundle) {
                 const allItemsInCart = bundleInCart.bundleItems.every(i => 
                   cart.some(c => c.id === i.id)
@@ -2027,7 +2036,6 @@ function CustomerMenu() {
                 }
               }
               
-              // If not bundle, check regular promo
               if (!hasDiscount && hasPromo) {
                 displayPrice = promoPrice
                 displayOriginalPrice = item.price
@@ -2070,7 +2078,7 @@ function CustomerMenu() {
                     }
                   }}
                 >
-                  {/* ===== IMAGE ===== */}
+                  {/* IMAGE */}
                   <div style={{ 
                     background: isPromoItem ? '#f3e8ff' : (hasDiscount ? '#fef2f2' : (darkMode ? '#1a1a2e' : '#fef3c7')),
                     padding: isMobile ? '24px' : '28px',
@@ -2185,7 +2193,7 @@ function CustomerMenu() {
                     )}
                   </div>
                   
-                  {/* ===== CONTENT ===== */}
+                  {/* CONTENT */}
                   <div style={{ padding: isMobile ? '14px 14px' : '18px 20px', textAlign: 'center' }}>
                     <h3 style={{ 
                       margin: '0 0 4px 0',
@@ -2211,7 +2219,6 @@ function CustomerMenu() {
                       </div>
                     )}
                     
-                    {/* ===== HARGA ASAL + BADGES + PROMO ===== */}
                     {isPromoItem && item.original_price ? (
                       <div style={{ marginBottom: '4px' }}>
                         <span style={{ 
@@ -2405,7 +2412,7 @@ function CustomerMenu() {
       </div>
 
       {/* ========================================================== */}
-      {/* FLOATING CART BUTTON - SENTIASA DI ATAS */}
+      {/* FLOATING CART BUTTON */}
       {/* ========================================================== */}
       {cartItemCount > 0 && (
         <button 
@@ -2611,7 +2618,6 @@ function CustomerMenu() {
                         </div>
                       </div>
                       
-                      {/* Quantity Controls */}
                       <div style={{ 
                         display: 'flex', 
                         alignItems: 'center', 
@@ -2829,22 +2835,22 @@ function CustomerMenu() {
               </button>
               <button 
                 onClick={handlePlaceOrder}
-                disabled={!tableNumber || cart.length === 0}
+                disabled={!tableNumber || cart.length === 0 || isSubmitting}
                 style={{ 
                   flex: 1,
                   padding: isMobile ? '10px' : '12px',
-                  background: (!tableNumber || cart.length === 0) ? '#cbd5e1' : `linear-gradient(135deg, ${accentColor}, #d97706)`,
+                  background: (!tableNumber || cart.length === 0 || isSubmitting) ? '#cbd5e1' : `linear-gradient(135deg, ${accentColor}, #d97706)`,
                   color: 'white',
                   border: 'none',
                   borderRadius: '40px',
-                  cursor: (!tableNumber || cart.length === 0) ? 'not-allowed' : 'pointer',
+                  cursor: (!tableNumber || cart.length === 0 || isSubmitting) ? 'not-allowed' : 'pointer',
                   fontSize: isMobile ? '12px' : '13px',
                   fontWeight: 'bold',
-                  boxShadow: (!tableNumber || cart.length === 0) ? 'none' : '0 4px 16px rgba(245,158,11,0.3)',
+                  boxShadow: (!tableNumber || cart.length === 0 || isSubmitting) ? 'none' : '0 4px 16px rgba(245,158,11,0.3)',
                   transition: 'all 0.2s'
                 }}
               >
-                {!tableNumber ? `📋 ${translate('table_required')}` : translate('place_order')}
+                {isSubmitting ? '⏳ Menghantar...' : (!tableNumber ? `📋 ${translate('table_required')}` : translate('place_order'))}
               </button>
             </div>
           </div>
@@ -3598,21 +3604,22 @@ function CustomerMenu() {
               </button>
               <button 
                 onClick={submitOrderConfirmed}
+                disabled={isSubmitting}
                 style={{ 
                   flex: 1,
                   padding: isMobile ? '10px' : '12px',
-                  background: `linear-gradient(135deg, ${successColor}, #16a34a)`,
+                  background: isSubmitting ? '#94a3b8' : `linear-gradient(135deg, ${successColor}, #16a34a)`,
                   color: 'white',
                   border: 'none',
                   borderRadius: '40px',
-                  cursor: 'pointer',
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
                   fontWeight: 'bold',
                   fontSize: isMobile ? '12px' : '13px',
-                  boxShadow: '0 4px 16px rgba(34,197,94,0.3)',
+                  boxShadow: isSubmitting ? 'none' : '0 4px 16px rgba(34,197,94,0.3)',
                   transition: 'all 0.2s'
                 }}
               >
-                {translate('confirm')}
+                {isSubmitting ? '⏳ Menghantar...' : translate('confirm')}
               </button>
             </div>
           </div>

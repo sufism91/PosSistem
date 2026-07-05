@@ -1,5 +1,6 @@
 export const ORDER_STATUS = {
-  NEW: 'pending_confirmation',
+  PENDING: 'pending',  // 🔥 TAMBAH
+  NEW: 'pending_confirmation',  // Legacy
   CONFIRMED: 'confirmed',
   PREPARING: 'preparing',
   READY: 'ready',
@@ -44,8 +45,9 @@ export function normalizeOrderForInsert(order = {}) {
     customer_phone: order.customer_phone || null,
     table_number: order.table_number || null,
     order_type: order.order_type || 'dine_in',
-    status: order.status || ORDER_STATUS.NEW,
-    order_status: order.order_status || order.status || ORDER_STATUS.NEW,
+    // 🔥 FIX: Default ke PENDING, bukan NEW
+    status: order.status || ORDER_STATUS.PENDING,
+    order_status: order.order_status || order.status || ORDER_STATUS.PENDING,
     payment_status: order.payment_status || PAYMENT_STATUS.UNPAID,
     notes: order.notes || '',
     subtotal: order.subtotal || order.total || 0,

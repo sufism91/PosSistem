@@ -251,7 +251,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // 🔥🔥🔥 FIXED: PROMOTION HELPERS - LENGKAP DENGAN DEBUG 🔥🔥🔥
+  // 🔥🔥🔥 PROMOTION HELPERS - LENGKAP DENGAN DEBUG 🔥🔥🔥
   // ============================================================
   
   /**
@@ -303,14 +303,9 @@ function CustomerMenu() {
           const normalised = normalisePromoItem(t)
           if (!normalised) return false
           
-          // Match by ID
           if (normalised.id === item.id) return true
           if (item.id === normalised.id) return true
-          
-          // Match by name (case insensitive)
           if (normalised.name?.toLowerCase() === item.name?.toLowerCase()) return true
-          
-          // Special cases
           if (item.id === `trigger_${promo.id}`) return true
           
           return false
@@ -338,14 +333,9 @@ function CustomerMenu() {
           const normalised = normalisePromoItem(i)
           if (!normalised) return false
           
-          // Match by ID
           if (normalised.id === item.id) return true
           if (item.id === normalised.id) return true
-          
-          // Match by name (case insensitive)
           if (normalised.name?.toLowerCase() === item.name?.toLowerCase()) return true
-          
-          // Special promo item IDs
           if (item.id === `promo_bundle_${promo.id}`) return true
           if (item.id === `promo_set_${promo.id}`) return true
           
@@ -386,13 +376,11 @@ function CustomerMenu() {
     }
     
     if (promo.type === 'bundle' || promo.type === 'set_menu') {
-      // 🔥 Return bundle price
       if (promo.bundlePrice > 0) {
         console.log(`💰 Bundle price: RM ${promo.bundlePrice}`)
         return promo.bundlePrice
       }
       
-      // Fallback: Cari item dalam bundle
       const bundleItem = promo.bundleItems?.find(i => {
         const normalised = normalisePromoItem(i)
         if (!normalised) return false
@@ -414,7 +402,6 @@ function CustomerMenu() {
   function getItemPriceWithPromo(item) {
     if (!item) return 0
     
-    // 🔥 Jika item sudah ada harga promo dari cart
     if (item.promo_price !== undefined && item.promo_price !== null) {
       return parseFloat(item.promo_price) || 0
     }
@@ -442,21 +429,22 @@ function CustomerMenu() {
       p.bundle_price > 0
     )
     
+    console.log(`🔍 Checking bundle for cart with ${cartItems.length} items`)
+    console.log(`🔍 Bundle promos available: ${bundlePromos.length}`)
+    
     for (const promo of bundlePromos) {
-      // 🔥 Get bundle item IDs (guna menu_id sebagai fallback)
       const bundleItemIds = promo.bundle_items.map(i => i.menu_id || i.id).filter(id => id !== null)
+      
+      console.log(`📦 Checking promo: ${promo.name}, bundle items:`, bundleItemIds)
       
       if (bundleItemIds.length === 0) continue
       
-      // 🔥 Get cart item IDs
       const cartItemIds = cartItems.map(i => i.id)
+      console.log(`🛒 Cart item IDs:`, cartItemIds)
       
-      // Check if semua bundle items ada dalam cart
       const allItemsInCart = bundleItemIds.every(id => {
-        // Check exact match
         if (cartItemIds.includes(id)) return true
         
-        // Check by name (case insensitive)
         const bundleItem = promo.bundle_items.find(i => (i.menu_id || i.id) === id)
         if (bundleItem) {
           return cartItems.some(cartItem => 
@@ -466,12 +454,12 @@ function CustomerMenu() {
         return false
       })
       
+      console.log(`📊 All items in cart: ${allItemsInCart}`)
+      
       if (allItemsInCart) {
-        // 🔥 Kira total original price
         let totalOriginal = 0
         for (const bundleItem of promo.bundle_items) {
           const menuId = bundleItem.menu_id || bundleItem.id
-          // Cari item dalam cart dengan harga asal
           const cartItem = cartItems.find(c => {
             if (c.id === menuId) return true
             if (c.id === bundleItem.id) return true
@@ -481,16 +469,20 @@ function CustomerMenu() {
           totalOriginal += cartItem?.original_price || cartItem?.price || bundleItem.price || 0
         }
         
-        return {
+        const result = {
           promo: promo,
           bundleItems: promo.bundle_items,
           bundlePrice: promo.bundle_price,
           totalOriginalPrice: totalOriginal,
           savings: totalOriginal - promo.bundle_price
         }
+        
+        console.log(`✅ BUNDLE FOUND:`, result)
+        return result
       }
     }
     
+    console.log(`❌ No bundle found in cart`)
     return null
   }
 
@@ -523,15 +515,12 @@ function CustomerMenu() {
         return
       }
       
-      // 🔥 Parse dan normalise data
       const parsedPromos = data.map(promo => {
         console.log(`📋 Processing promo: ${promo.name} (${promo.type})`)
         
-        // ===== PARSE BUNDLE ITEMS =====
         if (promo.bundle_items) {
           let items = []
           
-          // Jika JSON string
           if (typeof promo.bundle_items === 'string') {
             try {
               items = JSON.parse(promo.bundle_items)
@@ -539,17 +528,12 @@ function CustomerMenu() {
               console.warn(`⚠️ Failed to parse bundle_items for ${promo.name}:`, e)
               items = []
             }
-          } 
-          // Jika sudah JSON/Array
-          else if (Array.isArray(promo.bundle_items)) {
+          } else if (Array.isArray(promo.bundle_items)) {
             items = promo.bundle_items
-          }
-          // Jika JSONB object
-          else if (typeof promo.bundle_items === 'object') {
+          } else if (typeof promo.bundle_items === 'object') {
             items = Object.values(promo.bundle_items)
           }
           
-          // 🔥 NORMALISE: Pastikan ada field 'id'
           promo.bundle_items = items.map(item => ({
             ...item,
             id: item.menu_id || item.id || item.menuItemId || null,
@@ -565,7 +549,6 @@ function CustomerMenu() {
           promo.bundle_items = []
         }
         
-        // ===== PARSE TRIGGER ITEMS =====
         if (promo.trigger_items) {
           let items = []
           
@@ -592,7 +575,6 @@ function CustomerMenu() {
           promo.trigger_items = []
         }
         
-        // ===== PARSE FREE ITEMS =====
         if (promo.free_items) {
           let items = []
           
@@ -622,7 +604,6 @@ function CustomerMenu() {
         return promo
       })
       
-      // Filter by date
       const today = new Date().toISOString().split('T')[0]
       const active = parsedPromos.filter(promo => {
         if (promo.start_date && promo.start_date > today) return false
@@ -641,7 +622,6 @@ function CustomerMenu() {
       
       setActivePromos(active)
       
-      // ===== BUILD PROMO ITEMS FOR DISPLAY =====
       const items = []
       active.forEach(promo => {
         if ((promo.type === 'set_menu' || promo.type === 'bundle') && 
@@ -691,6 +671,39 @@ function CustomerMenu() {
       setActivePromos([])
       setPromoItems([])
     }
+  }
+
+  // ============================================================
+  // 🔥 DEBUG FUNCTION - Test promo matching
+  // ============================================================
+  const debugPromoMatching = () => {
+    console.log('========== 🔍 DEBUG PROMO MATCHING ==========')
+    console.log('Active Promos:', activePromos)
+    console.log('Cart Items:', cart)
+    
+    cart.forEach(item => {
+      console.log(`\n📦 Testing: ${item.name} (ID: ${item.id})`)
+      const promo = getItemPromotion(item)
+      if (promo) {
+        console.log(`✅ PROMO FOUND:`, promo)
+        const price = getPromoPrice(item)
+        console.log(`💰 Promo Price: RM ${price}`)
+      } else {
+        console.log(`❌ No promo found`)
+      }
+    })
+    
+    const bundle = getBundlePromoForCart(cart)
+    if (bundle) {
+      console.log(`\n📦 BUNDLE DETECTED:`, bundle)
+      console.log(`💰 Bundle Price: RM ${bundle.bundlePrice}`)
+      console.log(`💰 Original Price: RM ${bundle.totalOriginalPrice}`)
+      console.log(`💰 Savings: RM ${bundle.savings}`)
+    } else {
+      console.log(`\n❌ No bundle detected in cart`)
+    }
+    
+    console.log('========== END DEBUG ==========')
   }
 
   // ============================================================
@@ -1036,38 +1049,24 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // 🔥🔥🔥 FIXED: ADD TO CART DIRECT - Dengan Promo 🔥🔥🔥
+  // 🔥 FIXED: ADD TO CART DIRECT - Dengan Promo
   // ============================================================
   function addToCartDirect(item) {
     console.log('🛒 addToCartDirect called for:', item.name)
     console.log('🔍 Item ID:', item.id, 'Name:', item.name)
     
-    // 🔥 DEBUG: Log semua promos
-    console.log('🔍 Active promos DETAIL:')
-    activePromos.forEach(p => {
-      console.log(`  - ${p.name} (${p.type})`)
-      if (p.bundle_items) {
-        p.bundle_items.forEach(i => {
-          console.log(`      ${i.name}: id=${i.id}, menu_id=${i.menu_id}`)
-        })
-      }
-    })
-    
-    // 🔥 Check promo
     const promo = getItemPromotion(item)
     console.log('🔍 Promo found:', promo)
     
     const promoPrice = getPromoPrice(item)
     console.log('🔍 Promo price:', promoPrice)
     
-    // 🔥 Calculate final price
     let finalPrice = promoPrice !== null ? promoPrice : item.price
     const isFree = finalPrice === 0
     const hasPromo = promo !== null && promoPrice !== null
     
     console.log(`💰 ${item.name}: promo=${hasPromo}, price=${finalPrice}, original=${item.price}`)
     
-    // 🔥 Check bundle
     const tempCart = [...cart, { ...item, quantity: 1, price: finalPrice }]
     const bundleInCart = getBundlePromoForCart(tempCart)
     const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => {
@@ -1079,7 +1078,6 @@ function CustomerMenu() {
       const bundleItemCount = bundleInCart.bundleItems.length
       const perItemPrice = bundleInCart.bundlePrice / bundleItemCount
       
-      // Check if item already in cart
       const existingIndex = cart.findIndex(x => x.id === item.id && !x.option_id && !x.addons)
       if (existingIndex >= 0) {
         const updatedCart = [...cart]
@@ -1117,7 +1115,6 @@ function CustomerMenu() {
       return
     }
     
-    // 🔥 Add to cart (non-bundle)
     const existing = cart.find(x => x.id === item.id && !x.option_id && !x.addons && !x.isBundleItem)
     if (existing) {
       setCart(cart.map(x => 
@@ -1153,7 +1150,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // 🔥🔥🔥 FIXED: ADD TO CART WITH OPTION - Dengan Promo 🔥🔥🔥
+  // ADD TO CART WITH OPTION - Dengan Promo
   // ============================================================
   async function addToCartWithOption(item, option) {
     const stockCheck = await checkOptionStock(option.id, 1)
@@ -1172,7 +1169,6 @@ function CustomerMenu() {
     setAddingItem(item.id)
     setTimeout(() => setAddingItem(null), 300)
     
-    // 🔥 Get promo price
     const promo = getItemPromotion(item)
     const promoPrice = getPromoPrice(item)
     const hasPromo = promo !== null && promoPrice !== null
@@ -1184,7 +1180,6 @@ function CustomerMenu() {
     
     const isFree = finalPrice === 0
     
-    // Check bundle
     const tempCart = [...cart, { 
       id: item.id, 
       name: item.name, 
@@ -1253,7 +1248,6 @@ function CustomerMenu() {
   // ADD TO CART WITH ADD-ONS - Dengan Promo
   // ============================================================
   const addToCartWithAddons = (item, option, size) => {
-    // 🔥 Get promo price
     const promo = getItemPromotion(item)
     const promoPrice = getPromoPrice(item)
     const hasPromo = promo !== null && promoPrice !== null
@@ -1424,7 +1418,6 @@ function CustomerMenu() {
     setAddingItem(selectedDrink.id)
     setTimeout(() => setAddingItem(null), 300)
     
-    // 🔥 Get promo price
     const promo = getItemPromotion(selectedDrink)
     const promoPrice = getPromoPrice(selectedDrink)
     const hasPromo = promo !== null && promoPrice !== null
@@ -2302,6 +2295,28 @@ function CustomerMenu() {
         </div>
       </div>
 
+      {/* ===== DEBUG BUTTON ===== */}
+      <button
+        onClick={debugPromoMatching}
+        style={{
+          position: 'fixed',
+          bottom: '100px',
+          right: '16px',
+          background: '#ef4444',
+          color: 'white',
+          padding: '8px 14px',
+          borderRadius: '30px',
+          border: 'none',
+          zIndex: 9999,
+          fontSize: '10px',
+          fontWeight: 'bold',
+          boxShadow: '0 4px 12px rgba(239,68,68,0.4)',
+          cursor: 'pointer'
+        }}
+      >
+        🐛 DEBUG PROMO
+      </button>
+
       {/* ===== MENU GRID ===== */}
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '0 12px 100px 12px' : '0 20px 120px 20px' }}>
         {filteredMenu.length === 0 ? (
@@ -2797,7 +2812,7 @@ function CustomerMenu() {
       )}
 
       {/* ========================================================== */}
-      {/* CART DRAWER - SAMA MACAM SEBELUM */}
+      {/* CART DRAWER */}
       {/* ========================================================== */}
       {showCart && (
         <div style={{ 

@@ -266,45 +266,23 @@ function CustomerMenu() {
   }
 
   function getItemPromotion(item) {
-    if (!item) {
-      console.log('❌ Item is null/undefined')
-      return null
-    }
+    if (!item) return null
     
-    console.log(`🔍 Checking promo for: "${item.name}" ID: "${item.id}"`)
-    console.log(`🔍 Active promos count: ${activePromos.length}`)
-    
-    if (activePromos.length === 0) {
-      console.log('⚠️ No active promos found!')
-      return null
-    }
-    
-    activePromos.forEach(p => {
-      if (p.bundle_items && p.bundle_items.length > 0) {
-        console.log(`📦 ${p.name} bundle items:`, 
-          p.bundle_items.map(i => `${i.name} (${i.id})`).join(', ')
-        )
-      }
-    })
+    if (activePromos.length === 0) return null
     
     for (const promo of activePromos) {
-      console.log(`📋 Checking promo: ${promo.name} (${promo.type})`)
-      
       if (promo.type === 'bogo') {
         const trigger = (promo.trigger_items || []).find(t => {
           const normalised = normalisePromoItem(t)
           if (!normalised) return false
-          
           if (normalised.id === item.id) return true
           if (item.id === normalised.id) return true
           if (normalised.name?.toLowerCase() === item.name?.toLowerCase()) return true
           if (item.id === `trigger_${promo.id}`) return true
-          
           return false
         })
         
         if (trigger) {
-          console.log(`✅ BOGO promo found: ${promo.name}`)
           return { 
             type: 'bogo', 
             trigger: trigger, 
@@ -315,26 +293,20 @@ function CustomerMenu() {
       }
       
       if (promo.type === 'bundle' || promo.type === 'set_menu') {
-        if (!promo.bundle_items || promo.bundle_items.length === 0) {
-          console.log(`⚠️ ${promo.name} has no bundle_items`)
-          continue
-        }
+        if (!promo.bundle_items || promo.bundle_items.length === 0) continue
         
         const found = promo.bundle_items.find(i => {
           const normalised = normalisePromoItem(i)
           if (!normalised) return false
-          
           if (normalised.id === item.id) return true
           if (item.id === normalised.id) return true
           if (normalised.name?.toLowerCase() === item.name?.toLowerCase()) return true
           if (item.id === `promo_bundle_${promo.id}`) return true
           if (item.id === `promo_set_${promo.id}`) return true
-          
           return false
         })
         
         if (found) {
-          console.log(`✅ Bundle promo found: ${promo.name}`, found)
           return { 
             type: promo.type, 
             bundleItems: promo.bundle_items, 
@@ -345,29 +317,17 @@ function CustomerMenu() {
       }
     }
     
-    console.log(`❌ No promo found for "${item.name}"`)
     return null
   }
 
   function getPromoPrice(item) {
     const promo = getItemPromotion(item)
-    if (!promo) {
-      console.log(`💰 No promo price for "${item.name}"`)
-      return null
-    }
+    if (!promo) return null
     
-    console.log(`💰 Promo type: ${promo.type}`)
-    
-    if (promo.type === 'bogo') {
-      console.log(`💰 BOGO: FREE (RM 0)`)
-      return 0
-    }
+    if (promo.type === 'bogo') return 0
     
     if (promo.type === 'bundle' || promo.type === 'set_menu') {
-      if (promo.bundlePrice > 0) {
-        console.log(`💰 Bundle price: RM ${promo.bundlePrice}`)
-        return promo.bundlePrice
-      }
+      if (promo.bundlePrice > 0) return promo.bundlePrice
       
       const bundleItem = promo.bundleItems?.find(i => {
         const normalised = normalisePromoItem(i)
@@ -375,12 +335,9 @@ function CustomerMenu() {
         return normalised.id === item.id || normalised.name === item.name
       })
       
-      const price = bundleItem?.price || item.price || 0
-      console.log(`💰 Bundle item price: RM ${price}`)
-      return price
+      return bundleItem?.price || item.price || 0
     }
     
-    console.log(`💰 No valid promo price`)
     return null
   }
 
@@ -393,9 +350,7 @@ function CustomerMenu() {
     
     const promoPrice = getPromoPrice(item)
     if (promoPrice !== null) {
-      const price = parseFloat(promoPrice) || 0
-      console.log(`💰 ${item.name}: Original RM${item.price} → Promo RM${price}`)
-      return price
+      return parseFloat(promoPrice) || 0
     }
     
     return parseFloat(item.price) || 0
@@ -411,18 +366,12 @@ function CustomerMenu() {
       p.bundle_price > 0
     )
     
-    console.log(`🔍 Checking bundle for cart with ${cartItems.length} items`)
-    console.log(`🔍 Bundle promos available: ${bundlePromos.length}`)
-    
     for (const promo of bundlePromos) {
       const bundleItemIds = promo.bundle_items.map(i => i.menu_id || i.id).filter(id => id !== null)
-      
-      console.log(`📦 Checking promo: ${promo.name}, bundle items:`, bundleItemIds)
       
       if (bundleItemIds.length === 0) continue
       
       const cartItemIds = cartItems.map(i => i.id)
-      console.log(`🛒 Cart item IDs:`, cartItemIds)
       
       const allItemsInCart = bundleItemIds.every(id => {
         if (cartItemIds.includes(id)) return true
@@ -435,8 +384,6 @@ function CustomerMenu() {
         }
         return false
       })
-      
-      console.log(`📊 All items in cart: ${allItemsInCart}`)
       
       if (allItemsInCart) {
         let totalOriginal = 0
@@ -451,25 +398,21 @@ function CustomerMenu() {
           totalOriginal += cartItem?.original_price || cartItem?.price || bundleItem.price || 0
         }
         
-        const result = {
+        return {
           promo: promo,
           bundleItems: promo.bundle_items,
           bundlePrice: promo.bundle_price,
           totalOriginalPrice: totalOriginal,
           savings: totalOriginal - promo.bundle_price
         }
-        
-        console.log(`✅ BUNDLE FOUND:`, result)
-        return result
       }
     }
     
-    console.log(`❌ No bundle found in cart`)
     return null
   }
 
   // ============================================================
-  // 🔥 LOAD PROMOTIONS
+  // 🔥 FIXED: LOAD PROMOTIONS WITH CLEAR NAMES
   // ============================================================
   async function loadPromotions() {
     try {
@@ -488,18 +431,15 @@ function CustomerMenu() {
         return
       }
       
-      console.log('📊 Raw data from Supabase:', data?.length || 0, 'promotions')
-      
       if (!data || data.length === 0) {
-        console.log('⚠️ No promotions found in database')
+        console.log('⚠️ No promotions found')
         setActivePromos([])
         setPromoItems([])
         return
       }
       
       const parsedPromos = data.map(promo => {
-        console.log(`📋 Processing promo: ${promo.name} (${promo.type})`)
-        
+        // Parse bundle_items
         if (promo.bundle_items) {
           let items = []
           
@@ -507,7 +447,6 @@ function CustomerMenu() {
             try {
               items = JSON.parse(promo.bundle_items)
             } catch (e) {
-              console.warn(`⚠️ Failed to parse bundle_items for ${promo.name}:`, e)
               items = []
             }
           } else if (Array.isArray(promo.bundle_items)) {
@@ -518,34 +457,25 @@ function CustomerMenu() {
           
           promo.bundle_items = items.map(item => ({
             ...item,
-            id: item.menu_id || item.id || item.menuItemId || null,
-            menu_id: item.menu_id || item.id || item.menuItemId || null,
+            id: item.menu_id || item.id || null,
+            menu_id: item.menu_id || item.id || null,
             name: item.name || 'Unknown Item',
             price: parseFloat(item.price) || 0
-          })).filter(item => item.id !== null && item.id !== undefined)
-          
-          console.log(`  ✅ Bundle items (${promo.bundle_items.length}):`, 
-            promo.bundle_items.map(i => `${i.name} (${i.id})`).join(', ')
-          )
+          })).filter(item => item.id !== null)
         } else {
           promo.bundle_items = []
         }
         
+        // Parse trigger_items for BOGO
         if (promo.trigger_items) {
           let items = []
-          
           if (typeof promo.trigger_items === 'string') {
-            try {
-              items = JSON.parse(promo.trigger_items)
-            } catch (e) {
-              items = []
-            }
+            try { items = JSON.parse(promo.trigger_items) } catch (e) { items = [] }
           } else if (Array.isArray(promo.trigger_items)) {
             items = promo.trigger_items
           } else if (typeof promo.trigger_items === 'object') {
             items = Object.values(promo.trigger_items)
           }
-          
           promo.trigger_items = items.map(item => ({
             ...item,
             id: item.menu_id || item.id || null,
@@ -557,21 +487,16 @@ function CustomerMenu() {
           promo.trigger_items = []
         }
         
+        // Parse free_items for BOGO
         if (promo.free_items) {
           let items = []
-          
           if (typeof promo.free_items === 'string') {
-            try {
-              items = JSON.parse(promo.free_items)
-            } catch (e) {
-              items = []
-            }
+            try { items = JSON.parse(promo.free_items) } catch (e) { items = [] }
           } else if (Array.isArray(promo.free_items)) {
             items = promo.free_items
           } else if (typeof promo.free_items === 'object') {
             items = Object.values(promo.free_items)
           }
-          
           promo.free_items = items.map(item => ({
             ...item,
             id: item.menu_id || item.id || null,
@@ -586,6 +511,7 @@ function CustomerMenu() {
         return promo
       })
       
+      // Filter active promos by date
       const today = new Date().toISOString().split('T')[0]
       const active = parsedPromos.filter(promo => {
         if (promo.start_date && promo.start_date > today) return false
@@ -593,34 +519,38 @@ function CustomerMenu() {
         return true
       })
       
-      console.log('✅ Active promos with parsed items:', active.length)
-      console.log('📋 Active promos:', active.map(p => ({
-        id: p.id,
-        name: p.name,
-        type: p.type,
-        bundle_items_count: p.bundle_items?.length || 0,
-        bundle_price: p.bundle_price
-      })))
-      
+      console.log('✅ Active promos:', active.length)
       setActivePromos(active)
       
+      // 🔥 GENERATE PROMO ITEMS WITH CLEAR NAMES
       const items = []
       active.forEach(promo => {
+        // Check if promo.name is generic
+        const genericNames = ['Promo', 'Promosi', 'Promotion', 'Bundle', 'Set Menu']
+        const isGenericName = genericNames.includes(promo.name) || 
+                              promo.name.includes('Promo') || 
+                              promo.name.includes('Promosi')
+        
         if ((promo.type === 'set_menu' || promo.type === 'bundle') && 
             promo.bundle_items && 
             promo.bundle_items.length > 0 &&
             promo.bundle_price > 0) {
           
+          // 🔥 Generate clear name from bundle items
+          const bundleName = promo.bundle_items.map(i => i.name).join(' + ')
+          const displayName = isGenericName ? bundleName : promo.name
+          
           items.push({
             id: `promo_${promo.type}_${promo.id}`,
-            name: `${promo.name}`,
+            name: displayName,  // ✅ Shows actual item names
             price: promo.bundle_price,
             original_price: promo.bundle_items.reduce((sum, i) => sum + (i.price || 0), 0),
             items: promo.bundle_items,
             type: promo.type,
             promo_id: promo.id,
             promo_name: promo.name,
-            image_url: promo.image_url || null
+            image_url: promo.image_url || null,
+            item_names: bundleName
           })
         }
         
@@ -630,9 +560,15 @@ function CustomerMenu() {
             promo.free_items && 
             promo.free_items.length > 0) {
           
+          // 🔥 Generate BOGO name
+          const triggerName = promo.trigger_items[0]?.name || 'Item'
+          const freeName = promo.free_items[0]?.name || 'Item'
+          const bogoName = `${triggerName} + FREE ${freeName}`
+          const displayName = isGenericName ? bogoName : promo.name
+          
           items.push({
             id: `promo_bogo_${promo.id}`,
-            name: `${promo.name}`,
+            name: displayName,  // ✅ Shows actual item names
             price: promo.trigger_items[0]?.price || 0,
             original_price: promo.trigger_items[0]?.price || 0,
             trigger_item: promo.trigger_items[0],
@@ -640,52 +576,20 @@ function CustomerMenu() {
             type: 'bogo',
             promo_id: promo.id,
             promo_name: promo.name,
-            image_url: promo.image_url || null
+            image_url: promo.image_url || null,
+            item_names: bogoName
           })
         }
       })
       
       setPromoItems(items)
-      console.log('🏷️ Promo items for display:', items.length)
+      console.log('🏷️ Promo items for display:', items.map(i => i.name))
       
     } catch (err) {
       console.error('❌ Error loading promotions:', err)
       setActivePromos([])
       setPromoItems([])
     }
-  }
-
-  // ============================================================
-  // 🔥 DEBUG FUNCTION
-  // ============================================================
-  const debugPromoMatching = () => {
-    console.log('========== 🔍 DEBUG PROMO MATCHING ==========')
-    console.log('Active Promos:', activePromos)
-    console.log('Cart Items:', cart)
-    
-    cart.forEach(item => {
-      console.log(`\n📦 Testing: ${item.name} (ID: ${item.id})`)
-      const promo = getItemPromotion(item)
-      if (promo) {
-        console.log(`✅ PROMO FOUND:`, promo)
-        const price = getPromoPrice(item)
-        console.log(`💰 Promo Price: RM ${price}`)
-      } else {
-        console.log(`❌ No promo found`)
-      }
-    })
-    
-    const bundle = getBundlePromoForCart(cart)
-    if (bundle) {
-      console.log(`\n📦 BUNDLE DETECTED:`, bundle)
-      console.log(`💰 Bundle Price: RM ${bundle.bundlePrice}`)
-      console.log(`💰 Original Price: RM ${bundle.totalOriginalPrice}`)
-      console.log(`💰 Savings: RM ${bundle.savings}`)
-    } else {
-      console.log(`\n❌ No bundle detected in cart`)
-    }
-    
-    console.log('========== END DEBUG ==========')
   }
 
   // ============================================================
@@ -1031,38 +935,21 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // 🔥 FIXED: ADD TO CART DIRECT
+  // ADD TO CART DIRECT
   // ============================================================
   function addToCartDirect(item) {
     console.log('🛒 addToCartDirect called for:', item.name)
-    console.log('🔍 Item ID:', item.id, 'Name:', item.name)
     
-    // Check if this item is in a bundle
     const bundleInCart = getBundlePromoForCart([...cart, item])
     const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => {
       const normalised = normalisePromoItem(i)
       return normalised?.id === item.id || normalised?.name === item.name
     })
     
-    // If item is in bundle, apply bundle logic
     if (isInBundle && bundleInCart) {
-      console.log(`📦 ${item.name} is in bundle: ${bundleInCart.promo.name}`)
-      
-      // Check if all bundle items are already in cart
-      const allItemsInCart = bundleInCart.bundleItems.every(bi => {
-        const normalised = normalisePromoItem(bi)
-        return cart.some(c => {
-          if (c.id === normalised?.id) return true
-          if (c.name?.toLowerCase() === normalised?.name?.toLowerCase()) return true
-          return false
-        })
-      })
-      
-      // Also check if the current item completes the bundle
-      const itemsAfterAdd = [...cart, item]
       const allItemsAfterAdd = bundleInCart.bundleItems.every(bi => {
         const normalised = normalisePromoItem(bi)
-        return itemsAfterAdd.some(c => {
+        return [...cart, item].some(c => {
           if (c.id === normalised?.id) return true
           if (c.name?.toLowerCase() === normalised?.name?.toLowerCase()) return true
           return false
@@ -1070,15 +957,10 @@ function CustomerMenu() {
       })
       
       if (allItemsAfterAdd) {
-        // All items in cart after adding, apply bundle price
-        console.log('✅ All bundle items in cart, applying bundle price')
-        
-        // Remove individual items and add bundle
         const bundleItemIds = bundleInCart.bundleItems.map(i => i.menu_id || i.id)
         const updatedCart = cart.filter(c => {
           if (bundleItemIds.includes(c.id)) return false
           if (c.isBundleItem) return false
-          // Also filter by name match
           const isBundleByName = bundleInCart.bundleItems.some(bi => 
             bi.name?.toLowerCase() === c.name?.toLowerCase()
           )
@@ -1086,7 +968,6 @@ function CustomerMenu() {
           return true
         })
         
-        // Add bundle item
         const bundleItem = {
           id: `bundle_${bundleInCart.promo.id}_${Date.now()}`,
           name: `📦 ${bundleInCart.promo.name}`,
@@ -1105,23 +986,15 @@ function CustomerMenu() {
         toast.success(`📦 ${bundleInCart.promo.name} - RM ${bundleInCart.bundlePrice.toFixed(2)} (Jimat RM ${bundleInCart.savings.toFixed(2)})`)
         return
       }
-      
-      // Not all items in cart yet, add normally
-      console.log('⚠️ Not all bundle items in cart yet, adding normally')
     }
     
-    // Check individual promo
     const promo = getItemPromotion(item)
     const promoPrice = getPromoPrice(item)
     const hasPromo = promo !== null && promoPrice !== null
     
-    // Calculate final price
     let finalPrice = promoPrice !== null ? promoPrice : item.price
     const isFree = finalPrice === 0
     
-    console.log(`💰 ${item.name}: promo=${hasPromo}, price=${finalPrice}, original=${item.price}`)
-    
-    // Add to cart
     const existing = cart.find(x => x.id === item.id && !x.option_id && !x.addons && !x.isBundleItem)
     if (existing) {
       setCart(cart.map(x => 
@@ -1176,7 +1049,6 @@ function CustomerMenu() {
     setAddingItem(item.id)
     setTimeout(() => setAddingItem(null), 300)
     
-    // Check individual promo
     const promo = getItemPromotion(item)
     const promoPrice = getPromoPrice(item)
     const hasPromo = promo !== null && promoPrice !== null
@@ -1188,7 +1060,6 @@ function CustomerMenu() {
     
     const isFree = finalPrice === 0
     
-    // Check bundle
     const tempCart = [...cart, { 
       id: item.id, 
       name: item.name, 
@@ -1466,7 +1337,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // PROMO ITEMS - ADD TO CART
+  // 🔥 FIXED: PROMO ITEMS - ADD TO CART WITH CLEAR NAMES
   // ============================================================
   const addPromoToCart = (promoItem) => {
     setAddingItem(promoItem.id)
@@ -1512,16 +1383,19 @@ function CustomerMenu() {
         category: item.category || 'Makanan'
       }))
       
+      // Use promoItem.name which has actual item names
       const promoLineItem = {
         id: `promo_line_${promoItem.promo_id}_${Date.now()}`,
-        name: `[PROMO] ${promoItem.name}`,
+        name: `📦 ${promoItem.name}`,
         price: promoItem.price,
         quantity: 1,
         is_free: false,
         is_promo_item: true,
         promo_name: promoItem.promo_name,
         promo_type: promoItem.type,
-        bundle_items_count: promoItem.items.length
+        bundle_items_count: promoItem.items.length,
+        // ✅ Store individual items for display in cart
+        bundle_items: promoItem.items
       }
       
       setCart([...cart, ...bundleItems, promoLineItem])
@@ -1645,7 +1519,9 @@ function CustomerMenu() {
       addon_total: item.addon_total || 0,
       category: item.category || 'Makanan',
       isBundleItem: item.isBundleItem || false,
-      bundleName: item.bundleName || null
+      bundleName: item.bundleName || null,
+      // ✅ Include bundle items for kitchen/staff
+      bundle_items: item.bundle_items || null
     }))
     
     const orderNumber = 'ORD-' + Date.now()
@@ -1731,28 +1607,18 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // 🔥 FIXED: CART HELPERS - SUBTOTAL DENGAN BUNDLE
+  // CART HELPERS - SUBTOTAL DENGAN BUNDLE
   // ============================================================
   const getSubtotal = () => {
-    console.log('🔄 Calculating subtotal...')
-    console.log('Cart items:', cart)
-    
     const bundleInCart = getBundlePromoForCart(cart)
     
     if (bundleInCart) {
-      console.log('📦 Bundle detected in subtotal:', bundleInCart)
-      
-      // 🔥 Get all bundle item IDs
       const bundleItemIds = bundleInCart.bundleItems.map(i => i.menu_id || i.id)
-      console.log('Bundle item IDs:', bundleItemIds)
       
-      // 🔥 Filter out bundle items from cart
       const nonBundleItems = cart.filter(item => {
-        // Skip if item is bundle item
         if (bundleItemIds.includes(item.id)) return false
         if (item.isBundleItem) return false
         
-        // Check by name match
         const isBundleByName = bundleInCart.bundleItems.some(bi => 
           bi.name?.toLowerCase() === item.name?.toLowerCase()
         )
@@ -1761,33 +1627,18 @@ function CustomerMenu() {
         return true
       })
       
-      console.log('Non-bundle items:', nonBundleItems)
-      
-      // 🔥 Calculate subtotal: non-bundle items + bundle price
       let subtotal = nonBundleItems.reduce((sum, item) => {
-        const itemTotal = item.price * item.quantity
-        console.log(`  ${item.name}: RM ${item.price} x ${item.quantity} = RM ${itemTotal}`)
-        return sum + itemTotal
+        return sum + (item.price * item.quantity)
       }, 0)
       
       subtotal += bundleInCart.bundlePrice
-      console.log(`💰 Bundle price: RM ${bundleInCart.bundlePrice}`)
-      console.log(`💰 Subtotal: RM ${subtotal}`)
-      
       return subtotal
     }
     
-    // No bundle - calculate normally
-    console.log('No bundle detected, calculating normal subtotal')
-    const subtotal = cart.reduce((sum, item) => {
+    return cart.reduce((sum, item) => {
       if (item.isBundleItem) return sum
-      const itemTotal = item.price * item.quantity
-      console.log(`  ${item.name}: RM ${item.price} x ${item.quantity} = RM ${itemTotal}`)
-      return sum + itemTotal
+      return sum + (item.price * item.quantity)
     }, 0)
-    
-    console.log(`💰 Subtotal: RM ${subtotal}`)
-    return subtotal
   }
   
   const getServiceCharge = () => getSubtotal() * (serviceChargePercent / 100)
@@ -2167,7 +2018,7 @@ function CustomerMenu() {
         </div>
       )}
 
-      {/* ===== PROMO BANNER ===== */}
+      {/* ===== PROMO BANNER - FIXED WITH CLEAR NAMES ===== */}
       {activePromos.length > 0 && (
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '0 12px' : '0 20px' }}>
           <div style={{ 
@@ -2187,48 +2038,53 @@ function CustomerMenu() {
               </span>
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {activePromos.slice(0, isMobile ? 2 : 3).map(promo => (
-                <div key={promo.id} style={{ 
-                  background: 'rgba(255,255,255,0.12)',
-                  borderRadius: '10px',
-                  padding: isMobile ? '6px 10px' : '8px 14px'
-                }}>
-                  <div style={{ 
-                    fontWeight: 'bold',
-                    color: 'white',
-                    fontSize: isMobile ? '11px' : '13px'
+              {activePromos.slice(0, isMobile ? 2 : 3).map(promo => {
+                // 🔥 Generate clear display name
+                let displayName = promo.name
+                const genericNames = ['Promo', 'Promosi', 'Promotion', 'Bundle', 'Set Menu']
+                if (genericNames.includes(displayName) || displayName.includes('Promo')) {
+                  if (promo.bundle_items && promo.bundle_items.length > 0) {
+                    displayName = promo.bundle_items.map(i => i.name).join(' + ')
+                  } else if (promo.trigger_items && promo.free_items) {
+                    displayName = `${promo.trigger_items[0]?.name} + FREE ${promo.free_items[0]?.name}`
+                  }
+                }
+                
+                return (
+                  <div key={promo.id} style={{ 
+                    background: 'rgba(255,255,255,0.12)',
+                    borderRadius: '10px',
+                    padding: isMobile ? '6px 10px' : '8px 14px'
                   }}>
-                    {promo.name}
+                    <div style={{ 
+                      fontWeight: 'bold',
+                      color: 'white',
+                      fontSize: isMobile ? '11px' : '13px',
+                      wordBreak: 'break-word'
+                    }}>
+                      {displayName}
+                    </div>
+                    {promo.type === 'bogo' && (
+                      <div style={{ 
+                        fontSize: isMobile ? '10px' : '11px',
+                        color: 'rgba(255,255,255,0.9)',
+                        marginTop: '2px'
+                      }}>
+                        🎁 {translate('buy')} <strong>{promo.trigger_items?.[0]?.name || 'item'}</strong> {translate('get_free')} <strong>{promo.free_items?.[0]?.name || 'item'}</strong> {translate('free')}!
+                      </div>
+                    )}
+                    {(promo.type === 'set_menu' || promo.type === 'bundle') && (
+                      <div style={{ 
+                        fontSize: isMobile ? '10px' : '11px',
+                        color: 'rgba(255,255,255,0.9)',
+                        marginTop: '2px'
+                      }}>
+                        🍽️ <strong>{promo.bundle_items?.map(i => i.name).join(' + ')}</strong> — {translate('only')} <strong>RM {promo.bundle_price}</strong>
+                      </div>
+                    )}
                   </div>
-                  {promo.type === 'bogo' && (
-                    <div style={{ 
-                      fontSize: isMobile ? '10px' : '11px',
-                      color: 'rgba(255,255,255,0.9)',
-                      marginTop: '2px'
-                    }}>
-                      🎁 {translate('buy')} <strong>{promo.trigger_items?.[0]?.name || 'item'}</strong> {translate('get_free')} <strong>{promo.free_items?.[0]?.name || 'item'}</strong> {translate('free')}!
-                    </div>
-                  )}
-                  {promo.type === 'set_menu' && (
-                    <div style={{ 
-                      fontSize: isMobile ? '10px' : '11px',
-                      color: 'rgba(255,255,255,0.9)',
-                      marginTop: '2px'
-                    }}>
-                      🍽️ <strong>{promo.bundle_items?.map(i => i.name).join(' + ')}</strong> — {translate('only')} <strong>RM {promo.bundle_price}</strong>
-                    </div>
-                  )}
-                  {promo.type === 'bundle' && (
-                    <div style={{ 
-                      fontSize: isMobile ? '10px' : '11px',
-                      color: 'rgba(255,255,255,0.9)',
-                      marginTop: '2px'
-                    }}>
-                      📦 <strong>{promo.bundle_items?.map(i => i.name).join(' + ')}</strong> — {translate('only')} <strong>RM {promo.bundle_price}</strong>
-                    </div>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
           </div>
         </div>
@@ -2341,29 +2197,7 @@ function CustomerMenu() {
         </div>
       </div>
 
-      {/* ===== DEBUG BUTTON ===== */}
-      <button
-        onClick={debugPromoMatching}
-        style={{
-          position: 'fixed',
-          bottom: '100px',
-          right: '16px',
-          background: '#ef4444',
-          color: 'white',
-          padding: '8px 14px',
-          borderRadius: '30px',
-          border: 'none',
-          zIndex: 9999,
-          fontSize: '10px',
-          fontWeight: 'bold',
-          boxShadow: '0 4px 12px rgba(239,68,68,0.4)',
-          cursor: 'pointer'
-        }}
-      >
-        🐛 DEBUG PROMO
-      </button>
-
-      {/* ===== MENU GRID ===== */}
+      {/* ===== MENU GRID - FIXED WITH CLEAR PROMO NAMES ===== */}
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '0 12px 100px 12px' : '0 20px 120px 20px' }}>
         {filteredMenu.length === 0 ? (
           <div style={{ 
@@ -2450,8 +2284,8 @@ function CustomerMenu() {
                     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                     cursor: 'pointer',
                     transform: isClicked ? 'scale(0.95)' : 'scale(1)',
-                    border: isClicked ? `2px solid ${successColor}` : (hasDiscount ? `2px solid ${promoColor}` : 'none'),
-                    boxShadow: hasDiscount ? '0 4px 20px rgba(239,68,68,0.15)' : '0 4px 12px rgba(0,0,0,0.06)'
+                    border: isClicked ? `2px solid ${successColor}` : (hasDiscount ? `2px solid ${promoColor}` : (isPromoItem ? `2px solid #8b5cf6` : 'none')),
+                    boxShadow: hasDiscount ? '0 4px 20px rgba(239,68,68,0.15)' : (isPromoItem ? '0 4px 20px rgba(139,92,246,0.15)' : '0 4px 12px rgba(0,0,0,0.06)')
                   }}
                   onClick={() => {
                     setClickedItemId(item.id)
@@ -2589,18 +2423,39 @@ function CustomerMenu() {
                     )}
                   </div>
                   
-                  {/* CONTENT */}
+                  {/* CONTENT - FIXED WITH CLEAR PROMO NAMES */}
                   <div style={{ padding: isMobile ? '14px 14px' : '18px 20px', textAlign: 'center' }}>
                     <h3 style={{ 
                       margin: '0 0 4px 0',
                       fontSize: isMobile ? '16px' : '18px',
                       fontWeight: 'bold',
-                      color: textColor
+                      color: textColor,
+                      wordBreak: 'break-word'
                     }}>
                       {item.name}
                     </h3>
                     
-                    {hasDescription && (
+                    {/* 🔥 SHOW INDIVIDUAL ITEMS FOR PROMO */}
+                    {isPromoItem && item.items && item.items.length > 0 && (
+                      <div style={{ 
+                        fontSize: isMobile ? '10px' : '11px',
+                        color: textMuted,
+                        marginBottom: '4px',
+                        background: 'rgba(139,92,246,0.08)',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: `1px solid rgba(139,92,246,0.15)`
+                      }}>
+                        {item.items.map((subItem, idx) => (
+                          <span key={subItem.id || idx}>
+                            {subItem.name}
+                            {idx < item.items.length - 1 && ' + '}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {hasDescription && !isPromoItem && (
                       <div style={{ 
                         fontSize: isMobile ? '10px' : '11px',
                         color: textMuted,
@@ -2855,7 +2710,9 @@ function CustomerMenu() {
         </button>
       )}
 
-      {/* ===== CART DRAWER ===== */}
+      {/* ========================================================== */}
+      {/* CART DRAWER - SAME AS BEFORE BUT WITH PROMO DETAILS */}
+      {/* ========================================================== */}
       {showCart && (
         <div style={{ 
           position: 'fixed',
@@ -2999,6 +2856,22 @@ function CustomerMenu() {
                               marginTop: '1px'
                             }}>
                               RM {item.basePrice.toFixed(2)}
+                            </div>
+                          )}
+                          {/* 🔥 Show bundle items if this is a promo line item */}
+                          {item.bundle_items && item.bundle_items.length > 0 && (
+                            <div style={{ 
+                              fontSize: '9px', 
+                              color: '#8b5cf6',
+                              marginTop: '2px',
+                              paddingLeft: '4px'
+                            }}>
+                              {item.bundle_items.map((bi, idx) => (
+                                <span key={bi.id || idx}>
+                                  {bi.name}
+                                  {idx < item.bundle_items.length - 1 && ' + '}
+                                </span>
+                              ))}
                             </div>
                           )}
                         </div>
@@ -3250,7 +3123,7 @@ function CustomerMenu() {
       )}
 
       {/* ========================================================== */}
-      {/* MODALS - SAMA MACAM SEBELUM */}
+      {/* MODALS - SAME AS BEFORE */}
       {/* ========================================================== */}
       
       {/* SIZE OPTIONS MODAL */}

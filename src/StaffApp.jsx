@@ -476,6 +476,9 @@ function StaffApp() {
     } catch (err) { console.error('Error loading menu:', err) }
   }
 
+  // ============================================================
+  // 🔥 FIXED: LOAD PROMOTIONS WITH PARSING
+  // ============================================================
   async function loadPromotions() {
     try {
       const now = new Date().toISOString()
@@ -485,9 +488,87 @@ function StaffApp() {
         .eq('is_active', true)
         .or(`start_date.is.null,start_date.lte.${now}`)
         .or(`end_date.is.null,end_date.gte.${now}`)
-      setPromotions(data || [])
-      console.log('✅ Promotions loaded:', data?.length || 0, 'active promotions')
-    } catch (err) { console.error('Error loading promotions:', err) }
+      
+      // 🔥 PARSE DATA
+      const parsed = (data || []).map(promo => {
+        // Parse bundle_items
+        if (promo.bundle_items) {
+          let items = []
+          if (typeof promo.bundle_items === 'string') {
+            try { items = JSON.parse(promo.bundle_items) } catch(e) { items = [] }
+          } else if (Array.isArray(promo.bundle_items)) {
+            items = promo.bundle_items
+          } else if (typeof promo.bundle_items === 'object') {
+            items = Object.values(promo.bundle_items)
+          }
+          promo.bundle_items = items.map(item => ({
+            ...item,
+            id: item.menu_id || item.id || null,
+            menu_id: item.menu_id || item.id || null,
+            name: item.name || 'Unknown Item',
+            price: parseFloat(item.price) || 0
+          })).filter(item => item.id !== null)
+        } else {
+          promo.bundle_items = []
+        }
+        
+        // Parse trigger_items
+        if (promo.trigger_items) {
+          let items = []
+          if (typeof promo.trigger_items === 'string') {
+            try { items = JSON.parse(promo.trigger_items) } catch(e) { items = [] }
+          } else if (Array.isArray(promo.trigger_items)) {
+            items = promo.trigger_items
+          } else if (typeof promo.trigger_items === 'object') {
+            items = Object.values(promo.trigger_items)
+          }
+          promo.trigger_items = items.map(item => ({
+            ...item,
+            id: item.menu_id || item.id || null,
+            menu_id: item.menu_id || item.id || null,
+            name: item.name || 'Unknown',
+            price: parseFloat(item.price) || 0
+          })).filter(item => item.id !== null)
+        } else {
+          promo.trigger_items = []
+        }
+        
+        // Parse free_items
+        if (promo.free_items) {
+          let items = []
+          if (typeof promo.free_items === 'string') {
+            try { items = JSON.parse(promo.free_items) } catch(e) { items = [] }
+          } else if (Array.isArray(promo.free_items)) {
+            items = promo.free_items
+          } else if (typeof promo.free_items === 'object') {
+            items = Object.values(promo.free_items)
+          }
+          promo.free_items = items.map(item => ({
+            ...item,
+            id: item.menu_id || item.id || null,
+            menu_id: item.menu_id || item.id || null,
+            name: item.name || 'Unknown',
+            price: parseFloat(item.price) || 0
+          })).filter(item => item.id !== null)
+        } else {
+          promo.free_items = []
+        }
+        
+        return promo
+      })
+      
+      setPromotions(parsed)
+      console.log('✅ Promotions loaded:', parsed.length, 'active promotions')
+      console.log('📋 Promotions:', parsed.map(p => ({
+        id: p.id,
+        name: p.name,
+        type: p.type,
+        bundle_items: p.bundle_items?.map(i => i.name).join(' + ') || 'none',
+        bundle_price: p.bundle_price
+      })))
+    } catch (err) { 
+      console.error('Error loading promotions:', err) 
+    }
   }
 
   async function loadDrinkOptions() {
@@ -513,16 +594,12 @@ function StaffApp() {
     } catch (err) { console.error('Error loading new orders:', err) }
   }
 
-  // ============================================================
-  // 🔥 FIX: loadUnpaidOrders - TUNJUK SEMUA UNPAID ORDERS
-  // ============================================================
   async function loadUnpaidOrders() {
     try {
       const { data } = await supabase
         .from('customer_orders')
         .select('*')
         .eq('payment_status', PAYMENT_STATUS.UNPAID)
-        // 🔥 BUANG filter status - tunjuk semua UNPAID
         .order('created_at', { ascending: false })
       setUnpaidOrders(data || [])
     } catch (err) { console.error('Error loading unpaid orders:', err) }
@@ -633,15 +710,41 @@ function StaffApp() {
     return drinkOptions.filter(opt => opt.drink_name === item.name)
   }
 
+  // ============================================================
+  // 🔥 FIXED: GET ITEM PROMOTION WITH PROPER ID MATCHING
+  // ============================================================
   function getItemPromotion(item) {
     if (!item) return null
+    
     for (const promo of promotions) {
       if (promo.type === 'bogo') {
         const trigger = promo.trigger_items?.[0]
-        if (trigger && item.id === trigger.id) return { type: 'bogo', trigger, free: promo.free_items?.[0], promo }
+        if (trigger) {
+          const triggerId = trigger.menu_id || trigger.id
+          const itemId = item.id || item.menu_id
+          if (itemId === triggerId || trigger.name === item.name) {
+            return { 
+              type: 'bogo', 
+              trigger: trigger, 
+              free: promo.free_items?.[0], 
+              promo 
+            }
+          }
+        }
       } else if (promo.type === 'bundle' || promo.type === 'set_menu') {
-        const found = (promo.bundle_items || []).find(i => i.id === item.id)
-        if (found) return { type: promo.type, bundleItems: promo.bundle_items, bundlePrice: promo.bundle_price, promo }
+        const found = (promo.bundle_items || []).find(i => {
+          const bundleId = i.menu_id || i.id
+          const itemId = item.id || item.menu_id
+          return bundleId === itemId || i.name === item.name
+        })
+        if (found) {
+          return { 
+            type: promo.type, 
+            bundleItems: promo.bundle_items, 
+            bundlePrice: promo.bundle_price, 
+            promo 
+          }
+        }
       }
     }
     return null
@@ -653,34 +756,40 @@ function StaffApp() {
     if (promo.type === 'bogo') return 0
     if (promo.type === 'bundle' || promo.type === 'set_menu') {
       if (promo.bundlePrice > 0) return promo.bundlePrice
-      const bundleItem = promo.bundleItems?.find(i => i.id === item.id)
+      const bundleItem = promo.bundleItems?.find(i => i.name === item.name || i.id === item.id)
       return bundleItem?.price || item.price
     }
     return null
   }
 
   // ============================================================
-  // ===== BUNDLE PROMO FUNCTIONS =====
+  // 🔥 FIXED: GET BUNDLE PROMO FOR CART
   // ============================================================
   function getBundlePromoForCart(cartItems) {
     if (!cartItems || cartItems.length === 0) return null
+    
     const bundlePromos = promotions.filter(p => 
       (p.type === 'bundle' || p.type === 'set_menu') && 
       p.bundle_items && 
       p.bundle_items.length > 0 &&
       p.bundle_price > 0
     )
+    
     for (const promo of bundlePromos) {
-      const bundleItemIds = promo.bundle_items.map(i => i.id)
-      const cartItemIds = cartItems.map(i => i.id)
+      const bundleItemIds = promo.bundle_items.map(i => i.menu_id || i.id).filter(id => id !== null)
+      if (bundleItemIds.length === 0) continue
+      
+      const cartItemIds = cartItems.map(i => i.id || i.menu_id)
       const allItemsInCart = bundleItemIds.every(id => cartItemIds.includes(id))
+      
       if (allItemsInCart) {
+        const totalOriginal = promo.bundle_items.reduce((sum, i) => sum + (i.price || 0), 0)
         return {
           promo: promo,
           bundleItems: promo.bundle_items,
           bundlePrice: promo.bundle_price,
-          totalOriginalPrice: promo.bundle_items.reduce((sum, i) => sum + (i.price || 0), 0),
-          savings: promo.bundle_items.reduce((sum, i) => sum + (i.price || 0), 0) - promo.bundle_price
+          totalOriginalPrice: totalOriginal,
+          savings: totalOriginal - promo.bundle_price
         }
       }
     }
@@ -785,7 +894,7 @@ function StaffApp() {
   const getSubtotal = () => {
     const bundle = getBundlePromoForCart(cart)
     if (bundle) {
-      const bundleItemIds = bundle.bundleItems.map(i => i.id)
+      const bundleItemIds = bundle.bundleItems.map(i => i.menu_id || i.id)
       const nonBundleItems = cart.filter(item => !bundleItemIds.includes(item.id))
       let subtotal = nonBundleItems.reduce((sum, item) => sum + (item.price * item.quantity), 0)
       subtotal += bundle.bundlePrice
@@ -860,7 +969,7 @@ function StaffApp() {
     let bundlePriceValue = null
     
     if (bundleCheck) {
-      const bundleItemIds = bundleCheck.bundleItems.map(i => i.id)
+      const bundleItemIds = bundleCheck.bundleItems.map(i => i.menu_id || i.id)
       const isInBundle = bundleItemIds.includes(selectedItem.id)
       if (isInBundle) {
         const bundleItemCount = bundleCheck.bundleItems.length
@@ -969,7 +1078,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== SEND ORDER - 🔥 FIX: GUNA 'pending' BUKAN 'new' =====
+  // ===== SEND ORDER =====
   // ============================================================
   const sendOrder = async () => {
     if (cart.length === 0) { toast.error(t('cart_empty_msg')); return }
@@ -996,7 +1105,7 @@ function StaffApp() {
     const bundleInCart = getBundlePromoForCart(cart)
     const hasBundle = bundleInCart !== null
     
-    // 🔥 FIX: Tukar status dari 'new' ke 'pending'
+    // 🔥 Include promo details
     const orderData = {
       order_number: orderNumber,
       items: cart.map(item => ({
@@ -1025,7 +1134,6 @@ function StaffApp() {
       customer_phone: customerPhone || null,
       table_number: orderType === 'dine_in' ? parseInt(tableNumber) || null : null,
       order_type: orderType,
-      // 🔥 FIX: Guna 'pending' bukan ORDER_STATUS.NEW
       status: 'pending',
       order_status: 'pending',
       payment_status: PAYMENT_STATUS.UNPAID,
@@ -1085,9 +1193,7 @@ function StaffApp() {
         console.log('📨 Telegram notification sent for order:', order.order_number)
       }
       
-      // ============================================================
-      // ===== PRINT RECEIPT - GUNA SETTING DARI MANAGESETTING =====
-      // ============================================================
+      // ===== PRINT RECEIPT =====
       if (data && data.length > 0 && settings.auto_print) {
         const order = data[0]
         try {
@@ -1159,7 +1265,6 @@ function StaffApp() {
           console.error('Error printing receipt:', receiptError)
         }
       }
-      // ============================================================
       
       setCart([])
       setCustomerName('')
@@ -1174,11 +1279,10 @@ function StaffApp() {
   }
 
   // ============================================================
-  // 🔥 FIX: confirmNewOrder - JANGAN UPDATE STATUS
+  // CONFIRM NEW ORDER
   // ============================================================
   const confirmNewOrder = async (order) => {
     try {
-      // 🔥 FIX: Hanya update confirmed_at, biar status kekal 'pending'
       await supabase
         .from('customer_orders')
         .update({ 
@@ -1211,14 +1315,12 @@ function StaffApp() {
     setShowPaymentModal(true)
   }
 
-  // 🔥 FIX: markAsPaid - Update status ke 'completed'
   const markAsPaid = async (order) => {
     const subtotal = parseFloat(order.subtotal || order.total || 0)
     const serviceCharge = order.order_type === 'take_away' ? 0 : subtotal * (settings.service_charge / 100)
     const tax = subtotal * (settings.tax / 100)
     const grandTotal = subtotal + serviceCharge + tax
     
-    // 🔥 FIX: Tambah status 'completed' dan 'order_status'
     await supabase
       .from('customer_orders')
       .update({ 
@@ -1229,7 +1331,6 @@ function StaffApp() {
         service_charge: serviceCharge,
         tax,
         grand_total: grandTotal,
-        // 🔥 FIX: Update status ke completed
         status: 'completed',
         order_status: 'completed'
       })
@@ -1245,7 +1346,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PRINT RECEIPT - FALLBACK
+  // PRINT RECEIPT
   // ============================================================
   const printReceiptLegacy = (order) => {
     try {
@@ -1335,7 +1436,7 @@ function StaffApp() {
             <tbody>
               ${items.map(item => `
                 <tr>
-                  <td>${item.name}${item.option ? ` (${item.option})` : ''}${item.size ? ` [${item.size}]` : ''}${item.addons ? ` ✨${item.addons}` : ''}</td>
+                  <td>${item.name}${item.option ? ` (${item.option})` : ''}${item.size ? ` [${item.size}]` : ''}${item.addons ? ` ✨${item.addons}` : ''}${item.isBundleItem ? ' 📦' : ''}${item.isFree ? ' 🎁FREE' : ''}</td>
                   <td style="text-align:center">${item.quantity || 1}</td>
                   <td>RM ${Number((item.price || 0) * (item.quantity || 1)).toFixed(2)}</td>
                 </tr>
@@ -1516,7 +1617,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // RENDER MENU ITEM CARD
+  // 🔥 RENDER MENU ITEM CARD - WITH PROMO DETAILS
   // ============================================================
   const renderMenuItemCard = (item) => {
     const hasDrinkOpts = getDrinkOptionsForItem(item).length > 0
@@ -1525,16 +1626,31 @@ function StaffApp() {
     const hasSizeOptions = item.has_options === true
     
     const bundleInCart = getBundlePromoForCart(cart)
-    const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => i.id === item.id)
+    const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => {
+      const bundleId = i.menu_id || i.id
+      const itemId = item.id || item.menu_id
+      return bundleId === itemId || i.name === item.name
+    })
+    
+    const promo = getItemPromotion(item)
+    const promoPrice = getPromoPrice(item)
+    const hasDiscount = promoPrice !== null && promoPrice !== item.price
     
     let displayPrice = item.price
     let displayOriginalPrice = null
     let isPromoItem = false
     let savings = 0
     let promoLabel = ''
+    let bundleItemsDisplay = ''
     
     if (bundleInCart && isInBundle) {
-      const allItemsInCart = bundleInCart.bundleItems.every(i => cart.some(c => c.id === i.id))
+      const allItemsInCart = bundleInCart.bundleItems.every(i => {
+        const bundleId = i.menu_id || i.id
+        return cart.some(c => {
+          const cartId = c.id || c.menu_id
+          return cartId === bundleId || c.name === i.name
+        })
+      })
       if (allItemsInCart) {
         const bundleItemCount = bundleInCart.bundleItems.length
         const perItemPrice = bundleInCart.bundlePrice / bundleItemCount
@@ -1543,25 +1659,16 @@ function StaffApp() {
         isPromoItem = true
         savings = bundleInCart.savings
         promoLabel = '📦 BUNDLE'
+        bundleItemsDisplay = bundleInCart.bundleItems.map(i => i.name).join(' + ')
       }
     }
     
-    if (!isPromoItem) {
-      const promo = getItemPromotion(item)
-      const promoPrice = getPromoPrice(item)
-      if (promoPrice !== null && promoPrice !== item.price) {
-        displayPrice = promoPrice
-        displayOriginalPrice = item.price
-        isPromoItem = true
-        savings = item.price - promoPrice
-        promoLabel = promo?.type === 'bogo' ? '🎁 BOGO' : '🔥 PROMO'
-      }
-    }
-    
-    let perItemPrice = null
-    if (bundleInCart && isInBundle) {
-      const bundleItemCount = bundleInCart.bundleItems.length
-      perItemPrice = bundleInCart.bundlePrice / bundleItemCount
+    if (!isPromoItem && hasDiscount) {
+      displayPrice = promoPrice
+      displayOriginalPrice = item.price
+      isPromoItem = true
+      savings = item.price - promoPrice
+      promoLabel = promo?.type === 'bogo' ? '🎁 BOGO' : '🔥 PROMO'
     }
     
     return (
@@ -1590,6 +1697,7 @@ function StaffApp() {
         onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
         onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
       >
+        {/* PROMO BADGE */}
         {isPromoItem && (
           <div 
             style={{
@@ -1682,6 +1790,21 @@ function StaffApp() {
           {item.name}
         </div>
         
+        {/* 🔥 SHOW BUNDLE ITEMS */}
+        {bundleInCart && isInBundle && bundleItemsDisplay && (
+          <div style={{
+            marginTop: '4px',
+            fontSize: isMobile ? '8px' : '9px',
+            color: textMuted,
+            background: 'rgba(139,92,246,0.06)',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            border: '1px solid rgba(139,92,246,0.1)'
+          }}>
+            📦 {bundleItemsDisplay}
+          </div>
+        )}
+        
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -1691,58 +1814,24 @@ function StaffApp() {
         }}>
           {isPromoItem ? (
             <>
-              {bundleInCart && isInBundle && perItemPrice !== null ? (
-                <>
-                  <span style={{ 
-                    color: promoColor, 
-                    fontWeight: 'bold', 
-                    fontSize: isMobile ? '14px' : '16px',
-                    background: 'rgba(239,68,68,0.08)',
-                    padding: '2px 8px',
-                    borderRadius: '6px'
-                  }}>
-                    RM {perItemPrice.toFixed(2)}
-                  </span>
-                  <span style={{ 
-                    color: textMuted, 
-                    fontSize: isMobile ? '9px' : '10px', 
-                    textDecoration: 'line-through' 
-                  }}>
-                    RM {item.price.toFixed(2)}
-                  </span>
-                  <span style={{
-                    background: '#8b5cf6',
-                    color: 'white',
-                    padding: '1px 8px',
-                    borderRadius: '10px',
-                    fontSize: isMobile ? '7px' : '8px',
-                    fontWeight: 'bold'
-                  }}>
-                    📦 Bundle
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span style={{ 
-                    color: promoColor, 
-                    fontWeight: 'bold', 
-                    fontSize: isMobile ? '16px' : '18px',
-                    background: 'rgba(239,68,68,0.08)',
-                    padding: '2px 8px',
-                    borderRadius: '6px'
-                  }}>
-                    RM {displayPrice.toFixed(2)}
-                  </span>
-                  {displayOriginalPrice && (
-                    <span style={{ 
-                      color: textMuted, 
-                      fontSize: isMobile ? '10px' : '11px', 
-                      textDecoration: 'line-through' 
-                    }}>
-                      RM {displayOriginalPrice.toFixed(2)}
-                    </span>
-                  )}
-                </>
+              <span style={{ 
+                color: promoColor, 
+                fontWeight: 'bold', 
+                fontSize: isMobile ? '16px' : '18px',
+                background: 'rgba(239,68,68,0.08)',
+                padding: '2px 8px',
+                borderRadius: '6px'
+              }}>
+                RM {displayPrice.toFixed(2)}
+              </span>
+              {displayOriginalPrice && (
+                <span style={{ 
+                  color: textMuted, 
+                  fontSize: isMobile ? '10px' : '11px', 
+                  textDecoration: 'line-through' 
+                }}>
+                  RM {displayOriginalPrice.toFixed(2)}
+                </span>
               )}
             </>
           ) : (
@@ -1777,20 +1866,6 @@ function StaffApp() {
             </span>
           )}
         </div>
-        
-        {bundleInCart && isInBundle && (
-          <div style={{
-            marginTop: '4px',
-            fontSize: isMobile ? '8px' : '9px',
-            color: textMuted,
-            background: 'rgba(139,92,246,0.06)',
-            padding: '2px 8px',
-            borderRadius: '4px',
-            border: '1px solid rgba(139,92,246,0.1)'
-          }}>
-            📦 {bundleInCart.bundleItems.map(i => i.name).join(' + ')}
-          </div>
-        )}
         
         {isPromoItem && !bundleInCart && (
           <div style={{
@@ -1980,7 +2055,7 @@ function StaffApp() {
               )}
               
               {cart.map((item, index) => {
-                const isBundleComplete = hasBundle && bundleInCart.bundleItems.some(i => i.id === item.id)
+                const isBundleComplete = hasBundle && bundleInCart.bundleItems.some(i => i.name === item.name || i.id === item.id)
                 const bundleItemCount = hasBundle ? bundleInCart.bundleItems.length : 0
                 const perItemPrice = hasBundle && isBundleComplete ? bundleInCart.bundlePrice / bundleItemCount : null
                 const displayPrice = isBundleComplete && perItemPrice !== null ? perItemPrice : item.price
@@ -2172,7 +2247,14 @@ function StaffApp() {
             <div style={{ margin: '8px 0', padding: '8px', background: secondaryBg, borderRadius: '12px' }}>
               {order.items?.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '2px 0' }}>
-                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''}{item.addons ? ` ✨${item.addons}` : ''}</span>
+                  <span>
+                    {item.quantity}x {item.name}
+                    {item.option ? ` (${item.option})` : ''}
+                    {item.size ? ` [${item.size}]` : ''}
+                    {item.addons ? ` ✨${item.addons}` : ''}
+                    {item.isBundleItem ? ' 📦' : ''}
+                    {item.isFree ? ' 🎁FREE' : ''}
+                  </span>
                   <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
@@ -2253,7 +2335,14 @@ function StaffApp() {
             <div style={{ margin: '8px 0', padding: '8px', background: secondaryBg, borderRadius: '12px' }}>
               {order.items?.map((item, idx) => (
                 <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '2px 0' }}>
-                  <span>{item.quantity}x {item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''}{item.addons ? ` ✨${item.addons}` : ''}</span>
+                  <span>
+                    {item.quantity}x {item.name}
+                    {item.option ? ` (${item.option})` : ''}
+                    {item.size ? ` [${item.size}]` : ''}
+                    {item.addons ? ` ✨${item.addons}` : ''}
+                    {item.isBundleItem ? ' 📦' : ''}
+                    {item.isFree ? ' 🎁FREE' : ''}
+                  </span>
                   <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
                 </div>
               ))}
@@ -2343,7 +2432,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ITEM MODAL
+  // 🔥 ITEM MODAL - WITH PROMO DETAILS
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
@@ -2356,18 +2445,25 @@ function StaffApp() {
     const addonTotal = getAddonTotal()
     const finalPrice = basePrice + addonTotal
     const hasAddons = selectedItem.has_addons === true && menuAddons.length > 0
+    
     const promo = getItemPromotion(selectedItem)
     const promoPrice = getPromoPrice(selectedItem)
     const hasDiscount = promoPrice !== null && promoPrice !== selectedItem.price
     
     const bundleInCart = getBundlePromoForCart(cart)
-    const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => i.id === selectedItem.id)
+    const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => {
+      const bundleId = i.menu_id || i.id
+      const itemId = selectedItem.id || selectedItem.menu_id
+      return bundleId === itemId || i.name === selectedItem.name
+    })
     const bundlePrice = isInBundle ? bundleInCart.bundlePrice : null
     
     let promoDetail = ''
     if (promo) {
       if (promo.type === 'bogo') {
-        promoDetail = `🎁 Beli ${promo.trigger?.name} dapat ${promo.free?.name} PERCUMA!`
+        const triggerName = promo.trigger?.name || 'Item'
+        const freeName = promo.free?.name || 'Item'
+        promoDetail = `🎁 Beli ${triggerName} dapat ${freeName} PERCUMA!`
       } else if (promo.type === 'set_menu' || promo.type === 'bundle') {
         const items = promo.bundleItems?.map(i => i.name).join(' + ') || ''
         const originalTotal = promo.bundleItems?.reduce((sum, i) => sum + i.price, 0) || 0
@@ -2417,7 +2513,8 @@ function StaffApp() {
             {selectedItem.name}
           </h2>
           
-          {promo && (
+          {/* 🔥 PROMO DETAIL */}
+          {promoDetail && (
             <div style={{
               background: 'rgba(239,68,68,0.08)',
               border: `1px solid ${promoColor}`,
@@ -2745,242 +2842,233 @@ function StaffApp() {
   }
 
   // ============================================================
-  // PAYMENT MODAL
+  // 🔥 PAYMENT MODAL - WITH PROMO DETAILS
   // ============================================================
   const renderPaymentModal = () => {
-  if (!showPaymentModal || !selectedOrder) return null
-  
-  const subtotal = parseFloat(selectedOrder.subtotal || selectedOrder.total || 0)
-  const serviceCharge = selectedOrder.order_type === 'take_away' ? 0 : subtotal * (settings.service_charge / 100)
-  const tax = subtotal * (settings.tax / 100)
-  const grandTotal = subtotal + serviceCharge + tax
-  
-  // 🔥 Check promo
-  const hasPromo = selectedOrder.has_bundle === true || selectedOrder.promo_applied === true
-  const bundlePromo = selectedOrder.bundle_promo || null
-  
-  return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
-      display: 'flex', justifyContent: 'center', alignItems: 'center',
-      zIndex: 3000, padding: '20px'
-    }}>
+    if (!showPaymentModal || !selectedOrder) return null
+    
+    const subtotal = parseFloat(selectedOrder.subtotal || selectedOrder.total || 0)
+    const serviceCharge = selectedOrder.order_type === 'take_away' ? 0 : subtotal * (settings.service_charge / 100)
+    const tax = subtotal * (settings.tax / 100)
+    const grandTotal = subtotal + serviceCharge + tax
+    
+    const hasPromo = selectedOrder.has_bundle === true || selectedOrder.promo_applied === true
+    const bundlePromo = selectedOrder.bundle_promo || null
+    
+    return (
       <div style={{
-        background: cardBg,
-        padding: isMobile ? '24px' : '32px',
-        borderRadius: '24px',
-        maxWidth: '480px',
-        width: '100%',
-        ...glassEffect,
-        maxHeight: '90vh',
-        overflowY: 'auto'
+        position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+        background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+        display: 'flex', justifyContent: 'center', alignItems: 'center',
+        zIndex: 3000, padding: '20px'
       }}>
-        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
-          <h2 style={{ color: textColor, margin: 0 }}>💰 {t('record_payment')}</h2>
-          <p style={{ color: textMuted, fontSize: '13px' }}>{selectedOrder.customer_name || t('guest')}</p>
-        </div>
-        
-        {/* ============================================================
-            🔥 TAMBAH: SENARAI ITEM
-            ============================================================ */}
-        <div style={{ 
-          background: secondaryBg, 
-          padding: '12px 14px', 
-          borderRadius: '12px', 
-          marginBottom: '12px',
-          maxHeight: '200px',
+        <div style={{
+          background: cardBg,
+          padding: isMobile ? '24px' : '32px',
+          borderRadius: '24px',
+          maxWidth: '480px',
+          width: '100%',
+          ...glassEffect,
+          maxHeight: '90vh',
           overflowY: 'auto'
         }}>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            fontSize: '11px', 
-            color: textMuted,
-            fontWeight: 'bold',
-            borderBottom: `1px solid ${borderColor}`,
-            paddingBottom: '6px',
-            marginBottom: '6px'
-          }}>
-            <span>{t('receipt_item')}</span>
-            <span style={{ textAlign: 'right' }}>{t('receipt_price')}</span>
+          <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+            <h2 style={{ color: textColor, margin: 0 }}>💰 {t('record_payment')}</h2>
+            <p style={{ color: textMuted, fontSize: '13px' }}>{selectedOrder.customer_name || t('guest')}</p>
           </div>
           
-          {(selectedOrder.items || []).map((item, idx) => {
-            const isFree = item.isFree === true
-            const isBundleItem = item.isBundleItem === true
-            const itemTotal = (item.price || 0) * (item.quantity || 1)
-            
-            return (
-              <div key={idx} style={{ 
-                display: 'flex', 
-                justifyContent: 'space-between', 
-                fontSize: '13px', 
-                color: textColor,
-                padding: '4px 0',
-                borderBottom: idx !== (selectedOrder.items || []).length - 1 ? `1px solid ${borderColor}` : 'none',
-                opacity: isFree ? 0.7 : 1
-              }}>
-                <div>
-                  <span>
-                    {item.quantity || 1}x {item.name}
-                    {item.option && <span style={{ fontSize: '10px', color: textMuted }}> ({item.option})</span>}
-                    {item.size && <span style={{ fontSize: '10px', color: '#8b5cf6' }}> [{item.size}]</span>}
-                  </span>
-                  {isFree && (
-                    <span style={{ 
-                      fontSize: '9px', 
-                      color: '#22c55e', 
-                      fontWeight: 'bold', 
-                      marginLeft: '6px' 
-                    }}>
-                      🎁 FREE
-                    </span>
-                  )}
-                  {isBundleItem && (
-                    <span style={{ 
-                      fontSize: '9px', 
-                      color: '#8b5cf6', 
-                      fontWeight: 'bold', 
-                      marginLeft: '6px',
-                      background: 'rgba(139,92,246,0.15)',
-                      padding: '1px 8px',
-                      borderRadius: '10px'
-                    }}>
-                      📦 Bundle
-                    </span>
-                  )}
-                  {item.addons && (
-                    <div style={{ fontSize: '9px', color: '#8b5cf6' }}>
-                      ✨ + {item.addons}
-                    </div>
-                  )}
-                </div>
-                <span style={{ 
-                  color: isFree ? '#22c55e' : priceColor, 
-                  fontWeight: isFree ? 'bold' : 'normal',
-                  textAlign: 'right'
-                }}>
-                  {isFree ? 'RM 0.00' : `RM ${itemTotal.toFixed(2)}`}
-                </span>
-              </div>
-            )
-          })}
-        </div>
-        
-        {/* ============================================================
-            🔥 TAMBAH: MAKLUMAT PROMO
-            ============================================================ */}
-        {bundlePromo && (
-          <div style={{
-            background: 'rgba(139,92,246,0.08)',
-            border: `1px solid #8b5cf6`,
-            borderRadius: '10px',
-            padding: '8px 12px',
-            marginBottom: '12px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center'
-          }}>
-            <span style={{ color: '#8b5cf6', fontWeight: 'bold', fontSize: '12px' }}>
-              📦 {bundlePromo.name || 'Bundle Promo'}
-            </span>
-            <span style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '12px' }}>
-              Jimat RM {bundlePromo.savings?.toFixed(2) || '0.00'}
-            </span>
-          </div>
-        )}
-        
-        {/* ============================================================
-            RINGKASAN KEWANGAN
-            ============================================================ */}
-        <div style={{ background: secondaryBg, padding: '14px', borderRadius: '16px', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-            <span>{t('subtotal')}</span>
-            <span>RM {subtotal.toFixed(2)}</span>
-          </div>
-          {selectedOrder.order_type !== 'take_away' && (
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-              <span>{t('service_charge')} ({settings.service_charge}%)</span>
-              <span>RM {serviceCharge.toFixed(2)}</span>
+          {/* 🔥 SHOW BUNDLE PROMO */}
+          {bundlePromo && (
+            <div style={{
+              background: 'rgba(139,92,246,0.08)',
+              border: `1px solid #8b5cf6`,
+              borderRadius: '10px',
+              padding: '8px 12px',
+              marginBottom: '12px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center'
+            }}>
+              <span style={{ color: '#8b5cf6', fontWeight: 'bold', fontSize: '12px' }}>
+                📦 {bundlePromo.name || 'Bundle Promo'}
+              </span>
+              <span style={{ color: '#22c55e', fontWeight: 'bold', fontSize: '12px' }}>
+                Jimat RM {bundlePromo.savings?.toFixed(2) || '0.00'}
+              </span>
             </div>
           )}
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-            <span>{t('tax')} ({settings.tax}%)</span>
-            <span>RM {tax.toFixed(2)}</span>
-          </div>
-          <div style={{ borderTop: `1px solid ${borderColor}`, marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
-            <span>{t('total')}</span>
-            <span style={{ color: priceColor }}>RM {grandTotal.toFixed(2)}</span>
-          </div>
-        </div>
-        
-        {/* ============================================================
-            KAEDAH BAYARAN
-            ============================================================ */}
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('payment_method')}</label>
-          <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
-            {['cash', 'tng', 'bank'].map(m => (
-              <button
-                key={m}
-                onClick={() => setPaymentMethod(m)}
-                style={{
-                  flex: 1,
-                  padding: '10px',
-                  background: paymentMethod === m ? 'linear-gradient(135deg, #22c55e, #16a34a)' : secondaryBg,
-                  color: paymentMethod === m ? 'white' : textColor,
-                  border: paymentMethod === m ? 'none' : `1px solid ${borderColor}`,
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '13px'
-                }}
-              >
-                {m === 'cash' ? '💵' : m === 'tng' ? '📱' : '🏦'} {m === 'cash' ? t('cash') : m === 'tng' ? t('tng') : t('bank')}
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <button
-            onClick={() => markAsPaid(selectedOrder)}
-            style={{
-              flex: 1,
-              padding: '12px',
-              background: 'linear-gradient(135deg, #22c55e, #16a34a)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '40px',
-              cursor: 'pointer',
+          
+          {/* 🔥 SHOW ITEMS WITH PROMO LABELS */}
+          <div style={{ 
+            background: secondaryBg, 
+            padding: '12px 14px', 
+            borderRadius: '12px', 
+            marginBottom: '12px',
+            maxHeight: '200px',
+            overflowY: 'auto'
+          }}>
+            <div style={{ 
+              display: 'flex', 
+              justifyContent: 'space-between', 
+              fontSize: '11px', 
+              color: textMuted,
               fontWeight: 'bold',
-              fontSize: isMobile ? '13px' : '14px'
-            }}
-          >
-            ✅ {t('save')}
-          </button>
-          <button
-            onClick={() => { setShowPaymentModal(false); setSelectedOrder(null) }}
-            style={{
-              flex: 1,
-              padding: '12px',
-              background: '#64748b',
-              color: 'white',
-              border: 'none',
-              borderRadius: '40px',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: isMobile ? '13px' : '14px'
-            }}
-          >
-            {t('cancel')}
-          </button>
+              borderBottom: `1px solid ${borderColor}`,
+              paddingBottom: '6px',
+              marginBottom: '6px'
+            }}>
+              <span>{t('receipt_item')}</span>
+              <span style={{ textAlign: 'right' }}>{t('receipt_price')}</span>
+            </div>
+            
+            {(selectedOrder.items || []).map((item, idx) => {
+              const isFree = item.isFree === true
+              const isBundleItem = item.isBundleItem === true
+              const itemTotal = (item.price || 0) * (item.quantity || 1)
+              
+              return (
+                <div key={idx} style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  fontSize: '13px', 
+                  color: textColor,
+                  padding: '4px 0',
+                  borderBottom: idx !== (selectedOrder.items || []).length - 1 ? `1px solid ${borderColor}` : 'none',
+                  opacity: isFree ? 0.7 : 1
+                }}>
+                  <div>
+                    <span>
+                      {item.quantity || 1}x {item.name}
+                      {item.option && <span style={{ fontSize: '10px', color: textMuted }}> ({item.option})</span>}
+                      {item.size && <span style={{ fontSize: '10px', color: '#8b5cf6' }}> [{item.size}]</span>}
+                    </span>
+                    {isFree && (
+                      <span style={{ 
+                        fontSize: '9px', 
+                        color: '#22c55e', 
+                        fontWeight: 'bold', 
+                        marginLeft: '6px' 
+                      }}>
+                        🎁 FREE
+                      </span>
+                    )}
+                    {isBundleItem && (
+                      <span style={{ 
+                        fontSize: '9px', 
+                        color: '#8b5cf6', 
+                        fontWeight: 'bold', 
+                        marginLeft: '6px',
+                        background: 'rgba(139,92,246,0.15)',
+                        padding: '1px 8px',
+                        borderRadius: '10px'
+                      }}>
+                        📦 Bundle
+                      </span>
+                    )}
+                    {item.addons && (
+                      <div style={{ fontSize: '9px', color: '#8b5cf6' }}>
+                        ✨ + {item.addons}
+                      </div>
+                    )}
+                  </div>
+                  <span style={{ 
+                    color: isFree ? '#22c55e' : priceColor, 
+                    fontWeight: isFree ? 'bold' : 'normal',
+                    textAlign: 'right'
+                  }}>
+                    {isFree ? 'RM 0.00' : `RM ${itemTotal.toFixed(2)}`}
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+          
+          {/* RINGKASAN KEWANGAN */}
+          <div style={{ background: secondaryBg, padding: '14px', borderRadius: '16px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+              <span>{t('subtotal')}</span>
+              <span>RM {subtotal.toFixed(2)}</span>
+            </div>
+            {selectedOrder.order_type !== 'take_away' && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                <span>{t('service_charge')} ({settings.service_charge}%)</span>
+                <span>RM {serviceCharge.toFixed(2)}</span>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+              <span>{t('tax')} ({settings.tax}%)</span>
+              <span>RM {tax.toFixed(2)}</span>
+            </div>
+            <div style={{ borderTop: `1px solid ${borderColor}`, marginTop: '8px', paddingTop: '8px', display: 'flex', justifyContent: 'space-between', fontWeight: 'bold', fontSize: '18px' }}>
+              <span>{t('total')}</span>
+              <span style={{ color: priceColor }}>RM {grandTotal.toFixed(2)}</span>
+            </div>
+          </div>
+          
+          {/* KAEDAH BAYARAN */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ color: textColor, fontWeight: 'bold', fontSize: '13px' }}>{t('payment_method')}</label>
+            <div style={{ display: 'flex', gap: '8px', marginTop: '6px' }}>
+              {['cash', 'tng', 'bank'].map(m => (
+                <button
+                  key={m}
+                  onClick={() => setPaymentMethod(m)}
+                  style={{
+                    flex: 1,
+                    padding: '10px',
+                    background: paymentMethod === m ? 'linear-gradient(135deg, #22c55e, #16a34a)' : secondaryBg,
+                    color: paymentMethod === m ? 'white' : textColor,
+                    border: paymentMethod === m ? 'none' : `1px solid ${borderColor}`,
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '13px'
+                  }}
+                >
+                  {m === 'cash' ? '💵' : m === 'tng' ? '📱' : '🏦'} {m === 'cash' ? t('cash') : m === 'tng' ? t('tng') : t('bank')}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button
+              onClick={() => markAsPaid(selectedOrder)}
+              style={{
+                flex: 1,
+                padding: '12px',
+                background: 'linear-gradient(135deg, #22c55e, #16a34a)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '40px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '13px' : '14px'
+              }}
+            >
+              ✅ {t('save')}
+            </button>
+            <button
+              onClick={() => { setShowPaymentModal(false); setSelectedOrder(null) }}
+              style={{
+                flex: 1,
+                padding: '12px',
+                background: '#64748b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '40px',
+                cursor: 'pointer',
+                fontWeight: 'bold',
+                fontSize: isMobile ? '13px' : '14px'
+              }}
+            >
+              {t('cancel')}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  )
-}
+    )
+  }
 
   // ============================================================
   // RECEIPT MODAL
@@ -3010,7 +3098,15 @@ function StaffApp() {
           
           {currentReceiptOrder.items?.map((item, idx) => (
             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: textColor, padding: '4px 0', borderBottom: idx !== currentReceiptOrder.items.length-1 ? `1px solid ${borderColor}` : 'none' }}>
-              <span>{item.name}{item.option ? ` (${item.option})` : ''}{item.size ? ` [${item.size}]` : ''}{item.addons ? ` ✨${item.addons}` : ''} x{item.quantity}</span>
+              <span>
+                {item.name}
+                {item.option ? ` (${item.option})` : ''}
+                {item.size ? ` [${item.size}]` : ''}
+                {item.addons ? ` ✨${item.addons}` : ''}
+                {item.isBundleItem ? ' 📦' : ''}
+                {item.isFree ? ' 🎁FREE' : ''}
+                x{item.quantity}
+              </span>
               <span style={{ color: priceColor }}>RM {(item.price * item.quantity).toFixed(2)}</span>
             </div>
           ))}

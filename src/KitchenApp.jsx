@@ -77,6 +77,11 @@ function KitchenApp() {
     new_order: { en: '🆕 New order!', ms: 'Pesanan baru!' },
     order_waiting: { en: 'orders waiting', ms: 'pesanan menunggu' },
     confirmed: { en: '✅ Confirmed', ms: 'Disahkan' },
+    promo: { en: '🔥 Promo', ms: 'Promosi' },
+    bundle: { en: '📦 Bundle', ms: 'Bundle' },
+    free: { en: '🎁 FREE', ms: 'PERCUMA' },
+    bogo: { en: '🎁 BOGO', ms: 'Beli 1 Percuma 1' },
+    item_details: { en: 'Item Details', ms: 'Butiran Item' },
   }
 
   const t = (key) => {
@@ -111,6 +116,8 @@ function KitchenApp() {
   const textMuted = darkMode ? '#94a3b8' : '#64748b'
   const borderColor = darkMode ? 'rgba(71, 85, 105, 0.3)' : 'rgba(203, 213, 225, 0.5)'
   const priceColor = darkMode ? '#4ade80' : '#22c55e'
+  const promoColor = '#ef4444'
+  const bundleColor = '#8b5cf6'
   const secondaryBg = darkMode ? 'rgba(30, 30, 50, 0.6)' : 'rgba(248, 250, 252, 0.8)'
   
   const glassEffect = {
@@ -385,26 +392,20 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // 🔥 MAIN EFFECT - REALTIME (SOUND ONLY FOR NEW ORDERS) + POLLING
+  // MAIN EFFECT - REALTIME + POLLING
   // ============================================================
   useEffect(() => {
     if (!kitchenEnabled) return
 
-    // LOAD INITIAL DATA
     loadOrders()
     loadCompletedOrders()
     
-    // ============================================================
-    // 🔥 REALTIME SUBSCRIPTION - SOUND UNTUK ORDER BARU SAHAJA
-    // ============================================================
     const orderSub = supabase
       .channel('kitchen_orders_realtime')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'customer_orders' },
         (payload) => {
           console.log('🆕 Kitchen: New order inserted!', payload.new)
-          
-          // 🔥 PLAY SOUND SEKALI SAHAJA UNTUK ORDER BARU
           playKitchenSound()
           
           const orderType = payload.new.order_type === 'take_away' 
@@ -418,9 +419,6 @@ function KitchenApp() {
       )
       .subscribe()
 
-    // ============================================================
-    // 🔥 POLLING SETIAP 5 SAAT - REFRESH TANPA SOUND
-    // ============================================================
     const pollInterval = setInterval(() => {
       console.log('🔄 Kitchen: Polling refresh...')
       loadOrders()
@@ -488,7 +486,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // RENDER ORDER CARD - DENGAN BUTTON UNTUK 'pending'
+  // 🔥 RENDER ORDER CARD - WITH PROMO & BUNDLE DETAILS
   // ============================================================
   const renderOrderCard = (order, showActionButtons = true) => {
     const waitingColor = getWaitingColor(order.created_at)
@@ -497,6 +495,11 @@ function KitchenApp() {
                         order.status === 'confirmed' ? '#8b5cf6' :
                         order.status === 'preparing' ? '#f59e0b' :
                         order.status === 'ready' ? '#22c55e' : '#6c757d'
+    
+    // 🔥 Check if order has bundle or promo
+    const hasBundle = order.has_bundle === true
+    const bundlePromo = order.bundle_promo || null
+    const hasPromoItems = order.items?.some(item => item.isFree === true || item.is_promo_item === true || item.promoType !== null)
     
     return (
       <div 
@@ -523,6 +526,7 @@ function KitchenApp() {
             : '0 8px 32px rgba(0,0,0,0.06)'
         }}
       >
+        {/* HEADER */}
         <div style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -573,6 +577,37 @@ function KitchenApp() {
           </div>
         </div>
         
+        {/* 🔥 BUNDLE PROMO BANNER */}
+        {bundlePromo && (
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(139,92,246,0.05))',
+            border: `1px solid ${bundleColor}`,
+            borderRadius: '12px',
+            padding: isMobile ? '8px 12px' : '10px 16px',
+            marginBottom: '10px',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '4px'
+          }}>
+            <span style={{ color: bundleColor, fontWeight: 'bold', fontSize: isMobile ? '11px' : '13px' }}>
+              📦 {bundlePromo.name || 'Bundle Promo'}
+            </span>
+            <span style={{ 
+              color: '#22c55e', 
+              fontWeight: 'bold', 
+              fontSize: isMobile ? '10px' : '12px',
+              background: 'rgba(34,197,94,0.15)',
+              padding: '2px 10px',
+              borderRadius: '20px'
+            }}>
+              Jimat RM {bundlePromo.savings?.toFixed(2) || '0.00'}
+            </span>
+          </div>
+        )}
+        
+        {/* CUSTOMER INFO */}
         <div style={{ marginBottom: isMobile ? '10px' : '12px' }}>
           <h4 style={{ 
             margin: 0, 
@@ -604,6 +639,7 @@ function KitchenApp() {
           )}
         </div>
         
+        {/* NOTES */}
         {order.notes && (
           <div style={{ 
             background: 'rgba(245, 158, 11, 0.15)', 
@@ -618,78 +654,153 @@ function KitchenApp() {
           </div>
         )}
         
+        {/* 🔥 ITEMS LIST - WITH PROMO & BUNDLE LABELS */}
         <div style={{ 
           margin: '12px 0', 
           borderTop: `1px solid ${borderColor}`, 
           paddingTop: '10px' 
         }}>
-          {order.items?.map((item, idx) => (
-            <div key={idx} style={{ 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              padding: '6px 0', 
-              color: textColor,
-              borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none',
-              alignItems: 'center',
-              flexWrap: 'wrap',
-              gap: '4px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                <span style={{ fontSize: isMobile ? '12px' : '13px' }}>
-                  {item.quantity}x {item.name}
-                </span>
-                
-                {item.addons && (
-                  <span style={{ 
-                    fontSize: isMobile ? '9px' : '10px', 
-                    color: '#8b5cf6',
-                    background: 'rgba(139,92,246,0.15)',
-                    padding: '2px 8px',
-                    borderRadius: '12px',
-                    fontWeight: 'bold',
-                    border: '1px solid rgba(139,92,246,0.2)'
-                  }}>
-                    ✨ {item.addons}
-                  </span>
-                )}
-                
-                {item.option_type && (
-                  <span style={{ 
-                    fontSize: isMobile ? '8px' : '9px', 
-                    color: textMuted,
-                    background: secondaryBg,
-                    padding: '1px 6px',
-                    borderRadius: '12px'
-                  }}>
-                    {item.option_type === 'Panas' ? '🔥' : 
-                     item.option_type === 'Sejuk' ? '🧊' : 
-                     item.option_type === 'Bungkus' ? '📦' : ''}
-                    {item.option_type}
-                  </span>
-                )}
-                {item.category && (
-                  <span style={{ 
-                    fontSize: isMobile ? '8px' : '9px', 
-                    color: isDrinkCategory(item.category) ? '#3b82f6' : '#f59e0b',
-                    background: secondaryBg,
-                    padding: '1px 6px',
-                    borderRadius: '12px'
-                  }}>
-                    {isDrinkCategory(item.category) ? '🥤' : '🍚'}
-                  </span>
-                )}
-              </div>
-              <span style={{ 
-                color: priceColor, 
-                fontWeight: 'bold', 
-                fontSize: isMobile ? '12px' : '13px' 
+          {order.items?.map((item, idx) => {
+            const isFree = item.isFree === true || item.is_free === true
+            const isBundleItem = item.isBundleItem === true || item.is_bundle_item === true
+            const isPromoItem = item.is_promo_item === true || item.promoType !== null || item.promoName !== null
+            
+            return (
+              <div key={idx} style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                padding: '6px 0', 
+                color: textColor,
+                borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '4px',
+                background: isFree ? 'rgba(34,197,94,0.05)' : 'transparent',
+                borderRadius: '4px'
               }}>
-                RM {(item.price * item.quantity).toFixed(2)}
-              </span>
-            </div>
-          ))}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                  <span style={{ 
+                    fontSize: isMobile ? '12px' : '13px',
+                    fontWeight: isFree ? 'bold' : 'normal'
+                  }}>
+                    {item.quantity}x {item.name}
+                  </span>
+                  
+                  {/* 🔥 FREE BADGE */}
+                  {isFree && (
+                    <span style={{ 
+                      fontSize: isMobile ? '9px' : '10px', 
+                      color: '#22c55e',
+                      background: 'rgba(34,197,94,0.15)',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontWeight: 'bold',
+                      border: '1px solid rgba(34,197,94,0.2)'
+                    }}>
+                      🎁 {t('free')}
+                    </span>
+                  )}
+                  
+                  {/* 🔥 BUNDLE BADGE */}
+                  {isBundleItem && (
+                    <span style={{ 
+                      fontSize: isMobile ? '9px' : '10px', 
+                      color: bundleColor,
+                      background: 'rgba(139,92,246,0.15)',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontWeight: 'bold',
+                      border: '1px solid rgba(139,92,246,0.2)'
+                    }}>
+                      📦 {t('bundle')}
+                    </span>
+                  )}
+                  
+                  {/* 🔥 PROMO BADGE */}
+                  {isPromoItem && !isFree && !isBundleItem && (
+                    <span style={{ 
+                      fontSize: isMobile ? '9px' : '10px', 
+                      color: promoColor,
+                      background: 'rgba(239,68,68,0.15)',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontWeight: 'bold',
+                      border: '1px solid rgba(239,68,68,0.2)'
+                    }}>
+                      🔥 {t('promo')}
+                    </span>
+                  )}
+                  
+                  {/* ADD-ONS */}
+                  {item.addons && (
+                    <span style={{ 
+                      fontSize: isMobile ? '9px' : '10px', 
+                      color: '#8b5cf6',
+                      background: 'rgba(139,92,246,0.15)',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontWeight: 'bold',
+                      border: '1px solid rgba(139,92,246,0.2)'
+                    }}>
+                      ✨ {item.addons}
+                    </span>
+                  )}
+                  
+                  {/* OPTION TYPE (Drink temp) */}
+                  {item.option_type && (
+                    <span style={{ 
+                      fontSize: isMobile ? '8px' : '9px', 
+                      color: textMuted,
+                      background: secondaryBg,
+                      padding: '1px 6px',
+                      borderRadius: '12px'
+                    }}>
+                      {item.option_type === 'Panas' ? '🔥' : 
+                       item.option_type === 'Sejuk' ? '🧊' : 
+                       item.option_type === 'Bungkus' ? '📦' : ''}
+                      {item.option_type}
+                    </span>
+                  )}
+                  
+                  {/* SIZE */}
+                  {item.size && (
+                    <span style={{ 
+                      fontSize: isMobile ? '8px' : '9px', 
+                      color: '#f59e0b',
+                      background: secondaryBg,
+                      padding: '1px 6px',
+                      borderRadius: '12px'
+                    }}>
+                      📏 {item.size}
+                    </span>
+                  )}
+                  
+                  {/* CATEGORY ICON */}
+                  {item.category && (
+                    <span style={{ 
+                      fontSize: isMobile ? '8px' : '9px', 
+                      color: isDrinkCategory(item.category) ? '#3b82f6' : '#f59e0b',
+                      background: secondaryBg,
+                      padding: '1px 6px',
+                      borderRadius: '12px'
+                    }}>
+                      {isDrinkCategory(item.category) ? '🥤' : '🍚'}
+                    </span>
+                  )}
+                </div>
+                <span style={{ 
+                  color: isFree ? '#22c55e' : priceColor, 
+                  fontWeight: isFree ? 'bold' : 'bold', 
+                  fontSize: isMobile ? '12px' : '13px' 
+                }}>
+                  {isFree ? 'RM 0.00' : `RM ${(item.price * item.quantity).toFixed(2)}`}
+                </span>
+              </div>
+            )
+          })}
         </div>
         
+        {/* TOTAL */}
         <div style={{ 
           textAlign: 'right', 
           marginBottom: showActionButtons ? '12px' : '0',
@@ -703,10 +814,34 @@ function KitchenApp() {
           }}>
             {t('total')}: <span style={{ color: priceColor }}>RM {order.total?.toFixed(2) || '0.00'}</span>
           </span>
+          {hasBundle && (
+            <span style={{ 
+              marginLeft: '12px',
+              fontSize: isMobile ? '10px' : '12px',
+              color: bundleColor,
+              background: 'rgba(139,92,246,0.1)',
+              padding: '2px 10px',
+              borderRadius: '20px'
+            }}>
+              📦 {t('bundle')}
+            </span>
+          )}
+          {hasPromoItems && !hasBundle && (
+            <span style={{ 
+              marginLeft: '12px',
+              fontSize: isMobile ? '10px' : '12px',
+              color: promoColor,
+              background: 'rgba(239,68,68,0.1)',
+              padding: '2px 10px',
+              borderRadius: '20px'
+            }}>
+              🔥 {t('promo')}
+            </span>
+          )}
         </div>
         
         {/* ============================================================
-            🔥 BUTTON ACTIONS - TAMBAH BUTTON UNTUK 'pending'
+            BUTTON ACTIONS
             ============================================================ */}
         {showActionButtons && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
@@ -795,7 +930,7 @@ function KitchenApp() {
               </div>
             )}
             
-            {/* 🔥 Button Batal - SEMBUNYI untuk 'pending' dan 'ready' */}
+            {/* Button Batal - SEMBUNYI untuk 'pending' dan 'ready' */}
             {order.status !== 'completed' && order.status !== 'ready' && order.status !== 'pending' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'cancelled')} 
@@ -1403,7 +1538,7 @@ function KitchenApp() {
                         color: textMuted, 
                         marginTop: '2px' 
                       }}>
-                        {order.items?.map((i, idx) => `${i.quantity}x ${i.name}`).join(', ')}
+                        {order.items?.map((i, idx) => `${i.quantity}x ${i.name}${i.isFree ? ' 🎁' : ''}`).join(', ')}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>

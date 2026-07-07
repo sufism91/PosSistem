@@ -1651,10 +1651,22 @@ function ManageMenu() {
 
   // ============================================================
   // ============================================================
-  // PROMOTIONS FUNCTIONS - FIXED
+  // PROMOTIONS FUNCTIONS - FIXED WITH AUTO-GENERATE NAME
   // ============================================================
   // ============================================================
   
+  // 🔥 NEW HELPER: Generate name from bundle items
+  const generateBundleName = (items) => {
+    if (!items || items.length === 0) return 'Promosi'
+    return items.map(item => item.name).join(' + ')
+  }
+
+  // 🔥 NEW HELPER: Generate BOGO name
+  const generateBogoName = (triggerItem, freeItem) => {
+    if (!triggerItem || !freeItem) return 'BOGO Promosi'
+    return `${triggerItem.name} + FREE ${freeItem.name}`
+  }
+
   async function loadPromotions() {
     try {
       const { data, error } = await supabase
@@ -1748,14 +1760,13 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // DELETE PROMO IMAGE - FIXED
+  // DELETE PROMO IMAGE
   // ============================================================
   async function deletePromoImage(imageUrl, promoId) {
     if (!imageUrl) return
     if (!window.confirm(translate('confirm_delete_image'))) return
     
     try {
-      // Delete from storage
       const fileName = imageUrl.split('/').pop()
       const { error: storageError } = await supabase.storage
         .from(STORAGE_BUCKET)
@@ -1768,7 +1779,6 @@ function ManageMenu() {
         return
       }
       
-      // Update promotion - remove image_url
       const { error: updateError } = await supabase
         .from('promotions')
         .update({ image_url: null })
@@ -1793,7 +1803,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // ADD PROMOTION - FIXED
+  // ADD PROMOTION - WITH AUTO-GENERATE NAME
   // ============================================================
   async function addPromotion() {
     // 1. Validate name
@@ -1835,8 +1845,11 @@ function ManageMenu() {
           return
         }
         
+        // 🔥 AUTO-GENERATE BOGO NAME
+        const autoName = generateBogoName(triggerItem, freeItem)
+        
         promoData = {
-          name: promoFormData.name.trim(),
+          name: autoName,  // ✅ "Nasi Ayam + FREE Teh Tarik"
           type: 'bogo',
           trigger_items: [{ 
             id: triggerItem.id, 
@@ -1888,8 +1901,11 @@ function ManageMenu() {
           return
         }
         
+        // 🔥 AUTO-GENERATE BUNDLE NAME
+        const autoName = generateBundleName(bundleItems)
+        
         promoData = {
-          name: promoFormData.name.trim(),
+          name: autoName,  // ✅ "Nasi Lemak + Teh Tarik + Ayam Goreng"
           type: promoFormData.type,
           bundle_items: bundleItems,
           bundle_price: parseFloat(promoFormData.bundle_price) || 0,
@@ -1900,7 +1916,7 @@ function ManageMenu() {
         }
       }
       
-      console.log('📤 Inserting promotion:', JSON.stringify(promoData, null, 2))
+      console.log('📤 Inserting promotion with auto-generated name:', promoData.name)
       
       const { data, error } = await supabase
         .from('promotions')
@@ -1924,12 +1940,12 @@ function ManageMenu() {
       }
       
       console.log('✅ Promotion inserted:', data)
-      setMessage(translate('promo_added'))
+      setMessage(`✅ ${translate('promo_added')} - "${autoName}"`)
       setShowAddPromoModal(false)
       resetPromoForm()
       loadPromotions()
       loadAvailableMenu()
-      setTimeout(() => setMessage(''), 2000)
+      setTimeout(() => setMessage(''), 3000)
       
     } catch (err) {
       console.error('❌ Exception in addPromotion:', err)
@@ -1939,7 +1955,7 @@ function ManageMenu() {
   }
 
   // ============================================================
-  // UPDATE PROMOTION - FIXED
+  // UPDATE PROMOTION - WITH AUTO-GENERATE NAME
   // ============================================================
   async function updatePromotion() {
     if (!promoFormData.name || promoFormData.name.trim() === '') {
@@ -1978,8 +1994,11 @@ function ManageMenu() {
           return
         }
         
+        // 🔥 AUTO-GENERATE BOGO NAME
+        const autoName = generateBogoName(triggerItem, freeItem)
+        
         promoData = {
-          name: promoFormData.name.trim(),
+          name: autoName,  // ✅ Auto-generate
           type: 'bogo',
           trigger_items: [{ 
             id: triggerItem.id, 
@@ -2030,8 +2049,11 @@ function ManageMenu() {
           return
         }
         
+        // 🔥 AUTO-GENERATE BUNDLE NAME
+        const autoName = generateBundleName(bundleItems)
+        
         promoData = {
-          name: promoFormData.name.trim(),
+          name: autoName,  // ✅ Auto-generate
           type: promoFormData.type,
           bundle_items: bundleItems,
           bundle_price: parseFloat(promoFormData.bundle_price) || 0,
@@ -2042,7 +2064,7 @@ function ManageMenu() {
         }
       }
       
-      console.log('📤 Updating promotion:', JSON.stringify(promoData, null, 2))
+      console.log('📤 Updating promotion with auto-generated name:', promoData.name)
       
       const { data, error } = await supabase
         .from('promotions')
@@ -2057,13 +2079,13 @@ function ManageMenu() {
       }
       
       console.log('✅ Promotion updated:', data)
-      setMessage(translate('promo_updated'))
+      setMessage(`✅ ${translate('promo_updated')} - "${promoData.name}"`)
       setShowEditPromoModal(false)
       setSelectedPromo(null)
       resetPromoForm()
       loadPromotions()
       loadAvailableMenu()
-      setTimeout(() => setMessage(''), 2000)
+      setTimeout(() => setMessage(''), 3000)
       
     } catch (err) {
       console.error('❌ Exception in updatePromotion:', err)
@@ -3388,7 +3410,7 @@ function ManageMenu() {
         )}
 
         {/* ============================================================
-            PROMOTIONS TAB - FIXED
+            PROMOTIONS TAB - WITH AUTO-GENERATED NAME DISPLAY
             ============================================================ */}
         {activeTab === 'promotions' && (
           <div>
@@ -3505,10 +3527,12 @@ function ManageMenu() {
                       <div style={{ flex: 1 }}>
                         <h3 style={{ 
                           margin: 0, 
-                          fontSize: isMobile ? '15px' : '17px', 
+                          fontSize: isMobile ? '14px' : '16px', 
                           fontWeight: 'bold', 
-                          color: textColor 
+                          color: textColor,
+                          wordBreak: 'break-word'
                         }}>
+                          {/* ✅ Display the auto-generated name */}
                           {promo.name}
                         </h3>
                         <span style={{ 
@@ -3535,25 +3559,74 @@ function ManageMenu() {
                       </div>
                     </div>
                     
+                    {/* Show detailed items in the promotion */}
                     <div style={{ 
                       fontSize: '12px', 
                       color: textMuted,
                       marginBottom: '8px',
-                      padding: '8px',
+                      padding: '8px 12px',
                       background: secondaryBg,
-                      borderRadius: '8px'
+                      borderRadius: '8px',
+                      border: `1px solid ${borderColor}`
                     }}>
                       {promo.type === 'bogo' && (
-                        <div>
-                          🛒 {promo.trigger_items?.[0]?.name} → 🎁 {promo.free_items?.[0]?.name} (FREE)
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <span style={{ fontWeight: 'bold', color: textColor }}>🛒 Beli:</span>
+                          <span>{promo.trigger_items?.[0]?.name}</span>
+                          <span style={{ color: promoColor, fontWeight: 'bold' }}>→</span>
+                          <span style={{ fontWeight: 'bold', color: textColor }}>🎁 Percuma:</span>
+                          <span style={{ color: priceColor, fontWeight: 'bold' }}>{promo.free_items?.[0]?.name}</span>
                         </div>
                       )}
                       {(promo.type === 'set_menu' || promo.type === 'bundle') && (
                         <div>
-                          📦 {promo.bundle_items?.map(i => i.name).join(' + ')} 
-                          <span style={{ color: priceColor, fontWeight: 'bold' }}>
-                            → RM {promo.bundle_price}
-                          </span>
+                          <div style={{ fontWeight: 'bold', color: textColor, marginBottom: '4px' }}>
+                            📦 Item dalam bundle:
+                          </div>
+                          <div style={{ paddingLeft: '12px' }}>
+                            {promo.bundle_items?.map((item, index) => (
+                              <span key={item.id}>
+                                <span style={{ color: textColor }}>• {item.name}</span>
+                                <span style={{ color: '#94a3b8', fontSize: '11px' }}> (RM {item.price})</span>
+                                {index < promo.bundle_items.length - 1 && <span style={{ color: textMuted }}> + </span>}
+                              </span>
+                            ))}
+                          </div>
+                          <div style={{ 
+                            marginTop: '6px', 
+                            paddingTop: '6px', 
+                            borderTop: `1px solid ${borderColor}`,
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap'
+                          }}>
+                            <span style={{ color: textMuted }}>💵 Harga Promosi:</span>
+                            <span style={{ color: priceColor, fontWeight: 'bold', fontSize: '14px' }}>
+                              RM {promo.bundle_price}
+                            </span>
+                          </div>
+                          {/* Show savings */}
+                          {promo.bundle_items && promo.bundle_items.length > 0 && (
+                            (() => {
+                              const originalTotal = promo.bundle_items.reduce((sum, item) => sum + (item.price || 0), 0)
+                              const savings = originalTotal - (promo.bundle_price || 0)
+                              if (savings > 0) {
+                                return (
+                                  <div style={{ 
+                                    marginTop: '4px',
+                                    fontSize: '11px',
+                                    color: promoColor,
+                                    fontWeight: 'bold',
+                                    textAlign: 'right'
+                                  }}>
+                                    🎉 Anda jimat RM {savings.toFixed(2)}!
+                                  </div>
+                                )
+                              }
+                              return null
+                            })()
+                          )}
                         </div>
                       )}
                     </div>
@@ -3624,21 +3697,72 @@ function ManageMenu() {
         )}
 
         {/* ============================================================
-            ADD PROMOTION MODAL - FIXED WITH PREVIEW
+            ADD PROMOTION MODAL - WITH AUTO-GENERATE NAME PREVIEW
             ============================================================ */}
         {showAddPromoModal && (
           <div style={modalOverlayStyle}>
             <div style={{...modalContentStyle, maxWidth: isMobile ? '95%' : '550px'}}>
               <h3 style={modalTitleStyle}>{translate('add_promotion')}</h3>
               
-              <label style={labelStyle}>{translate('promo_name')} *</label>
-              <input 
-                type="text" 
-                placeholder={translate('promo_name')} 
-                value={promoFormData.name} 
-                onChange={(e) => setPromoFormData({...promoFormData, name: e.target.value})} 
-                style={inputStyle} 
-              />
+              {/* 🔥 AUTO-GENERATE NAME DISPLAY */}
+              {promoFormData.type !== 'bogo' && promoFormData.selected_bundle_items.length >= 2 && (
+                <div style={{
+                  background: darkMode ? 'rgba(59,130,246,0.15)' : '#dbeafe',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  marginBottom: '16px',
+                  border: `1px solid ${darkMode ? 'rgba(59,130,246,0.2)' : '#93c5fd'}`
+                }}>
+                  <div style={{ fontSize: '12px', color: textMuted, marginBottom: '4px' }}>
+                    🏷️ Nama Promosi Akan Di-Generate:
+                  </div>
+                  <div style={{ 
+                    fontSize: '15px', 
+                    fontWeight: 'bold', 
+                    color: '#3b82f6',
+                    wordBreak: 'break-word'
+                  }}>
+                    {(() => {
+                      const selectedItems = promoFormData.selected_bundle_items
+                        .map(id => availableMenuItems.find(i => i.id === id))
+                        .filter(i => i !== null)
+                      if (selectedItems.length >= 2) {
+                        return selectedItems.map(i => i.name).join(' + ')
+                      }
+                      return 'Pilih sekurang-kurangnya 2 item'
+                    })()}
+                  </div>
+                </div>
+              )}
+
+              {promoFormData.type === 'bogo' && promoFormData.trigger_item_id && promoFormData.free_item_id && (
+                <div style={{
+                  background: darkMode ? 'rgba(59,130,246,0.15)' : '#dbeafe',
+                  borderRadius: '12px',
+                  padding: '12px 16px',
+                  marginBottom: '16px',
+                  border: `1px solid ${darkMode ? 'rgba(59,130,246,0.2)' : '#93c5fd'}`
+                }}>
+                  <div style={{ fontSize: '12px', color: textMuted, marginBottom: '4px' }}>
+                    🏷️ Nama Promosi Akan Di-Generate:
+                  </div>
+                  <div style={{ 
+                    fontSize: '15px', 
+                    fontWeight: 'bold', 
+                    color: '#3b82f6',
+                    wordBreak: 'break-word'
+                  }}>
+                    {(() => {
+                      const trigger = availableMenuItems.find(i => i.id === promoFormData.trigger_item_id)
+                      const free = availableMenuItems.find(i => i.id === promoFormData.free_item_id)
+                      if (trigger && free) {
+                        return `${trigger.name} + FREE ${free.name}`
+                      }
+                      return 'Pilih item trigger dan item percuma'
+                    })()}
+                  </div>
+                </div>
+              )}
               
               <label style={labelStyle}>{translate('promo_type')}</label>
               <select 
@@ -3759,7 +3883,7 @@ function ManageMenu() {
                     style={inputStyle} 
                   />
                   
-                  {/* ===== PREVIEW HARGA PROMOSI ===== */}
+                  {/* Preview Harga Promosi */}
                   {promoFormData.selected_bundle_items.length >= 2 && promoFormData.bundle_price > 0 && (() => {
                     const selectedItems = promoFormData.selected_bundle_items
                       .map(id => availableMenuItems.find(i => i.id === id))
@@ -3823,7 +3947,6 @@ function ManageMenu() {
               
               <label style={labelStyle}>{translate('promo_image')}</label>
               
-              {/* Show current image with delete button */}
               {promoFormData.image_url && !promoFormData.image_file && (
                 <div style={{ 
                   position: 'relative', 
@@ -3936,21 +4059,51 @@ function ManageMenu() {
         )}
 
         {/* ============================================================
-            EDIT PROMOTION MODAL - FIXED WITH PREVIEW
+            EDIT PROMOTION MODAL
             ============================================================ */}
         {showEditPromoModal && selectedPromo && (
           <div style={modalOverlayStyle}>
             <div style={{...modalContentStyle, maxWidth: isMobile ? '95%' : '550px'}}>
               <h3 style={modalTitleStyle}>{translate('edit_promotion')}</h3>
               
-              <label style={labelStyle}>{translate('promo_name')} *</label>
-              <input 
-                type="text" 
-                placeholder={translate('promo_name')} 
-                value={promoFormData.name} 
-                onChange={(e) => setPromoFormData({...promoFormData, name: e.target.value})} 
-                style={inputStyle} 
-              />
+              {/* 🔥 Show current auto-generated name */}
+              <div style={{
+                background: darkMode ? 'rgba(59,130,246,0.15)' : '#dbeafe',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                marginBottom: '16px',
+                border: `1px solid ${darkMode ? 'rgba(59,130,246,0.2)' : '#93c5fd'}`
+              }}>
+                <div style={{ fontSize: '12px', color: textMuted, marginBottom: '4px' }}>
+                  🏷️ Nama Promosi Akan Di-Generate:
+                </div>
+                <div style={{ 
+                  fontSize: '15px', 
+                  fontWeight: 'bold', 
+                  color: '#3b82f6',
+                  wordBreak: 'break-word'
+                }}>
+                  {promoFormData.type === 'bogo' 
+                    ? (() => {
+                        const trigger = availableMenuItems.find(i => i.id === promoFormData.trigger_item_id)
+                        const free = availableMenuItems.find(i => i.id === promoFormData.free_item_id)
+                        if (trigger && free) {
+                          return `${trigger.name} + FREE ${free.name}`
+                        }
+                        return 'Pilih item trigger dan item percuma'
+                      })()
+                    : (() => {
+                        const selectedItems = promoFormData.selected_bundle_items
+                          .map(id => availableMenuItems.find(i => i.id === id))
+                          .filter(i => i !== null)
+                        if (selectedItems.length >= 2) {
+                          return selectedItems.map(i => i.name).join(' + ')
+                        }
+                        return 'Pilih sekurang-kurangnya 2 item'
+                      })()
+                  }
+                </div>
+              </div>
               
               <label style={labelStyle}>{translate('promo_type')}</label>
               <select 
@@ -4065,7 +4218,7 @@ function ManageMenu() {
                     style={inputStyle} 
                   />
                   
-                  {/* ===== PREVIEW HARGA PROMOSI ===== */}
+                  {/* Preview Harga Promosi */}
                   {promoFormData.selected_bundle_items.length >= 2 && promoFormData.bundle_price > 0 && (() => {
                     const selectedItems = promoFormData.selected_bundle_items
                       .map(id => availableMenuItems.find(i => i.id === id))
@@ -4129,7 +4282,6 @@ function ManageMenu() {
               
               <label style={labelStyle}>{translate('promo_image')}</label>
               
-              {/* Show current image with delete button */}
               {promoFormData.image_url && !promoFormData.image_file && (
                 <div style={{ 
                   position: 'relative', 

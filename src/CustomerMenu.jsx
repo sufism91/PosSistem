@@ -179,6 +179,7 @@ function CustomerMenu() {
   const primaryColor = '#3b82f6'
   const priceColor = '#22c55e'
   const promoColor = '#ef4444'
+  const bundleColor = '#8b5cf6'
 
   const glassEffect = {
     background: cardBg,
@@ -356,6 +357,9 @@ function CustomerMenu() {
     return parseFloat(item.price) || 0
   }
 
+  // ============================================================
+  // 🔥 FIXED: GET BUNDLE PROMO FOR CART - GUNA MENU_ID
+  // ============================================================
   function getBundlePromoForCart(cartItems) {
     if (!cartItems || cartItems.length === 0) return null
     
@@ -366,48 +370,62 @@ function CustomerMenu() {
       p.bundle_price > 0
     )
     
+    console.log('🔍 Checking bundle for cart with', cartItems.length, 'items')
+    
     for (const promo of bundlePromos) {
+      // Get original menu IDs from bundle items
       const bundleItemIds = promo.bundle_items.map(i => i.menu_id || i.id).filter(id => id !== null)
+      console.log(`📦 Checking promo: ${promo.name}, bundle item IDs:`, bundleItemIds)
       
       if (bundleItemIds.length === 0) continue
       
-      const cartItemIds = cartItems.map(i => i.id)
-      
+      // Check cart items by matching menu_id OR original_id OR name
       const allItemsInCart = bundleItemIds.every(id => {
-        if (cartItemIds.includes(id)) return true
-        
-        const bundleItem = promo.bundle_items.find(i => (i.menu_id || i.id) === id)
-        if (bundleItem) {
-          return cartItems.some(cartItem => 
-            cartItem.name?.toLowerCase() === bundleItem.name?.toLowerCase()
-          )
-        }
-        return false
+        return cartItems.some(cartItem => {
+          // Match by menu_id (original ID)
+          if (cartItem.menu_id === id) return true
+          if (cartItem.original_id === id) return true
+          if (cartItem.id === id) return true
+          
+          // Match by name as fallback
+          const bundleItem = promo.bundle_items.find(i => (i.menu_id || i.id) === id)
+          if (bundleItem) {
+            return cartItem.name?.toLowerCase() === bundleItem.name?.toLowerCase()
+          }
+          return false
+        })
       })
+      
+      console.log(`📊 All items in cart: ${allItemsInCart}`)
       
       if (allItemsInCart) {
         let totalOriginal = 0
         for (const bundleItem of promo.bundle_items) {
           const menuId = bundleItem.menu_id || bundleItem.id
           const cartItem = cartItems.find(c => {
+            if (c.menu_id === menuId) return true
+            if (c.original_id === menuId) return true
             if (c.id === menuId) return true
-            if (c.id === bundleItem.id) return true
             if (c.name?.toLowerCase() === bundleItem.name?.toLowerCase()) return true
             return false
           })
           totalOriginal += cartItem?.original_price || cartItem?.price || bundleItem.price || 0
         }
         
-        return {
+        const result = {
           promo: promo,
           bundleItems: promo.bundle_items,
           bundlePrice: promo.bundle_price,
           totalOriginalPrice: totalOriginal,
           savings: totalOriginal - promo.bundle_price
         }
+        
+        console.log('✅ BUNDLE FOUND:', result)
+        return result
       }
     }
     
+    console.log('❌ No bundle found in cart')
     return null
   }
 
@@ -542,7 +560,7 @@ function CustomerMenu() {
           
           items.push({
             id: `promo_${promo.type}_${promo.id}`,
-            name: displayName,  // ✅ Shows actual item names
+            name: displayName,
             price: promo.bundle_price,
             original_price: promo.bundle_items.reduce((sum, i) => sum + (i.price || 0), 0),
             items: promo.bundle_items,
@@ -568,7 +586,7 @@ function CustomerMenu() {
           
           items.push({
             id: `promo_bogo_${promo.id}`,
-            name: displayName,  // ✅ Shows actual item names
+            name: displayName,
             price: promo.trigger_items[0]?.price || 0,
             original_price: promo.trigger_items[0]?.price || 0,
             trigger_item: promo.trigger_items[0],
@@ -935,12 +953,13 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ADD TO CART DIRECT
+  // 🔥 FIXED: ADD TO CART DIRECT - SIMPAN MENU_ID
   // ============================================================
   function addToCartDirect(item) {
     console.log('🛒 addToCartDirect called for:', item.name)
     
-    const bundleInCart = getBundlePromoForCart([...cart, item])
+    const tempCart = [...cart, item]
+    const bundleInCart = getBundlePromoForCart(tempCart)
     const isInBundle = bundleInCart && bundleInCart.bundleItems.some(i => {
       const normalised = normalisePromoItem(i)
       return normalised?.id === item.id || normalised?.name === item.name
@@ -949,8 +968,10 @@ function CustomerMenu() {
     if (isInBundle && bundleInCart) {
       const allItemsAfterAdd = bundleInCart.bundleItems.every(bi => {
         const normalised = normalisePromoItem(bi)
-        return [...cart, item].some(c => {
+        return tempCart.some(c => {
           if (c.id === normalised?.id) return true
+          if (c.menu_id === normalised?.id) return true
+          if (c.original_id === normalised?.id) return true
           if (c.name?.toLowerCase() === normalised?.name?.toLowerCase()) return true
           return false
         })
@@ -960,6 +981,8 @@ function CustomerMenu() {
         const bundleItemIds = bundleInCart.bundleItems.map(i => i.menu_id || i.id)
         const updatedCart = cart.filter(c => {
           if (bundleItemIds.includes(c.id)) return false
+          if (bundleItemIds.includes(c.menu_id)) return false
+          if (bundleItemIds.includes(c.original_id)) return false
           if (c.isBundleItem) return false
           const isBundleByName = bundleInCart.bundleItems.some(bi => 
             bi.name?.toLowerCase() === c.name?.toLowerCase()
@@ -970,6 +993,8 @@ function CustomerMenu() {
         
         const bundleItem = {
           id: `bundle_${bundleInCart.promo.id}_${Date.now()}`,
+          menu_id: bundleInCart.promo.id,
+          original_id: bundleInCart.promo.id,
           name: `📦 ${bundleInCart.promo.name}`,
           price: bundleInCart.bundlePrice,
           quantity: 1,
@@ -1004,7 +1029,9 @@ function CustomerMenu() {
       ))
     } else {
       setCart([...cart, { 
-        ...item, 
+        ...item,
+        menu_id: item.id,  // 🔥 SIMPAN ORIGINAL ID
+        original_id: item.id,  // 🔥 SIMPAN ORIGINAL ID
         price: finalPrice,
         quantity: 1,
         is_free: isFree,
@@ -1030,7 +1057,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ADD TO CART WITH OPTION
+  // 🔥 FIXED: ADD TO CART WITH OPTION - SIMPAN MENU_ID
   // ============================================================
   async function addToCartWithOption(item, option) {
     const stockCheck = await checkOptionStock(option.id, 1)
@@ -1061,7 +1088,9 @@ function CustomerMenu() {
     const isFree = finalPrice === 0
     
     const tempCart = [...cart, { 
-      id: item.id, 
+      id: item.id,
+      menu_id: item.id,
+      original_id: item.id,
       name: item.name, 
       price: finalPrice, 
       quantity: 1,
@@ -1092,6 +1121,8 @@ function CustomerMenu() {
     
     const cartItem = {
       id: `${item.id}_${option.id}_${Date.now()}`,
+      menu_id: item.id,  // 🔥 SIMPAN ORIGINAL ID
+      original_id: item.id,  // 🔥 SIMPAN ORIGINAL ID
       name: `${item.name} (${option.option_name})`,
       price: finalPrice,
       basePrice: basePrice,
@@ -1125,7 +1156,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // ADD TO CART WITH ADD-ONS
+  // 🔥 FIXED: ADD TO CART WITH ADD-ONS - SIMPAN MENU_ID
   // ============================================================
   const addToCartWithAddons = (item, option, size) => {
     const promo = getItemPromotion(item)
@@ -1137,7 +1168,9 @@ function CustomerMenu() {
     let isFree = finalPrice === 0
     
     const tempCart = [...cart, { 
-      id: item.id, 
+      id: item.id,
+      menu_id: item.id,
+      original_id: item.id,
       name: item.name, 
       price: finalPrice, 
       quantity: 1,
@@ -1172,6 +1205,8 @@ function CustomerMenu() {
     
     const cartItem = {
       id: `${item.id}_${option?.id || ''}_${Date.now()}`,
+      menu_id: item.id,  // 🔥 SIMPAN ORIGINAL ID
+      original_id: item.id,  // 🔥 SIMPAN ORIGINAL ID
       name: item.name,
       price: finalPrice,
       basePrice: basePrice,
@@ -1311,6 +1346,8 @@ function CustomerMenu() {
     
     setCart([...cart, { 
       id: `${selectedDrink.id}_${selectedOption}_${Date.now()}`,
+      menu_id: selectedDrink.id,  // 🔥 SIMPAN ORIGINAL ID
+      original_id: selectedDrink.id,  // 🔥 SIMPAN ORIGINAL ID
       name: `${selectedDrink.name} (${optionLabel})`,
       price: finalPrice,
       originalPrice: selectedDrink.price,
@@ -1337,7 +1374,7 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // 🔥 FIXED: PROMO ITEMS - ADD TO CART WITH CLEAR NAMES
+  // 🔥 FIXED: PROMO ITEMS - ADD TO CART WITH MENU_ID
   // ============================================================
   const addPromoToCart = (promoItem) => {
     setAddingItem(promoItem.id)
@@ -1346,6 +1383,8 @@ function CustomerMenu() {
     if (promoItem.type === 'bogo') {
       const triggerItem = { 
         id: `trigger_${promoItem.promo_id}_${Date.now()}`,
+        menu_id: promoItem.trigger_item.id,  // 🔥 SIMPAN ORIGINAL ID
+        original_id: promoItem.trigger_item.id,  // 🔥 SIMPAN ORIGINAL ID
         name: promoItem.trigger_item.name,
         price: promoItem.trigger_item.price,
         quantity: 1,
@@ -1356,6 +1395,8 @@ function CustomerMenu() {
       }
       const freeItem = { 
         id: `free_${promoItem.promo_id}_${Date.now()}`,
+        menu_id: promoItem.free_item.id,  // 🔥 SIMPAN ORIGINAL ID
+        original_id: promoItem.free_item.id,  // 🔥 SIMPAN ORIGINAL ID
         name: `${promoItem.free_item.name} (${translate('free')})`,
         price: 0,
         quantity: 1,
@@ -1372,6 +1413,8 @@ function CustomerMenu() {
     if (promoItem.type === 'set_menu' || promoItem.type === 'bundle') {
       const bundleItems = promoItem.items.map((item, idx) => ({
         id: `bundle_${promoItem.promo_id}_${idx}_${Date.now()}`,
+        menu_id: item.id,  // 🔥 SIMPAN ORIGINAL ID
+        original_id: item.id,  // 🔥 SIMPAN ORIGINAL ID
         name: item.name,
         price: 0,
         quantity: 1,
@@ -1383,7 +1426,6 @@ function CustomerMenu() {
         category: item.category || 'Makanan'
       }))
       
-      // Use promoItem.name which has actual item names
       const promoLineItem = {
         id: `promo_line_${promoItem.promo_id}_${Date.now()}`,
         name: `📦 ${promoItem.name}`,
@@ -1394,7 +1436,6 @@ function CustomerMenu() {
         promo_name: promoItem.promo_name,
         promo_type: promoItem.type,
         bundle_items_count: promoItem.items.length,
-        // ✅ Store individual items for display in cart
         bundle_items: promoItem.items
       }
       
@@ -1419,6 +1460,8 @@ function CustomerMenu() {
     } else {
       setCart([...cart, { 
         id: `special_${item.id}`,
+        menu_id: item.id,  // 🔥 SIMPAN ORIGINAL ID
+        original_id: item.id,  // 🔥 SIMPAN ORIGINAL ID
         name: item.name,
         price: item.price,
         quantity: 1,
@@ -1503,6 +1546,7 @@ function CustomerMenu() {
     
     const items = cart.map(item => ({ 
       id: item.id,
+      menu_id: item.menu_id || item.id,
       name: item.name,
       price: item.price,
       basePrice: item.basePrice || item.price,
@@ -1520,7 +1564,6 @@ function CustomerMenu() {
       category: item.category || 'Makanan',
       isBundleItem: item.isBundleItem || false,
       bundleName: item.bundleName || null,
-      // ✅ Include bundle items for kitchen/staff
       bundle_items: item.bundle_items || null
     }))
     
@@ -1607,16 +1650,24 @@ function CustomerMenu() {
   }
 
   // ============================================================
-  // CART HELPERS - SUBTOTAL DENGAN BUNDLE
+  // 🔥 FIXED: CART HELPERS - SUBTOTAL DENGAN BUNDLE
   // ============================================================
   const getSubtotal = () => {
+    console.log('🔄 Calculating subtotal...')
+    console.log('Cart items:', cart.map(i => ({ name: i.name, price: i.price, qty: i.quantity, isBundleItem: i.isBundleItem, menu_id: i.menu_id })))
+    
     const bundleInCart = getBundlePromoForCart(cart)
     
     if (bundleInCart) {
+      console.log('📦 Bundle detected in subtotal:', bundleInCart)
+      
       const bundleItemIds = bundleInCart.bundleItems.map(i => i.menu_id || i.id)
+      console.log('Bundle item IDs:', bundleItemIds)
       
       const nonBundleItems = cart.filter(item => {
         if (bundleItemIds.includes(item.id)) return false
+        if (bundleItemIds.includes(item.menu_id)) return false
+        if (bundleItemIds.includes(item.original_id)) return false
         if (item.isBundleItem) return false
         
         const isBundleByName = bundleInCart.bundleItems.some(bi => 
@@ -1627,18 +1678,31 @@ function CustomerMenu() {
         return true
       })
       
+      console.log('Non-bundle items:', nonBundleItems.map(i => i.name))
+      
       let subtotal = nonBundleItems.reduce((sum, item) => {
-        return sum + (item.price * item.quantity)
+        const itemTotal = item.price * item.quantity
+        console.log(`  ${item.name}: RM ${item.price} x ${item.quantity} = RM ${itemTotal}`)
+        return sum + itemTotal
       }, 0)
       
       subtotal += bundleInCart.bundlePrice
+      console.log(`💰 Bundle price: RM ${bundleInCart.bundlePrice}`)
+      console.log(`💰 Subtotal: RM ${subtotal}`)
+      
       return subtotal
     }
     
-    return cart.reduce((sum, item) => {
+    console.log('No bundle detected, calculating normal subtotal')
+    const subtotal = cart.reduce((sum, item) => {
       if (item.isBundleItem) return sum
-      return sum + (item.price * item.quantity)
+      const itemTotal = item.price * item.quantity
+      console.log(`  ${item.name}: RM ${item.price} x ${item.quantity} = RM ${itemTotal}`)
+      return sum + itemTotal
     }, 0)
+    
+    console.log(`💰 Subtotal: RM ${subtotal}`)
+    return subtotal
   }
   
   const getServiceCharge = () => getSubtotal() * (serviceChargePercent / 100)
@@ -2018,7 +2082,7 @@ function CustomerMenu() {
         </div>
       )}
 
-      {/* ===== PROMO BANNER - FIXED WITH CLEAR NAMES ===== */}
+      {/* ===== PROMO BANNER ===== */}
       {activePromos.length > 0 && (
         <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '0 12px' : '0 20px' }}>
           <div style={{ 
@@ -2039,7 +2103,6 @@ function CustomerMenu() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               {activePromos.slice(0, isMobile ? 2 : 3).map(promo => {
-                // 🔥 Generate clear display name
                 let displayName = promo.name
                 const genericNames = ['Promo', 'Promosi', 'Promotion', 'Bundle', 'Set Menu']
                 if (genericNames.includes(displayName) || displayName.includes('Promo')) {
@@ -2197,7 +2260,7 @@ function CustomerMenu() {
         </div>
       </div>
 
-      {/* ===== MENU GRID - FIXED WITH CLEAR PROMO NAMES ===== */}
+      {/* ===== MENU GRID ===== */}
       <div style={{ maxWidth: '1280px', margin: '0 auto', padding: isMobile ? '0 12px 100px 12px' : '0 20px 120px 20px' }}>
         {filteredMenu.length === 0 ? (
           <div style={{ 
@@ -2251,6 +2314,8 @@ function CustomerMenu() {
                   const normalised = normalisePromoItem(i)
                   return cart.some(c => {
                     if (c.id === normalised?.id) return true
+                    if (c.menu_id === normalised?.id) return true
+                    if (c.original_id === normalised?.id) return true
                     if (c.name?.toLowerCase() === normalised?.name?.toLowerCase()) return true
                     return false
                   })
@@ -2423,7 +2488,7 @@ function CustomerMenu() {
                     )}
                   </div>
                   
-                  {/* CONTENT - FIXED WITH CLEAR PROMO NAMES */}
+                  {/* CONTENT */}
                   <div style={{ padding: isMobile ? '14px 14px' : '18px 20px', textAlign: 'center' }}>
                     <h3 style={{ 
                       margin: '0 0 4px 0',
@@ -2435,7 +2500,7 @@ function CustomerMenu() {
                       {item.name}
                     </h3>
                     
-                    {/* 🔥 SHOW INDIVIDUAL ITEMS FOR PROMO */}
+                    {/* SHOW INDIVIDUAL ITEMS FOR PROMO */}
                     {isPromoItem && item.items && item.items.length > 0 && (
                       <div style={{ 
                         fontSize: isMobile ? '10px' : '11px',
@@ -2711,7 +2776,7 @@ function CustomerMenu() {
       )}
 
       {/* ========================================================== */}
-      {/* CART DRAWER - SAME AS BEFORE BUT WITH PROMO DETAILS */}
+      {/* CART DRAWER */}
       {/* ========================================================== */}
       {showCart && (
         <div style={{ 
@@ -2858,7 +2923,7 @@ function CustomerMenu() {
                               RM {item.basePrice.toFixed(2)}
                             </div>
                           )}
-                          {/* 🔥 Show bundle items if this is a promo line item */}
+                          {/* Show bundle items if this is a promo line item */}
                           {item.bundle_items && item.bundle_items.length > 0 && (
                             <div style={{ 
                               fontSize: '9px', 
@@ -3123,7 +3188,7 @@ function CustomerMenu() {
       )}
 
       {/* ========================================================== */}
-      {/* MODALS - SAME AS BEFORE */}
+      {/* MODALS */}
       {/* ========================================================== */}
       
       {/* SIZE OPTIONS MODAL */}
@@ -3504,6 +3569,8 @@ function CustomerMenu() {
                   
                   const cartItem = {
                     id: `${selectedSizeItem.id}_${selectedSize?.id || ''}_${Date.now()}`,
+                    menu_id: selectedSizeItem.id,
+                    original_id: selectedSizeItem.id,
                     name: selectedSizeItem.name,
                     price: finalPrice,
                     basePrice: basePrice,

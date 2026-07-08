@@ -22,27 +22,27 @@ function TrackOrder() {
   const [autoCompleteMinutes, setAutoCompleteMinutes] = useState(5)
 
   // ============================================================
-  // TRANSLATIONS
+  // TRANSLATIONS - LEBIH RINGKAS
   // ============================================================
   const translations = {
-    track_title: { en: '🔍 Track Your Order', ms: 'Jejak Pesanan Anda' },
+    track_title: { en: 'Track Your Order', ms: 'Jejak Pesanan Anda' },
     track_subtitle: { en: 'Enter your order number to check status', ms: 'Masukkan nombor pesanan untuk semak status' },
     enter_order: { en: 'Enter order ID or number', ms: 'Masukkan ID atau nombor pesanan' },
     searching: { en: 'Searching...', ms: 'Mencari...' },
-    track: { en: '🔍 Track', ms: 'Jejak' },
+    track: { en: 'Track', ms: 'Jejak' },
     order_not_found: { en: 'Order not found', ms: 'Pesanan tidak dijumpai' },
     check_order: { en: 'Please check your order ID or number', ms: 'Sila semak ID atau nombor pesanan anda' },
     order_found: { en: 'Order found!', ms: 'Pesanan dijumpai!' },
     enter_order_error: { en: 'Please enter an order ID or number', ms: 'Sila masukkan ID atau nombor pesanan' },
     error_loading: { en: 'Error loading order. Please try again.', ms: 'Ralat memuat pesanan. Sila cuba lagi.' },
-    order_type: { en: 'Order Type', ms: 'Jenis Pesanan' },
+    order_type: { en: 'Type', ms: 'Jenis' },
     customer: { en: 'Customer', ms: 'Pelanggan' },
-    order_items: { en: 'Order Items', ms: 'Item Pesanan' },
+    order_items: { en: 'Items', ms: 'Item' },
     total: { en: 'Total', ms: 'Jumlah' },
-    estimated_time: { en: 'Estimated Ready Time', ms: 'Anggaran Masa Siap' },
+    estimated_time: { en: 'Estimated Ready', ms: 'Anggaran Siap' },
     almost_ready: { en: 'Almost ready!', ms: 'Hampir siap!' },
-    refresh_status: { en: '🔄 Refresh Status', ms: 'Muat Semula Status' },
-    auto_refresh: { en: 'Auto-refresh status', ms: 'Muat semula automatik' },
+    refresh_status: { en: 'Refresh', ms: 'Muat Semula' },
+    auto_refresh: { en: 'Auto-refresh', ms: 'Muat semula automatik' },
     order: { en: 'Order', ms: 'Pesanan' },
     at: { en: 'at', ms: 'pada' },
     table: { en: 'Table', ms: 'Meja' },
@@ -50,10 +50,10 @@ function TrackOrder() {
     dine_in: { en: 'Dine In', ms: 'Makan di sini' },
     guest: { en: 'Guest', ms: 'Tetamu' },
     note: { en: 'Note', ms: 'Nota' },
-    minutes: { en: 'minutes', ms: 'minit' },
+    minutes: { en: 'min', ms: 'min' },
     cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
-    order_again: { en: '🍽️ Order Again →', ms: 'Pesan Lagi →' },
-    back_to_menu: { en: '📋 Back to Menu', ms: 'Kembali ke Menu' },
+    order_again: { en: 'Order Again', ms: 'Pesan Lagi' },
+    back_to_menu: { en: 'Back to Menu', ms: 'Kembali ke Menu' },
     pending: { en: 'Pending', ms: 'Menunggu' },
     preparing: { en: 'Preparing', ms: 'Sedang Disiapkan' },
     ready: { en: 'Ready', ms: 'Sedia' },
@@ -70,8 +70,10 @@ function TrackOrder() {
     step_preparing: { en: 'Preparing', ms: 'Disiapkan' },
     step_ready: { en: 'Ready', ms: 'Sedia' },
     step_completed: { en: 'Completed', ms: 'Selesai' },
-    auto_complete_info: { en: 'Order will be auto completed in ~', ms: 'Pesanan akan siap secara automatik dalam ~' },
+    auto_complete_info: { en: 'Auto complete in ~', ms: 'Siap automatik dalam ~' },
     auto_complete: { en: 'Auto Complete', ms: 'Selesai Automatik' },
+    new_order: { en: 'New Order', ms: 'Pesanan Baru' },
+    confirmed: { en: 'Confirmed', ms: 'Disahkan' },
   }
 
   const t = (key) => {
@@ -103,6 +105,7 @@ function TrackOrder() {
   const inputBorder = darkMode ? '#3d3d5c' : '#cbd5e1'
   const inputText = darkMode ? '#e8edf5' : '#1e293b'
   const secondaryBg = darkMode ? 'rgba(30, 30, 50, 0.6)' : 'rgba(248, 250, 252, 0.8)'
+  const successColor = '#22c55e'
   
   const glassEffect = {
     background: cardBg,
@@ -166,8 +169,6 @@ function TrackOrder() {
         if (kitchen) setKitchenEnabled(kitchen.value === 'true')
         if (autoComplete) setAutoCompleteEnabled(autoComplete.value === 'true')
         if (autoCompleteMin) setAutoCompleteMinutes(parseInt(autoCompleteMin.value) || 5)
-        
-        console.log('✅ Settings loaded:', { kitchenEnabled: kitchen?.value, autoCompleteEnabled: autoComplete?.value, autoCompleteMinutes: autoCompleteMin?.value })
       }
     } catch (err) {
       console.error('Error loading settings:', err)
@@ -262,7 +263,7 @@ function TrackOrder() {
   }
 
   // ============================================================
-  // GO TO MENU - Fixed path
+  // GO TO MENU
   // ============================================================
   const goToMenu = () => {
     const urlParams = new URLSearchParams(window.location.search)
@@ -272,92 +273,92 @@ function TrackOrder() {
   }
 
   // ============================================================
-  // HELPERS
+  // HELPERS - TANPA DOUBLE EMOJI
   // ============================================================
   const getStatusInfo = (status) => {
-  switch(status) {
-    case 'new':
-      return { 
-        label: '🆕 Baru Diterima', 
-        color: '#3b82f6', 
-        icon: '📋', 
-        step: 1, 
-        description: 'Pesanan baru diterima, menunggu pengesahan dapur.' 
-      }
-    case 'pending':
-      return { 
-        label: '⏳ Menunggu', 
-        color: '#eab308', 
-        icon: '⏳', 
-        step: 1, 
-        description: 'Pesanan anda sedang menunggu pengesahan.' 
-      }
-    case 'confirmed':
-      return { 
-        label: '✅ Disahkan', 
-        color: '#8b5cf6', 
-        icon: '✅', 
-        step: 2, 
-        description: 'Pesanan telah disahkan, menunggu dapur mula masak.' 
-      }
-    case 'preparing':
-      return { 
-        label: '🔪 Sedang Disiapkan', 
-        color: '#f97316', 
-        icon: '🔪', 
-        step: 2, 
-        description: 'Pesanan anda sedang disediakan di dapur.' 
-      }
-    case 'ready':
-      return { 
-        label: '✅ Sedia', 
-        color: '#22c55e', 
-        icon: '✅', 
-        step: 3, 
-        description: 'Pesanan anda sedia! Sila datang ke kaunter.' 
-      }
-    case 'completed':
-      return { 
-        label: '📦 Selesai', 
-        color: '#3b82f6', 
-        icon: '📦', 
-        step: 4, 
-        description: 'Pesanan selesai. Terima kasih!' 
-      }
-    case 'cancelled':
-      return { 
-        label: '❌ Dibatalkan', 
-        color: '#ef4444', 
-        icon: '❌', 
-        step: 0, 
-        description: 'Pesanan ini telah dibatalkan.' 
-      }
-    default:
-      return { 
-        label: '❓ Tidak Diketahui', 
-        color: '#6c757d', 
-        icon: '❓', 
-        step: 0, 
-        description: 'Status tidak diketahui.' 
-      }
+    switch(status) {
+      case 'new':
+        return { 
+          label: t('new_order'), 
+          color: '#3b82f6', 
+          icon: '🆕', 
+          step: 1, 
+          description: t('pending_desc')
+        }
+      case 'pending':
+        return { 
+          label: t('pending'), 
+          color: '#eab308', 
+          icon: '⏳', 
+          step: 1, 
+          description: t('pending_desc')
+        }
+      case 'confirmed':
+        return { 
+          label: t('confirmed'), 
+          color: '#8b5cf6', 
+          icon: '✅', 
+          step: 2, 
+          description: t('pending_desc')
+        }
+      case 'preparing':
+        return { 
+          label: t('preparing'), 
+          color: '#f97316', 
+          icon: '🔪', 
+          step: 2, 
+          description: t('preparing_desc')
+        }
+      case 'ready':
+        return { 
+          label: t('ready'), 
+          color: '#22c55e', 
+          icon: '✅', 
+          step: 3, 
+          description: t('ready_desc')
+        }
+      case 'completed':
+        return { 
+          label: t('completed'), 
+          color: '#3b82f6', 
+          icon: '📦', 
+          step: 4, 
+          description: t('completed_desc')
+        }
+      case 'cancelled':
+        return { 
+          label: t('cancelled'), 
+          color: '#ef4444', 
+          icon: '❌', 
+          step: 0, 
+          description: t('cancelled_desc')
+        }
+      default:
+        return { 
+          label: t('unknown'), 
+          color: '#6c757d', 
+          icon: '❓', 
+          step: 0, 
+          description: t('unknown_desc')
+        }
+    }
   }
-}
 
   const getEstimatedTime = (createdAt, status) => {
     if (status === 'ready' || status === 'completed') {
-      return '✅ Sedia / Selesai'
+      return t('ready')
     }
     
     if (status === 'cancelled') {
-      return '❌ Dibatalkan'
+      return t('cancelled')
     }
 
     if (status === 'confirmed') {
-    return '⏳ Menunggu dapur mula masak'
+      return t('pending')
     }
     
     if (!kitchenEnabled && autoCompleteEnabled) {
-      return `⏱️ ~${autoCompleteMinutes} minit (Auto Complete)`
+      return `~${autoCompleteMinutes} ${t('minutes')}`
     }
     
     try {
@@ -368,11 +369,11 @@ function TrackOrder() {
       const remaining = totalEstimated - elapsedMinutes
       
       if (remaining <= 0) {
-        return '🟢 Hampir siap!'
+        return t('almost_ready')
       }
-      return `⏱️ ~${remaining} minit lagi`
+      return `~${remaining} ${t('minutes')}`
     } catch (e) {
-      return '🟢 Hampir siap!'
+      return t('almost_ready')
     }
   }
 
@@ -380,7 +381,7 @@ function TrackOrder() {
     if (!order) return ''
     if (order.order_type === 'take_away') return `🥡 ${t('take_away')}`
     if (order.table_number && order.table_number > 0) return `🍽️ ${t('table')} ${order.table_number}`
-    return '🍽️ ' + t('dine_in')
+    return `🍽️ ${t('dine_in')}`
   }
 
   const formatTime = (dateString) => {
@@ -414,7 +415,7 @@ function TrackOrder() {
   }
 
   // ============================================================
-  // STEP BAR COMPONENT - RINGKAS & TIDAK MENGHALANG
+  // STEP BAR - RINGKAS
   // ============================================================
   const StepBar = ({ currentStep }) => {
     const steps = [
@@ -505,7 +506,7 @@ function TrackOrder() {
     }}>
       <div style={{ maxWidth: '600px', margin: '0 auto' }}>
         
-        {/* ===== HEADER ===== */}
+        {/* HEADER */}
         <div style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -571,7 +572,7 @@ function TrackOrder() {
           </div>
         </div>
 
-        {/* ===== TITLE ===== */}
+        {/* TITLE */}
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
           <h2 style={{ 
             color: textColor, 
@@ -589,7 +590,7 @@ function TrackOrder() {
           </p>
         </div>
 
-        {/* ===== SEARCH FORM ===== */}
+        {/* SEARCH FORM */}
         <div style={{ 
           ...glassEffect, 
           borderRadius: '24px', 
@@ -679,7 +680,7 @@ function TrackOrder() {
           )}
         </div>
 
-        {/* ===== AUTO REFRESH ===== */}
+        {/* AUTO REFRESH */}
         {order && order.status !== 'completed' && order.status !== 'cancelled' && (
           <div style={{ 
             display: 'flex', 
@@ -710,7 +711,7 @@ function TrackOrder() {
           </div>
         )}
 
-        {/* ===== ORDER DETAILS ===== */}
+        {/* ORDER DETAILS */}
         {order && searchPerformed && !error && (
           <div style={{ 
             ...glassEffect, 
@@ -770,7 +771,7 @@ function TrackOrder() {
               </div>
             )}
 
-            {/* Step Bar - RINGKAS */}
+            {/* Step Bar */}
             {order.status !== 'cancelled' && (
               <StepBar currentStep={getStatusInfo(order.status).step} />
             )}
@@ -788,12 +789,12 @@ function TrackOrder() {
                   fontSize: isMobile ? '10px' : '11px', 
                   color: textMuted 
                 }}>
-                  🕐 {t('estimated_time')}
+                  ⏱️ {t('estimated_time')}
                 </span>
                 <div style={{ 
                   fontSize: isMobile ? '13px' : '15px', 
                   fontWeight: 'bold', 
-                  color: '#22c55e', 
+                  color: successColor, 
                   marginTop: '2px' 
                 }}>
                   {getEstimatedTime(order.created_at, order.status)}
@@ -848,8 +849,16 @@ function TrackOrder() {
                     borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none', 
                     fontSize: isMobile ? '11px' : '12px' 
                   }}>
-                    <span style={{ color: textColor }}>{item.name} x{item.quantity}</span>
-                    <span style={{ color: '#22c55e', fontWeight: 'bold' }}>
+                    <span style={{ color: textColor }}>
+                      {item.name} 
+                      {item.option ? ` (${item.option})` : ''}
+                      {item.size ? ` [${item.size}]` : ''}
+                      {item.addons ? ` ✨${item.addons}` : ''}
+                      {item.isBundleItem ? ' 📦' : ''}
+                      {item.isFree ? ' 🎁FREE' : ''}
+                      x{item.quantity}
+                    </span>
+                    <span style={{ color: successColor, fontWeight: 'bold' }}>
                       RM {(item.price * item.quantity).toFixed(2)}
                     </span>
                   </div>
@@ -871,7 +880,7 @@ function TrackOrder() {
                 fontSize: isMobile ? '13px' : '14px' 
               }}>
                 <span style={{ color: textColor }}>{t('total')}:</span>
-                <span style={{ color: '#22c55e' }}>
+                <span style={{ color: successColor }}>
                   RM {(order.total || order.grand_total || 0).toFixed(2)}
                 </span>
               </div>
@@ -968,7 +977,7 @@ function TrackOrder() {
                   e.currentTarget.style.boxShadow = '0 4px 16px rgba(245,158,11,0.3)'
                 }}
               >
-                {order.status === 'completed' || order.status === 'cancelled' ? t('order_again') : t('back_to_menu')}
+                {order.status === 'completed' || order.status === 'cancelled' ? '🍽️ ' + t('order_again') : '📋 ' + t('back_to_menu')}
               </button>
             </div>
           </div>

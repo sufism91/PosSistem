@@ -18,8 +18,8 @@ function TableQRs() {
   const [isMobile, setIsMobile] = useState(false)
   
   // Custom text settings
-  const [qrTitle, setQrTitle] = useState('🍽️ Restoran Kita')
-  const [qrInstruction, setQrInstruction] = useState('📱 Imbas QR untuk menu digital')
+  const [qrTitle, setQrTitle] = useState('Restoran Kita')
+  const [qrInstruction, setQrInstruction] = useState('Imbas QR untuk menu digital')
   const [showUrl, setShowUrl] = useState(false)
   const [footerText, setFooterText] = useState('Scan untuk order')
   const [restaurantName, setRestaurantName] = useState('Restoran Kita')
@@ -27,49 +27,36 @@ function TableQRs() {
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
 
   // ============================================================
-  // COMPLETE TRANSLATIONS
+  // TRANSLATIONS
   // ============================================================
   const translations = {
-    // Header
-    qr_title: { en: '📱 Print Table QR Codes', ms: ' Cetak QR Meja' },
+    qr_title: { en: '📱 Print Table QR Codes', ms: '📱 Cetak QR Meja' },
     qr_subtitle: { en: 'Select tables and print QR codes for digital menu', ms: 'Pilih meja dan cetak QR code untuk menu digital' },
-    
-    // Buttons
-    print_qr: { en: '🖨️ Print QR', ms: ' Cetak QR' },
-    select_all: { en: '✓ Select All', ms: ' Pilih Semua' },
-    deselect_all: { en: '✖ Deselect All', ms: ' Nyahpilih Semua' },
-    
-    // Settings
-    edit_text: { en: '✏️ Edit Text on QR', ms: 'Edit Teks pada QR' },
+    print_qr: { en: '🖨️ Print QR', ms: '🖨️ Cetak QR' },
+    select_all: { en: '✓ Select All', ms: '✓ Pilih Semua' },
+    deselect_all: { en: '✖ Deselect All', ms: '✖ Nyahpilih Semua' },
+    edit_text: { en: '✏️ Edit Text on QR', ms: '✏️ Edit Teks pada QR' },
     restaurant_title: { en: 'Restaurant Title', ms: 'Tajuk Restoran' },
     instruction_text: { en: 'Instruction Text', ms: 'Teks Arahan' },
     footer_text: { en: 'Footer Text', ms: 'Teks Footer' },
     show_url: { en: 'Show URL:', ms: 'Tunjukkan URL:' },
     yes_show_link: { en: 'Yes, show link', ms: 'Ya, tunjukkan link' },
-    
-    // Print settings
-    print_settings: { en: '⚙️ Print Settings', ms: ' Tetapan Cetakan' },
+    print_settings: { en: '⚙️ Print Settings', ms: '⚙️ Tetapan Cetakan' },
     qr_size: { en: 'QR Size:', ms: 'Saiz QR:' },
     small: { en: 'Small (150px)', ms: 'Kecil (150px)' },
     medium: { en: 'Medium (200px)', ms: 'Sederhana (200px)' },
     large: { en: 'Large (280px)', ms: 'Besar (280px)' },
     layout: { en: 'Layout:', ms: 'Layout:' },
-    layout_desc: { en: '1 page = 2 tables (4 QR per page)', ms: '1 page = 2 meja (4 QR setiap page)' },
-    
-    // Table selection
-    select_tables: { en: '🪑 Select Tables to Print', ms: ' Pilih Meja untuk Dicetak' },
+    layout_desc: { en: '1 page = 2 tables (2 QR per page)', ms: '1 muka surat = 2 meja (2 QR setiap muka surat)' },
+    select_tables: { en: '🪑 Select Tables to Print', ms: '🪑 Pilih Meja untuk Dicetak' },
     table: { en: 'Table', ms: 'Meja' },
-    
-    // Preview
-    print_preview: { en: '📄 Print Preview', ms: ' Pratonton Cetakan' },
+    print_preview: { en: '📄 Print Preview', ms: '📄 Pratonton Cetakan' },
     page: { en: 'Page', ms: 'Muka Surat' },
     of: { en: 'of', ms: '/' },
     loading_qr: { en: 'Loading...', ms: 'Memuatkan...' },
     select_tables_preview: { en: 'Select tables to preview QR codes', ms: 'Pilih meja untuk pratonton QR code' },
-    
-    // Messages
     no_tables: { en: 'No tables available. Please add tables first.', ms: 'Tiada meja. Sila tambah meja terlebih dahulu.' },
-    print_count: { en: 'tables →', ms: 'meja ' },
+    print_count: { en: 'tables →', ms: 'meja →' },
     pages: { en: 'pages', ms: 'muka surat' },
     scan_to_order: { en: 'Scan to order', ms: 'Scan untuk pesan' },
   }
@@ -147,7 +134,7 @@ function TableQRs() {
       const { data } = await supabase.from('settings').select('value').eq('key', 'restaurant_name').single()
       if (data && data.value) {
         setRestaurantName(data.value)
-        setQrTitle(`🍽️ ${data.value}`)
+        setQrTitle(data.value)
         setFooterText(`${data.value} • ${t('scan_to_order')}`)
       }
     } catch (err) {
@@ -156,7 +143,7 @@ function TableQRs() {
   }
 
   // ============================================================
-  // QR CODE GENERATION
+  // QR CODE GENERATION - 1 QR PER TABLE
   // ============================================================
   useEffect(() => {
     const generateQRCodes = async () => {
@@ -165,11 +152,14 @@ function TableQRs() {
         if (selectedTables.includes(table.id)) {
           const url = `${baseUrl}/menu?table=${table.table_number}`
           try {
+            const size = printSize === 'large' ? 280 : printSize === 'medium' ? 200 : 150
+            
             const qrDataUrl = await QRCode.toDataURL(url, {
-              width: printSize === 'large' ? 280 : printSize === 'medium' ? 200 : 150,
+              width: size,
               margin: 2,
               color: { dark: '#1a1a2e', light: '#ffffff' }
             })
+            
             newQrDataUrls[table.table_number] = qrDataUrl
           } catch (err) {
             console.error('QR generation error:', err)
@@ -229,10 +219,16 @@ function TableQRs() {
   }
 
   // ============================================================
-  // PRINT FUNCTION
+  // PRINT FUNCTION - 1 KERTAS = 2 MEJA (1 QR SETIAP MEJA)
   // ============================================================
   const handlePrint = () => {
     const selectedTablesList = getSelectedTableNumbers()
+    if (selectedTablesList.length === 0) {
+      setMessage('⚠️ Sila pilih meja untuk dicetak')
+      setTimeout(() => setMessage(''), 3000)
+      return
+    }
+    
     const printWindow = window.open('', '_blank')
     const sizeValue = printSize === 'large' ? 280 : printSize === 'medium' ? 200 : 150
     
@@ -245,17 +241,80 @@ function TableQRs() {
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { font-family: 'Segoe UI', Arial, sans-serif; padding: 20px; background: white; }
-          .page { page-break-after: always; margin-bottom: 20px; }
+          .page { page-break-after: always; margin-bottom: 30px; }
           .page:last-child { page-break-after: auto; }
-          .qr-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 30px; margin-bottom: 40px; }
-          .qr-item { text-align: center; border: 2px solid #e2e8f0; border-radius: 20px; padding: 25px 20px; background: white; page-break-inside: avoid; break-inside: avoid; }
-          .qr-item h2 { font-size: 20px; margin-bottom: 15px; color: #1e293b; }
-          .qr-item h3 { font-size: 22px; margin-bottom: 10px; color: #2563eb; }
-          .qr-code { margin: 15px 0; display: flex; justify-content: center; }
-          .qr-code img { width: ${sizeValue}px; height: ${sizeValue}px; max-width: ${sizeValue}px; max-height: ${sizeValue}px; }
-          .qr-instruction { margin-top: 15px; font-size: 13px; color: #64748b; }
-          .qr-url { margin-top: 8px; font-size: 10px; color: #94a3b8; word-break: break-all; }
-          .footer-text { margin-top: 15px; font-size: 11px; color: #94a3b8; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 12px; }
+          .qr-grid { 
+            display: grid; 
+            grid-template-columns: repeat(2, 1fr); 
+            gap: 24px; 
+            margin-bottom: 20px;
+            height: calc(100vh - 120px);
+            align-content: center;
+          }
+          .qr-item { 
+            text-align: center; 
+            border: 2px solid #e2e8f0; 
+            border-radius: 20px; 
+            padding: 30px 20px; 
+            background: white; 
+            page-break-inside: avoid; 
+            break-inside: avoid;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 350px;
+          }
+          .qr-item .qr-title { 
+            font-size: 20px; 
+            font-weight: bold; 
+            color: #1e293b; 
+            margin-bottom: 6px; 
+          }
+          .qr-item .qr-table { 
+            font-size: 28px; 
+            font-weight: bold; 
+            color: #2563eb; 
+            margin-bottom: 16px; 
+          }
+          .qr-item .qr-code { 
+            margin: 12px 0; 
+            display: flex; 
+            justify-content: center; 
+          }
+          .qr-item .qr-code img { 
+            width: ${sizeValue}px; 
+            height: ${sizeValue}px; 
+            max-width: ${sizeValue}px; 
+            max-height: ${sizeValue}px; 
+            display: block;
+          }
+          .qr-item .qr-instruction { 
+            margin-top: 12px; 
+            font-size: 14px; 
+            color: #64748b; 
+          }
+          .qr-item .qr-url { 
+            margin-top: 4px; 
+            font-size: 10px; 
+            color: #94a3b8; 
+            word-break: break-all; 
+          }
+          .qr-item .footer-text { 
+            margin-top: 14px; 
+            font-size: 12px; 
+            color: #94a3b8; 
+            text-align: center; 
+            border-top: 1px solid #e2e8f0; 
+            padding-top: 12px; 
+            width: 100%;
+          }
+          .page-number {
+            text-align: center;
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 8px;
+          }
           @media print {
             body { padding: 0; margin: 0; }
             .qr-item { break-inside: avoid; page-break-inside: avoid; border: 1px solid #e2e8f0; }
@@ -265,22 +324,28 @@ function TableQRs() {
       <body>
     `
 
+    // 1 PAGE = 2 MEJA
     const tablesPerPage = 2
+    const totalPages = Math.ceil(selectedTablesList.length / tablesPerPage)
+    
     for (let i = 0; i < selectedTablesList.length; i += tablesPerPage) {
       const pageTables = selectedTablesList.slice(i, i + tablesPerPage)
-      htmlContent += `<div class="page"><div class="qr-grid">`
+      const pageNumber = Math.floor(i / tablesPerPage) + 1
+      
+      htmlContent += `<div class="page">`
+      htmlContent += `<div class="qr-grid">`
       
       for (const table of pageTables) {
         const qrDataUrl = qrDataUrls[table.table_number]
-        const qrImgTag = qrDataUrl 
+        const qrImg = qrDataUrl 
           ? `<img src="${qrDataUrl}" alt="QR Code Meja ${table.table_number}" />` 
-          : `<div style="width:${sizeValue}px;height:${sizeValue}px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto">QR Error</div>`
+          : `<div style="width:${sizeValue}px;height:${sizeValue}px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto;border-radius:12px;color:#94a3b8;font-size:14px;">QR Error</div>`
         
         htmlContent += `
           <div class="qr-item">
-            <h2>${qrTitle.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</h2>
-            <h3>${t('table')} ${table.table_number}</h3>
-            <div class="qr-code">${qrImgTag}</div>
+            <div class="qr-title">${qrTitle.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+            <div class="qr-table">${t('table')} ${table.table_number}</div>
+            <div class="qr-code">${qrImg}</div>
             <div class="qr-instruction">${qrInstruction.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
             ${showUrl ? `<div class="qr-url">${baseUrl}/menu?table=${table.table_number}</div>` : ''}
             <div class="footer-text">${footerText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
@@ -288,11 +353,16 @@ function TableQRs() {
         `
       }
       
+      // Jika page ada 1 meja sahaja, tambah placeholder kosong
       if (pageTables.length === 1) {
-        htmlContent += `<div style="visibility:hidden"></div>`
+        htmlContent += `
+          <div style="visibility:hidden"></div>
+        `
       }
       
-      htmlContent += `</div></div>`
+      htmlContent += `</div>` // close qr-grid
+      htmlContent += `<div class="page-number">${t('page')} ${pageNumber} ${t('of')} ${totalPages}</div>`
+      htmlContent += `</div>` // close page
     }
 
     htmlContent += `
@@ -411,10 +481,10 @@ function TableQRs() {
         {/* ===== MESSAGE ===== */}
         {message && (
           <div style={{ 
-            background: message.includes('✅') 
+            background: message.includes('✅') || message.includes('✔') 
               ? (darkMode ? 'rgba(34,197,94,0.15)' : '#dcfce7')
               : (darkMode ? 'rgba(239,68,68,0.15)' : '#fee2e2'),
-            color: message.includes('✅') 
+            color: message.includes('✅') || message.includes('✔')
               ? (darkMode ? '#4ade80' : '#166534')
               : (darkMode ? '#f87171' : '#991b1b'),
             padding: '10px 16px', 
@@ -423,7 +493,7 @@ function TableQRs() {
             textAlign: 'center',
             fontSize: isMobile ? '12px' : '14px',
             fontWeight: '500',
-            border: `1px solid ${message.includes('✅') ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`
+            border: `1px solid ${message.includes('✅') || message.includes('✔') ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)'}`
           }}>
             {message}
           </div>
@@ -718,7 +788,18 @@ function TableQRs() {
                 fontWeight: 'bold',
                 fontSize: isMobile ? '12px' : '14px',
                 transition: 'all 0.2s',
-                opacity: selectedTablesList.length === 0 ? 0.6 : 1
+                opacity: selectedTablesList.length === 0 ? 0.6 : 1,
+                boxShadow: selectedTablesList.length === 0 ? 'none' : '0 4px 16px rgba(34,197,94,0.3)'
+              }}
+              onMouseEnter={e => {
+                if (selectedTablesList.length > 0) {
+                  e.currentTarget.style.transform = 'scale(0.97)'
+                }
+              }}
+              onMouseLeave={e => {
+                if (selectedTablesList.length > 0) {
+                  e.currentTarget.style.transform = 'scale(1)'
+                }
               }}
             >
               🖨️ {t('print_qr')} ({selectedTablesList.length} {t('table')} → {totalPages} {t('pages')})
@@ -754,6 +835,7 @@ function TableQRs() {
                   }
                   
                   const sizeValue = getSizeValue()
+                  const previewSize = Math.min(sizeValue, 200)
                   
                   return pages.map((pageTables, pageIndex) => (
                     <div key={pageIndex} style={{ 
@@ -780,55 +862,59 @@ function TableQRs() {
                               textAlign: 'center', 
                               border: `1px solid ${borderColor}`, 
                               borderRadius: '14px', 
-                              padding: isMobile ? '12px' : '20px', 
+                              padding: isMobile ? '16px' : '24px', 
                               background: cardBg 
                             }}>
                               <h3 style={{ 
-                                fontSize: isMobile ? '13px' : '16px', 
-                                marginBottom: '6px', 
+                                fontSize: isMobile ? '14px' : '18px', 
+                                marginBottom: '4px', 
                                 color: textColor 
                               }}>
                                 {qrTitle}
                               </h3>
                               <h4 style={{ 
-                                fontSize: isMobile ? '16px' : '20px', 
-                                marginBottom: '10px', 
+                                fontSize: isMobile ? '18px' : '24px', 
+                                marginBottom: '12px', 
                                 color: '#2563eb' 
                               }}>
                                 {t('table')} {table.table_number}
                               </h4>
+                              
                               <div style={{ 
                                 display: 'flex', 
                                 justifyContent: 'center', 
-                                marginBottom: '10px' 
+                                marginBottom: '12px' 
                               }}>
                                 {qrDataUrl ? (
                                   <img 
                                     src={qrDataUrl} 
                                     alt={`QR ${t('table')} ${table.table_number}`} 
                                     style={{ 
-                                      width: Math.min(sizeValue, 200), 
-                                      height: Math.min(sizeValue, 200),
-                                      borderRadius: '8px'
+                                      width: previewSize, 
+                                      height: previewSize,
+                                      borderRadius: '8px',
+                                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
                                     }} 
                                   />
                                 ) : (
                                   <div style={{ 
-                                    width: Math.min(sizeValue, 200), 
-                                    height: Math.min(sizeValue, 200), 
+                                    width: previewSize, 
+                                    height: previewSize, 
                                     background: secondaryBg, 
-                                    borderRadius: '12px', 
+                                    borderRadius: '8px', 
                                     display: 'flex', 
                                     alignItems: 'center', 
                                     justifyContent: 'center', 
-                                    color: textMuted 
+                                    color: textMuted,
+                                    fontSize: '12px'
                                   }}>
                                     {t('loading_qr')}
                                   </div>
                                 )}
                               </div>
+                              
                               <div style={{ 
-                                fontSize: isMobile ? '10px' : '12px', 
+                                fontSize: isMobile ? '11px' : '13px', 
                                 color: textMuted 
                               }}>
                                 {qrInstruction}
@@ -843,21 +929,25 @@ function TableQRs() {
                                 </div>
                               )}
                               <div style={{ 
-                                fontSize: isMobile ? '8px' : '10px', 
+                                fontSize: isMobile ? '9px' : '11px', 
                                 color: textMuted, 
-                                marginTop: '8px', 
+                                marginTop: '10px', 
                                 borderTop: `1px solid ${borderColor}`, 
-                                paddingTop: '6px' 
+                                paddingTop: '8px' 
                               }}>
                                 {footerText}
                               </div>
                             </div>
                           )
                         })}
+                        
+                        {pageTables.length === 1 && (
+                          <div style={{ visibility: 'hidden' }}></div>
+                        )}
                       </div>
                     </div>
                   ))
-                })}
+                })()}
               </div>
             )}
           </div>
@@ -880,16 +970,6 @@ function TableQRs() {
             
             @keyframes spin { 
               to { transform: rotate(360deg); } 
-            }
-            
-            @keyframes fadeIn { 
-              from { opacity: 0; } 
-              to { opacity: 1; } 
-            }
-            
-            @keyframes popIn { 
-              0% { opacity: 0; transform: scale(0.95) translateY(10px); } 
-              100% { opacity: 1; transform: scale(1) translateY(0); } 
             }
             
             ::-webkit-scrollbar { 

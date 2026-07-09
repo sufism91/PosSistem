@@ -43,9 +43,9 @@ function TableQRs() {
     yes_show_link: { en: 'Yes, show link', ms: 'Ya, tunjukkan link' },
     print_settings: { en: '⚙️ Print Settings', ms: '⚙️ Tetapan Cetakan' },
     qr_size: { en: 'QR Size:', ms: 'Saiz QR:' },
-    small: { en: 'Small (160px)', ms: 'Kecil (160px)' },
-    medium: { en: 'Medium (220px)', ms: 'Sederhana (220px)' },
-    large: { en: 'Large (280px)', ms: 'Besar (280px)' },
+    small: { en: 'Small (110px)', ms: 'Kecil (110px)' },
+    medium: { en: 'Medium (150px)', ms: 'Sederhana (150px)' },
+    large: { en: 'Large (190px)', ms: 'Besar (190px)' },
     layout: { en: 'Layout:', ms: 'Layout:' },
     layout_desc: { en: '1 page = 2 tables (4 QR per page)', ms: '1 muka surat = 2 meja (4 QR setiap muka surat)' },
     select_tables: { en: '🪑 Select Tables to Print', ms: '🪑 Pilih Meja untuk Dicetak' },
@@ -59,6 +59,7 @@ function TableQRs() {
     print_count: { en: 'tables →', ms: 'meja →' },
     pages: { en: 'pages', ms: 'muka surat' },
     scan_to_order: { en: 'Scan to order', ms: 'Scan untuk pesan' },
+    qr_code: { en: 'QR', ms: 'QR' },
   }
 
   const t = (key) => {
@@ -143,7 +144,7 @@ function TableQRs() {
   }
 
   // ============================================================
-  // QR CODE GENERATION - 1 QR PER TABLE (BESAR)
+  // QR CODE GENERATION - 2 QR PER TABLE
   // ============================================================
   useEffect(() => {
     const generateQRCodes = async () => {
@@ -152,16 +153,23 @@ function TableQRs() {
         if (selectedTables.includes(table.id)) {
           const url = `${baseUrl}/menu?table=${table.table_number}`
           try {
-            // Saiz besar untuk 1 QR
-            const size = printSize === 'large' ? 280 : printSize === 'medium' ? 220 : 160
+            // Saiz untuk 2 QR dalam 1 meja (4 QR per page)
+            const size = printSize === 'large' ? 190 : printSize === 'medium' ? 150 : 110
             
-            const qrDataUrl = await QRCode.toDataURL(url, {
+            // Generate 2 QR codes per table
+            const qrDataUrl1 = await QRCode.toDataURL(url, {
               width: size,
               margin: 2,
               color: { dark: '#1a1a2e', light: '#ffffff' }
             })
             
-            newQrDataUrls[table.table_number] = qrDataUrl
+            const qrDataUrl2 = await QRCode.toDataURL(url, {
+              width: size,
+              margin: 2,
+              color: { dark: '#1a1a2e', light: '#ffffff' }
+            })
+            
+            newQrDataUrls[table.table_number] = [qrDataUrl1, qrDataUrl2]
           } catch (err) {
             console.error('QR generation error:', err)
           }
@@ -232,8 +240,8 @@ function TableQRs() {
     
     const printWindow = window.open('', '_blank')
     
-    // Saiz untuk 1 QR setiap meja
-    const sizeValue = printSize === 'large' ? 280 : printSize === 'medium' ? 220 : 160
+    // Saiz untuk 4 QR dalam 1 kertas
+    const sizeValue = printSize === 'large' ? 190 : printSize === 'medium' ? 150 : 110
     
     let htmlContent = `
       <!DOCTYPE html>
@@ -245,12 +253,12 @@ function TableQRs() {
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 
             font-family: 'Segoe UI', Arial, sans-serif; 
-            padding: 20px; 
+            padding: 15px; 
             background: white; 
           }
           .page { 
             page-break-after: always; 
-            margin-bottom: 30px; 
+            margin-bottom: 20px; 
             min-height: 100vh;
             display: flex;
             flex-direction: column;
@@ -260,71 +268,79 @@ function TableQRs() {
           .qr-grid { 
             display: grid; 
             grid-template-columns: repeat(2, 1fr); 
-            gap: 24px; 
-            margin-bottom: 20px;
+            gap: 16px; 
+            margin-bottom: 16px;
           }
           .qr-item { 
             text-align: center; 
             border: 2px solid #e2e8f0; 
-            border-radius: 20px; 
-            padding: 30px 20px; 
+            border-radius: 14px; 
+            padding: 14px 12px; 
             background: white; 
             page-break-inside: avoid; 
             break-inside: avoid;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
           }
           .qr-item .qr-title { 
-            font-size: 18px; 
+            font-size: 13px; 
             font-weight: bold; 
             color: #1e293b; 
-            margin-bottom: 4px; 
+            margin-bottom: 2px; 
           }
           .qr-item .qr-table { 
-            font-size: 26px; 
+            font-size: 17px; 
             font-weight: bold; 
             color: #2563eb; 
-            margin-bottom: 12px; 
+            margin-bottom: 4px; 
           }
-          .qr-item .qr-code { 
-            margin: 10px 0; 
-            display: flex; 
-            justify-content: center; 
+          .qr-item .qr-code-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            justify-items: center;
+            align-items: center;
+            margin: 4px 0;
           }
-          .qr-item .qr-code img { 
+          .qr-item .qr-code-item {
+            text-align: center;
+          }
+          .qr-item .qr-code-item .qr-label {
+            font-size: 7px;
+            color: #94a3b8;
+            margin-top: 2px;
+          }
+          .qr-item .qr-code-item img { 
             width: ${sizeValue}px; 
             height: ${sizeValue}px; 
             max-width: ${sizeValue}px; 
             max-height: ${sizeValue}px; 
             display: block;
+            margin: 0 auto;
           }
           .qr-item .qr-instruction { 
-            margin-top: 10px; 
-            font-size: 13px; 
+            margin-top: 4px; 
+            font-size: 10px; 
             color: #64748b; 
           }
           .qr-item .qr-url { 
-            margin-top: 4px; 
-            font-size: 9px; 
+            margin-top: 2px; 
+            font-size: 7px; 
             color: #94a3b8; 
             word-break: break-all; 
           }
           .qr-item .footer-text { 
-            margin-top: 12px; 
-            font-size: 11px; 
+            margin-top: 6px; 
+            font-size: 8px; 
             color: #94a3b8; 
             text-align: center; 
             border-top: 1px solid #e2e8f0; 
-            padding-top: 10px; 
+            padding-top: 5px; 
             width: 100%;
           }
           .page-number {
             text-align: center;
-            font-size: 10px;
+            font-size: 9px;
             color: #94a3b8;
-            margin-top: 8px;
+            margin-top: 6px;
           }
           @media print {
             body { padding: 0; margin: 0; }
@@ -348,16 +364,28 @@ function TableQRs() {
       htmlContent += `<div class="qr-grid">`
       
       for (const table of pageTables) {
-        const qrDataUrl = qrDataUrls[table.table_number]
-        const qrImg = qrDataUrl 
-          ? `<img src="${qrDataUrl}" alt="QR Code Meja ${table.table_number}" />` 
-          : `<div style="width:${sizeValue}px;height:${sizeValue}px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto;border-radius:12px;color:#94a3b8;font-size:14px;">QR Error</div>`
+        const qrDataUrlsArray = qrDataUrls[table.table_number] || []
+        const qrImg1 = qrDataUrlsArray[0] 
+          ? `<img src="${qrDataUrlsArray[0]}" alt="QR Code Meja ${table.table_number} - 1" />` 
+          : `<div style="width:${sizeValue}px;height:${sizeValue}px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto;border-radius:6px;color:#94a3b8;font-size:10px;">QR Error</div>`
+        const qrImg2 = qrDataUrlsArray[1] 
+          ? `<img src="${qrDataUrlsArray[1]}" alt="QR Code Meja ${table.table_number} - 2" />` 
+          : `<div style="width:${sizeValue}px;height:${sizeValue}px;background:#f1f5f9;display:flex;align-items:center;justify-content:center;margin:0 auto;border-radius:6px;color:#94a3b8;font-size:10px;">QR Error</div>`
         
         htmlContent += `
           <div class="qr-item">
             <div class="qr-title">${qrTitle.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
             <div class="qr-table">${t('table')} ${table.table_number}</div>
-            <div class="qr-code">${qrImg}</div>
+            <div class="qr-code-grid">
+              <div class="qr-code-item">
+                ${qrImg1}
+                <div class="qr-label">${t('qr_code')} 1</div>
+              </div>
+              <div class="qr-code-item">
+                ${qrImg2}
+                <div class="qr-label">${t('qr_code')} 2</div>
+              </div>
+            </div>
             <div class="qr-instruction">${qrInstruction.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
             ${showUrl ? `<div class="qr-url">${baseUrl}/menu?table=${table.table_number}</div>` : ''}
             <div class="footer-text">${footerText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
@@ -399,10 +427,10 @@ function TableQRs() {
   // ============================================================
   const getSizeValue = () => {
     switch(printSize) {
-      case 'large': return 280
-      case 'medium': return 220
-      case 'small': return 160
-      default: return 220
+      case 'large': return 190
+      case 'medium': return 150
+      case 'small': return 110
+      default: return 150
     }
   }
 
@@ -818,7 +846,7 @@ function TableQRs() {
             </button>
           </div>
 
-          {/* ===== PRINT PREVIEW AREA - 1 QR SETIAP MEJA (BESAR) ===== */}
+          {/* ===== PRINT PREVIEW AREA - 2 QR SETIAP MEJA ===== */}
           <div style={{ 
             background: secondaryBg, 
             borderRadius: '16px', 
@@ -847,7 +875,7 @@ function TableQRs() {
                   }
                   
                   const sizeValue = getSizeValue()
-                  const previewSize = Math.min(sizeValue, 200)
+                  const previewSize = Math.min(sizeValue, 130)
                   
                   return pages.map((pageTables, pageIndex) => (
                     <div key={pageIndex} style={{ 
@@ -868,65 +896,102 @@ function TableQRs() {
                         gap: isMobile ? '16px' : '24px' 
                       }}>
                         {pageTables.map(table => {
-                          const qrDataUrl = qrDataUrls[table.table_number]
+                          const qrDataUrlsArray = qrDataUrls[table.table_number] || []
                           return (
                             <div key={`${table.table_number}`} style={{ 
                               textAlign: 'center', 
                               border: `1px solid ${borderColor}`, 
                               borderRadius: '14px', 
-                              padding: isMobile ? '16px' : '24px', 
+                              padding: isMobile ? '12px' : '16px', 
                               background: cardBg 
                             }}>
                               <h3 style={{ 
-                                fontSize: isMobile ? '14px' : '18px', 
-                                marginBottom: '4px', 
+                                fontSize: isMobile ? '12px' : '14px', 
+                                marginBottom: '2px', 
                                 color: textColor 
                               }}>
                                 {qrTitle}
                               </h3>
                               <h4 style={{ 
-                                fontSize: isMobile ? '18px' : '24px', 
-                                marginBottom: '12px', 
+                                fontSize: isMobile ? '16px' : '18px', 
+                                marginBottom: '6px', 
                                 color: '#2563eb' 
                               }}>
                                 {t('table')} {table.table_number}
                               </h4>
                               
                               <div style={{ 
-                                display: 'flex', 
-                                justifyContent: 'center', 
-                                marginBottom: '12px' 
+                                display: 'grid', 
+                                gridTemplateColumns: '1fr 1fr', 
+                                gap: '8px',
+                                marginBottom: '8px',
+                                justifyItems: 'center',
+                                alignItems: 'center'
                               }}>
-                                {qrDataUrl ? (
-                                  <img 
-                                    src={qrDataUrl} 
-                                    alt={`QR ${t('table')} ${table.table_number}`} 
-                                    style={{ 
+                                <div>
+                                  {qrDataUrlsArray[0] ? (
+                                    <img 
+                                      src={qrDataUrlsArray[0]} 
+                                      alt={`QR ${t('table')} ${table.table_number} - 1`} 
+                                      style={{ 
+                                        width: previewSize, 
+                                        height: previewSize,
+                                        borderRadius: '8px'
+                                      }} 
+                                    />
+                                  ) : (
+                                    <div style={{ 
                                       width: previewSize, 
-                                      height: previewSize,
-                                      borderRadius: '8px',
-                                      boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-                                    }} 
-                                  />
-                                ) : (
-                                  <div style={{ 
-                                    width: previewSize, 
-                                    height: previewSize, 
-                                    background: secondaryBg, 
-                                    borderRadius: '8px', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center', 
-                                    color: textMuted,
-                                    fontSize: '12px'
-                                  }}>
-                                    {t('loading_qr')}
+                                      height: previewSize, 
+                                      background: secondaryBg, 
+                                      borderRadius: '8px', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      justifyContent: 'center', 
+                                      color: textMuted,
+                                      fontSize: '10px'
+                                    }}>
+                                      {t('loading_qr')}
+                                    </div>
+                                  )}
+                                  <div style={{ fontSize: '8px', color: textMuted, marginTop: '2px' }}>
+                                    {t('qr_code')} 1
                                   </div>
-                                )}
+                                </div>
+                                <div>
+                                  {qrDataUrlsArray[1] ? (
+                                    <img 
+                                      src={qrDataUrlsArray[1]} 
+                                      alt={`QR ${t('table')} ${table.table_number} - 2`} 
+                                      style={{ 
+                                        width: previewSize, 
+                                        height: previewSize,
+                                        borderRadius: '8px'
+                                      }} 
+                                    />
+                                  ) : (
+                                    <div style={{ 
+                                      width: previewSize, 
+                                      height: previewSize, 
+                                      background: secondaryBg, 
+                                      borderRadius: '8px', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      justifyContent: 'center', 
+                                      color: textMuted,
+                                      fontSize: '10px'
+                                    }}>
+                                      {t('loading_qr')}
+                                    </div>
+                                  )}
+                                  <div style={{ fontSize: '8px', color: textMuted, marginTop: '2px' }}>
+                                    {t('qr_code')} 2
+                                  </div>
+                                </div>
                               </div>
                               
                               <div style={{ 
-                                fontSize: isMobile ? '11px' : '13px', 
+                                fontSize: isMobile ? '10px' : '12px', 
                                 color: textMuted 
                               }}>
                                 {qrInstruction}
@@ -941,11 +1006,11 @@ function TableQRs() {
                                 </div>
                               )}
                               <div style={{ 
-                                fontSize: isMobile ? '9px' : '11px', 
+                                fontSize: isMobile ? '8px' : '10px', 
                                 color: textMuted, 
-                                marginTop: '10px', 
+                                marginTop: '8px', 
                                 borderTop: `1px solid ${borderColor}`, 
-                                paddingTop: '8px' 
+                                paddingTop: '6px' 
                               }}>
                                 {footerText}
                               </div>

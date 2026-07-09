@@ -61,6 +61,16 @@ function ManageSettings() {
     telegram_chat_id: '',
     telegram_notify_new_order: true,
     telegram_notify_payment: true,
+    // ===== 🔥 FOODPANDA SETTINGS =====
+    foodpanda_enabled: false,
+    foodpanda_api_key: '',
+    foodpanda_store_id: '',
+    foodpanda_api_url: 'https://api.foodpanda.com/v1',
+    // ===== 🔥 GRABFOOD SETTINGS =====
+    grabfood_enabled: false,
+    grabfood_api_key: '',
+    grabfood_merchant_id: '',
+    grabfood_api_url: 'https://api.grab.com/food/v1',
   })
   
   const [loading, setLoading] = useState(true)
@@ -208,6 +218,9 @@ function ManageSettings() {
     generateReceiptPreview()
   }, [receiptSettings, receiptLogoUrl])
 
+  // ============================================================
+  // LOAD SETTINGS - WITH FOODPANDA & GRABFOOD
+  // ============================================================
   async function loadSettings() {
     setLoading(true)
     try {
@@ -216,12 +229,21 @@ function ManageSettings() {
       if (data && data.length > 0) {
         const newSettings = { ...settings }
         data.forEach(item => {
-          if (['service_charge', 'tax', 'auto_complete_minutes'].includes(item.key)) {
-            newSettings[item.key] = parseFloat(item.value) || 0
-          } else if (['auto_print', 'notification_sound', 'kitchen_enabled', 'special_menu_enabled', 'auto_complete_enabled', 'auto_print_customer_order', 'telegram_enabled', 'telegram_notify_new_order', 'telegram_notify_payment'].includes(item.key)) {
+          // Boolean values
+          if (['auto_print', 'notification_sound', 'kitchen_enabled', 'special_menu_enabled', 
+               'auto_complete_enabled', 'auto_print_customer_order', 'telegram_enabled', 
+               'telegram_notify_new_order', 'telegram_notify_payment',
+               // 🔥 Foodpanda & GrabFood
+               'foodpanda_enabled', 'grabfood_enabled'].includes(item.key)) {
             newSettings[item.key] = item.value === 'true'
-          } else {
-            newSettings[item.key] = item.value
+          } 
+          // Number values
+          else if (['service_charge', 'tax', 'auto_complete_minutes'].includes(item.key)) {
+            newSettings[item.key] = parseFloat(item.value) || 0
+          } 
+          // String values
+          else {
+            newSettings[item.key] = item.value || ''
           }
         })
         setSettings(newSettings)
@@ -238,7 +260,6 @@ function ManageSettings() {
   // ============================================================
   async function loadReceiptSettings() {
     try {
-      // Load receipt settings
       const { data, error } = await supabase
         .from('settings')
         .select('key, value')
@@ -262,7 +283,6 @@ function ManageSettings() {
         setReceiptSettings(newSettings)
       }
       
-      // Load receipt logo
       const { data: logoData } = await supabase
         .from('settings')
         .select('value')
@@ -376,7 +396,6 @@ function ManageSettings() {
     const line = '─'.repeat(lineLength)
     const doubleLine = '═'.repeat(lineLength)
     
-    // Logo - use receipt logo if exists
     const logoLine = receipt_show_logo && receiptLogoUrl 
       ? `  🖼️ [LOGO]` 
       : receipt_show_logo ? '  🏪' : ''
@@ -506,11 +525,15 @@ ${doubleLine}`
     setTestingTelegram(false)
   }
 
+  // ============================================================
+  // SAVE SETTINGS - WITH FOODPANDA & GRABFOOD
+  // ============================================================
   async function saveSettings() {
     setSaving(true)
     setMessage('')
     try {
       const updates = [
+        // Restaurant Info
         { key: 'restaurant_name', value: settings.restaurant_name },
         { key: 'service_charge', value: settings.service_charge.toString() },
         { key: 'tax', value: settings.tax.toString() },
@@ -529,16 +552,31 @@ ${doubleLine}`
         { key: 'auto_complete_enabled', value: settings.auto_complete_enabled.toString() },
         { key: 'auto_complete_minutes', value: settings.auto_complete_minutes.toString() },
         { key: 'auto_print_customer_order', value: settings.auto_print_customer_order.toString() },
+        // Telegram
         { key: 'telegram_enabled', value: settings.telegram_enabled.toString() },
         { key: 'telegram_bot_token', value: settings.telegram_bot_token },
         { key: 'telegram_chat_id', value: settings.telegram_chat_id },
         { key: 'telegram_notify_new_order', value: settings.telegram_notify_new_order.toString() },
         { key: 'telegram_notify_payment', value: settings.telegram_notify_payment.toString() },
+        // 🔥 FOODPANDA
+        { key: 'foodpanda_enabled', value: settings.foodpanda_enabled.toString() },
+        { key: 'foodpanda_api_key', value: settings.foodpanda_api_key },
+        { key: 'foodpanda_store_id', value: settings.foodpanda_store_id },
+        { key: 'foodpanda_api_url', value: settings.foodpanda_api_url },
+        // 🔥 GRABFOOD
+        { key: 'grabfood_enabled', value: settings.grabfood_enabled.toString() },
+        { key: 'grabfood_api_key', value: settings.grabfood_api_key },
+        { key: 'grabfood_merchant_id', value: settings.grabfood_merchant_id },
+        { key: 'grabfood_api_url', value: settings.grabfood_api_url },
       ]
+      
       let hasError = false
       for (const update of updates) {
         const { error } = await supabase.from('settings').upsert({ key: update.key, value: update.value }, { onConflict: 'key' })
-        if (error) { console.error('Error saving:', update.key, error); hasError = true }
+        if (error) { 
+          console.error('Error saving:', update.key, error)
+          hasError = true 
+        }
       }
       
       await logActivity(LOG_ACTIONS.SETTING_BULK_UPDATE, 'Settings updated', 'System')
@@ -556,7 +594,9 @@ ${doubleLine}`
     setSaving(false)
   }
 
-  const updateSetting = (key, value) => { setSettings(prev => ({ ...prev, [key]: value })) }
+  const updateSetting = (key, value) => { 
+    setSettings(prev => ({ ...prev, [key]: value })) 
+  }
 
   // ============================================================
   // SYSTEM LOGS FUNCTIONS
@@ -761,6 +801,15 @@ ${doubleLine}`
         { key: 'telegram_chat_id', value: '' },
         { key: 'telegram_notify_new_order', value: 'true' },
         { key: 'telegram_notify_payment', value: 'true' },
+        // 🔥 Foodpanda & GrabFood
+        { key: 'foodpanda_enabled', value: 'false' },
+        { key: 'foodpanda_api_key', value: '' },
+        { key: 'foodpanda_store_id', value: '' },
+        { key: 'foodpanda_api_url', value: 'https://api.foodpanda.com/v1' },
+        { key: 'grabfood_enabled', value: 'false' },
+        { key: 'grabfood_api_key', value: '' },
+        { key: 'grabfood_merchant_id', value: '' },
+        { key: 'grabfood_api_url', value: 'https://api.grab.com/food/v1' },
       ]
       
       await supabase.from('settings').delete().neq('key', '')
@@ -829,6 +878,15 @@ ${doubleLine}`
         { key: 'telegram_chat_id', value: '' },
         { key: 'telegram_notify_new_order', value: 'true' },
         { key: 'telegram_notify_payment', value: 'true' },
+        // 🔥 Foodpanda & GrabFood
+        { key: 'foodpanda_enabled', value: 'false' },
+        { key: 'foodpanda_api_key', value: '' },
+        { key: 'foodpanda_store_id', value: '' },
+        { key: 'foodpanda_api_url', value: 'https://api.foodpanda.com/v1' },
+        { key: 'grabfood_enabled', value: 'false' },
+        { key: 'grabfood_api_key', value: '' },
+        { key: 'grabfood_merchant_id', value: '' },
+        { key: 'grabfood_api_url', value: 'https://api.grab.com/food/v1' },
       ]
       
       for (const setting of defaultSettings) {
@@ -1036,6 +1094,13 @@ ${doubleLine}`
           >
             📱 {language === 'bm' ? 'Telegram' : 'Telegram'}
           </button>
+          {/* 🔥 TAMBAH: Foodpanda & GrabFood Tab */}
+          <button 
+            onClick={() => setActiveTab('delivery')}
+            style={tabButtonStyle(activeTab === 'delivery')}
+          >
+            🛵 {language === 'bm' ? 'Food Delivery' : 'Food Delivery'}
+          </button>
           <button 
             onClick={() => setActiveTab('receipt')}
             style={tabButtonStyle(activeTab === 'receipt')}
@@ -1073,7 +1138,7 @@ ${doubleLine}`
         )}
 
         {/* ============================================================ */}
-        {/* TAB 1: SETTINGS */}
+        {/* TAB 1: SETTINGS (SAME AS BEFORE) */}
         {/* ============================================================ */}
         {activeTab === 'settings' && (
           <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
@@ -1401,7 +1466,7 @@ ${doubleLine}`
         )}
 
         {/* ============================================================ */}
-        {/* TAB 2: TELEGRAM */}
+        {/* TAB 2: TELEGRAM (SAME AS BEFORE) */}
         {/* ============================================================ */}
         {activeTab === 'telegram' && (
           <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
@@ -1431,7 +1496,6 @@ ${doubleLine}`
               </div>
             </div>
 
-            {/* Status */}
             <SettingRow 
               icon="🔔" 
               label={language === 'bm' ? 'Status Notifikasi' : 'Notification Status'}
@@ -1440,7 +1504,6 @@ ${doubleLine}`
               {toggleSwitch(settings.telegram_enabled, (val) => updateSetting('telegram_enabled', val))}
             </SettingRow>
 
-            {/* Bot Token */}
             <SettingRow 
               icon="🤖" 
               label={language === 'bm' ? 'Bot Token' : 'Bot Token'}
@@ -1480,7 +1543,6 @@ ${doubleLine}`
               </div>
             </SettingRow>
 
-            {/* Chat ID */}
             <SettingRow 
               icon="💬" 
               label={language === 'bm' ? 'Chat ID' : 'Chat ID'}
@@ -1520,7 +1582,6 @@ ${doubleLine}`
               </div>
             </SettingRow>
 
-            {/* Cara Dapatkan Chat ID */}
             <div style={{ 
               ...cardStyle, 
               marginTop: '4px',
@@ -1542,7 +1603,6 @@ ${doubleLine}`
               </div>
             </div>
 
-            {/* Notify New Order */}
             <SettingRow 
               icon="🆕" 
               label={language === 'bm' ? 'Notifikasi Pesanan Baru' : 'Notify New Order'}
@@ -1551,7 +1611,6 @@ ${doubleLine}`
               {toggleSwitch(settings.telegram_notify_new_order, (val) => updateSetting('telegram_notify_new_order', val))}
             </SettingRow>
 
-            {/* Notify Payment */}
             <SettingRow 
               icon="💳" 
               label={language === 'bm' ? 'Notifikasi Pembayaran' : 'Notify Payment'}
@@ -1560,7 +1619,6 @@ ${doubleLine}`
               {toggleSwitch(settings.telegram_notify_payment, (val) => updateSetting('telegram_notify_payment', val))}
             </SettingRow>
 
-            {/* Test Button */}
             <div style={{ 
               ...cardStyle, 
               border: `2px solid ${settings.telegram_enabled ? '#22c55e' : '#64748b'}`,
@@ -1609,7 +1667,6 @@ ${doubleLine}`
               </button>
             </div>
 
-            {/* Butang Reset & Save */}
             <div style={{ display: 'flex', gap: '12px', marginTop: '20px', flexWrap: 'wrap' }}>
               <button 
                 onClick={saveSettings} 
@@ -1676,7 +1733,6 @@ ${doubleLine}`
               </button>
             </div>
 
-            {/* Status Bar */}
             <div style={{ 
               marginTop: '16px',
               padding: '12px 16px',
@@ -1708,12 +1764,311 @@ ${doubleLine}`
         )}
 
         {/* ============================================================ */}
-        {/* TAB 3: RECEIPT CUSTOMIZATION */}
+        {/* TAB 3: FOODPANDA & GRABFOOD - 🔥 NEW */}
+        {/* ============================================================ */}
+        {activeTab === 'delivery' && (
+          <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
+            
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px' }}>
+              <div style={{
+                width: '56px',
+                height: '56px',
+                background: 'linear-gradient(135deg, #ea580c, #c2410c)',
+                borderRadius: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '28px'
+              }}>
+                🛵
+              </div>
+              <div>
+                <h3 style={{ margin: 0, color: textColor, fontSize: '20px', fontWeight: 'bold' }}>
+                  {language === 'bm' ? 'Food Delivery Integration' : 'Food Delivery Integration'}
+                </h3>
+                <p style={{ color: textMuted, marginTop: '4px', fontSize: '13px' }}>
+                  {language === 'bm' 
+                    ? 'Integrasi dengan Foodpanda & GrabFood untuk terima pesanan' 
+                    : 'Integrate with Foodpanda & GrabFood to receive orders'}
+                </p>
+              </div>
+            </div>
+
+            {/* ===== FOODPANDA ===== */}
+            <div style={{ 
+              ...cardStyle, 
+              marginBottom: '16px',
+              border: `2px solid ${settings.foodpanda_enabled ? '#22c55e' : '#e2e8f0'}`
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '16px',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '28px' }}>🟣</span>
+                  <div>
+                    <div style={{ fontWeight: 'bold', color: textColor, fontSize: '16px' }}>
+                      Foodpanda
+                    </div>
+                    <div style={{ fontSize: '12px', color: textMuted }}>
+                      {language === 'bm' ? 'API Key untuk Foodpanda' : 'API Key for Foodpanda'}
+                    </div>
+                  </div>
+                </div>
+                {toggleSwitch(settings.foodpanda_enabled, (val) => updateSetting('foodpanda_enabled', val))}
+              </div>
+
+              {/* API Key */}
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '12px', color: textMuted, display: 'block', marginBottom: '4px' }}>
+                  {language === 'bm' ? 'API Key' : 'API Key'} *
+                </label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input 
+                    type="password" 
+                    placeholder="foodpanda_api_key_xxxxx" 
+                    value={settings.foodpanda_api_key} 
+                    onChange={(e) => updateSetting('foodpanda_api_key', e.target.value)} 
+                    style={{ ...inputStyle, flex: 1, minWidth: '200px', fontFamily: 'monospace', fontSize: '12px' }} 
+                  />
+                  {settings.foodpanda_api_key && (
+                    <button 
+                      onClick={() => {
+                        if (window.confirm(language === 'bm' ? 'Padam API Key Foodpanda?' : 'Delete Foodpanda API Key?')) {
+                          updateSetting('foodpanda_api_key', '')
+                          toast.success(language === 'bm' ? '✅ API Key dipadam' : '✅ API Key deleted')
+                        }
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        background: danger,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      ✕ {language === 'bm' ? 'Padam' : 'Clear'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Store ID */}
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '12px', color: textMuted, display: 'block', marginBottom: '4px' }}>
+                  {language === 'bm' ? 'Store ID' : 'Store ID'}
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="store_12345" 
+                  value={settings.foodpanda_store_id} 
+                  onChange={(e) => updateSetting('foodpanda_store_id', e.target.value)} 
+                  style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }} 
+                />
+              </div>
+
+              {/* API URL */}
+              <div>
+                <label style={{ fontSize: '12px', color: textMuted, display: 'block', marginBottom: '4px' }}>
+                  {language === 'bm' ? 'API URL' : 'API URL'}
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="https://api.foodpanda.com/v1" 
+                  value={settings.foodpanda_api_url} 
+                  onChange={(e) => updateSetting('foodpanda_api_url', e.target.value)} 
+                  style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }} 
+                />
+              </div>
+            </div>
+
+            {/* ===== GRABFOOD ===== */}
+            <div style={{ 
+              ...cardStyle, 
+              marginBottom: '16px',
+              border: `2px solid ${settings.grabfood_enabled ? '#22c55e' : '#e2e8f0'}`
+            }}>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                alignItems: 'center', 
+                marginBottom: '16px',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '28px' }}>🟢</span>
+                  <div>
+                    <div style={{ fontWeight: 'bold', color: textColor, fontSize: '16px' }}>
+                      GrabFood
+                    </div>
+                    <div style={{ fontSize: '12px', color: textMuted }}>
+                      {language === 'bm' ? 'API Key untuk GrabFood' : 'API Key for GrabFood'}
+                    </div>
+                  </div>
+                </div>
+                {toggleSwitch(settings.grabfood_enabled, (val) => updateSetting('grabfood_enabled', val))}
+              </div>
+
+              {/* API Key */}
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '12px', color: textMuted, display: 'block', marginBottom: '4px' }}>
+                  {language === 'bm' ? 'API Key' : 'API Key'} *
+                </label>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input 
+                    type="password" 
+                    placeholder="grabfood_api_key_xxxxx" 
+                    value={settings.grabfood_api_key} 
+                    onChange={(e) => updateSetting('grabfood_api_key', e.target.value)} 
+                    style={{ ...inputStyle, flex: 1, minWidth: '200px', fontFamily: 'monospace', fontSize: '12px' }} 
+                  />
+                  {settings.grabfood_api_key && (
+                    <button 
+                      onClick={() => {
+                        if (window.confirm(language === 'bm' ? 'Padam API Key GrabFood?' : 'Delete GrabFood API Key?')) {
+                          updateSetting('grabfood_api_key', '')
+                          toast.success(language === 'bm' ? '✅ API Key dipadam' : '✅ API Key deleted')
+                        }
+                      }}
+                      style={{
+                        padding: '6px 12px',
+                        background: danger,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      ✕ {language === 'bm' ? 'Padam' : 'Clear'}
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Merchant ID */}
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '12px', color: textMuted, display: 'block', marginBottom: '4px' }}>
+                  {language === 'bm' ? 'Merchant ID' : 'Merchant ID'}
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="merchant_12345" 
+                  value={settings.grabfood_merchant_id} 
+                  onChange={(e) => updateSetting('grabfood_merchant_id', e.target.value)} 
+                  style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }} 
+                />
+              </div>
+
+              {/* API URL */}
+              <div>
+                <label style={{ fontSize: '12px', color: textMuted, display: 'block', marginBottom: '4px' }}>
+                  {language === 'bm' ? 'API URL' : 'API URL'}
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="https://api.grab.com/food/v1" 
+                  value={settings.grabfood_api_url} 
+                  onChange={(e) => updateSetting('grabfood_api_url', e.target.value)} 
+                  style={{ ...inputStyle, fontFamily: 'monospace', fontSize: '12px' }} 
+                />
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <div style={{ display: 'flex', gap: '12px', marginTop: '20px' }}>
+              <button 
+                onClick={saveSettings} 
+                disabled={saving} 
+                style={{ 
+                  flex: 1,
+                  background: 'linear-gradient(135deg, #22c55e, #16a34a)', 
+                  color: 'white', 
+                  padding: '14px', 
+                  border: 'none', 
+                  borderRadius: '60px', 
+                  fontSize: '15px', 
+                  fontWeight: 'bold', 
+                  cursor: saving ? 'not-allowed' : 'pointer', 
+                  opacity: saving ? 0.7 : 1,
+                  transition: 'transform 0.2s'
+                }}
+                onMouseEnter={e => !saving && (e.currentTarget.style.transform = 'scale(1.02)')}
+                onMouseLeave={e => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {saving ? '⏳ ' + t('saving') : '💾 ' + t('save')}
+              </button>
+            </div>
+
+            {/* Info Box */}
+            <div style={{ 
+              ...cardStyle, 
+              marginTop: '16px',
+              background: darkMode ? 'rgba(59,130,246,0.08)' : '#eff6ff',
+              borderColor: '#3b82f6'
+            }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                <span style={{ fontSize: '20px' }}>ℹ️</span>
+                <div>
+                  <div style={{ fontWeight: 'bold', color: textColor, fontSize: '13px' }}>
+                    {language === 'bm' ? '📌 Cara Dapatkan API Key:' : '📌 How to Get API Key:'}
+                  </div>
+                  <div style={{ color: textMuted, fontSize: '12px', marginTop: '4px', whiteSpace: 'pre-line' }}>
+                    {language === 'bm' 
+                      ? '1. Daftar sebagai merchant di Foodpanda/GrabFood partner portal\n2. Pergi ke menu Developer / API Settings\n3. Generate API Key dan salin ke sini'
+                      : '1. Register as merchant on Foodpanda/GrabFood partner portal\n2. Go to Developer / API Settings menu\n3. Generate API Key and copy here'}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Status Bar */}
+            <div style={{ 
+              marginTop: '16px',
+              padding: '12px 16px',
+              background: secondaryBg,
+              borderRadius: '12px',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              flexWrap: 'wrap',
+              gap: '8px',
+              border: `1px solid ${borderColor}`
+            }}>
+              <div style={{ fontSize: '12px', color: textMuted }}>
+                {language === 'bm' ? 'Status:' : 'Status:'}
+              </div>
+              <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '12px', color: settings.foodpanda_api_key ? success : textMuted }}>
+                  {settings.foodpanda_api_key ? '✅ Foodpanda' : '❌ Foodpanda'}
+                </span>
+                <span style={{ fontSize: '12px', color: settings.grabfood_api_key ? success : textMuted }}>
+                  {settings.grabfood_api_key ? '✅ GrabFood' : '❌ GrabFood'}
+                </span>
+                <span style={{ fontSize: '12px', color: (settings.foodpanda_enabled || settings.grabfood_enabled) ? success : textMuted }}>
+                  {(settings.foodpanda_enabled || settings.grabfood_enabled) ? '✅ Aktif' : '❌ Tidak Aktif'}
+                </span>
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* ============================================================ */}
+        {/* TAB 4: RECEIPT (SAME AS BEFORE) */}
         {/* ============================================================ */}
         {activeTab === 'receipt' && (
           <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
             
-            {/* Header */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '24px' }}>
               <div style={{
                 width: '56px',
@@ -1739,7 +2094,7 @@ ${doubleLine}`
               </div>
             </div>
 
-            {/* ===== LOGO RESIT - TAMBAHAN BARU ===== */}
+            {/* Logo Resit */}
             <div style={{ ...cardStyle, marginBottom: '16px' }}>
               <div style={{ fontWeight: 'bold', color: textColor, marginBottom: '12px' }}>
                 🖼️ {language === 'bm' ? 'Logo Resit' : 'Receipt Logo'}
@@ -1830,7 +2185,6 @@ ${doubleLine}`
               gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
               gap: '16px'
             }}>
-              
               {/* Company Info */}
               <div style={{ ...cardStyle }}>
                 <div style={{ fontWeight: 'bold', color: textColor, marginBottom: '12px' }}>
@@ -2031,7 +2385,7 @@ ${doubleLine}`
               </button>
             </div>
 
-            {/* ===== RECEIPT PREVIEW ===== */}
+            {/* Receipt Preview */}
             <div style={{ marginTop: '24px' }}>
               <div style={{ 
                 display: 'flex', 
@@ -2072,7 +2426,7 @@ ${doubleLine}`
         )}
 
         {/* ============================================================ */}
-        {/* TAB 4: DELETE DATA */}
+        {/* TAB 5: DELETE DATA (SAME AS BEFORE) */}
         {/* ============================================================ */}
         {activeTab === 'data' && (
           <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
@@ -2465,12 +2819,11 @@ ${doubleLine}`
         )}
 
         {/* ============================================================ */}
-        {/* TAB 5: SYSTEM LOGS */}
+        {/* TAB 6: SYSTEM LOGS (SAME AS BEFORE) */}
         {/* ============================================================ */}
         {activeTab === 'logs' && (
           <div style={{ ...glassEffect, borderRadius: '28px', padding: '28px' }}>
             
-            {/* Header */}
             <div style={{ 
               display: 'flex', 
               alignItems: 'center', 
@@ -2581,7 +2934,6 @@ ${doubleLine}`
               />
             </div>
 
-            {/* Logs Table */}
             {logsLoading ? (
               <div style={{ textAlign: 'center', padding: '40px' }}>
                 <div className="spinner"></div>
@@ -2676,7 +3028,6 @@ ${doubleLine}`
                   </tbody>
                 </table>
 
-                {/* Pagination */}
                 {logsCount > logsLimit && (
                   <div style={{ 
                     display: 'flex', 

@@ -11,10 +11,9 @@ function KitchenApp() {
   const { language } = useLanguage()
   
   // ============================================================
-  // TRANSLATIONS - FULL BAHASA MELAYU
+  // TRANSLATIONS - RINGKAS
   // ============================================================
   const translations = {
-    // Title & Header
     kitchen_title: { en: '🍳 Digital Kitchen', ms: 'Dapur Digital' },
     kitchen_subtitle: { en: 'Manage food & drink orders', ms: 'Urus pesanan makanan & minuman' },
     sound_on: { en: '🔊 Sound ON', ms: 'Bunyi ON' },
@@ -23,38 +22,28 @@ function KitchenApp() {
     refresh: { en: '🔄 Refresh', ms: 'Muat Semula' },
     complete_all: { en: '✅ Complete All', ms: 'Selesaikan Semua' },
     go_to_settings: { en: '⚙️ Settings', ms: 'Tetapan' },
-    
-    // Search & Filter
     search_orders: { en: '🔍 Search orders...', ms: 'Cari pesanan...' },
     all_orders: { en: '📋 All', ms: 'Semua' },
     dine_in: { en: '🍽️ Dine-in', ms: 'Makan di sini' },
     take_away: { en: '🥡 Take Away', ms: 'Bungkus' },
-    
-    // Tabs
     confirmed_orders: { en: '✅ Confirmed', ms: 'Disahkan' },
     preparing_orders: { en: '🔪 Cooking', ms: 'Memasak' },
     ready_orders: { en: '✅ Ready', ms: 'Sedia' },
     completed_orders: { en: '📦 Done', ms: 'Selesai' },
     food_orders: { en: '🍚 Food', ms: 'Makanan' },
     drink_orders: { en: '🥤 Drinks', ms: 'Minuman' },
-    
-    // Empty states
     no_food_orders: { en: '📭 No food orders', ms: 'Tiada pesanan makanan' },
     no_drink_orders: { en: '📭 No drink orders', ms: 'Tiada pesanan minuman' },
     no_confirmed_orders: { en: '📭 No confirmed orders', ms: 'Tiada pesanan disahkan' },
     no_preparing_orders: { en: '📭 No orders cooking', ms: 'Tiada pesanan dimasak' },
     no_ready_orders: { en: '📭 No ready orders', ms: 'Tiada pesanan sedia' },
     no_completed_orders: { en: '📭 No completed orders', ms: 'Tiada pesanan selesai' },
-    
-    // Buttons
     start_cooking: { en: '🔪 Start Cooking', ms: 'Mula Masak' },
     finish_cooking: { en: '✅ Finish Cooking', ms: 'Selesai Masak' },
     complete: { en: '✅ Complete', ms: 'Selesai' },
     cancelled: { en: '❌ Cancelled', ms: 'Dibatalkan' },
     cancel: { en: '❌ Cancel', ms: 'Batal' },
     accept_and_cook: { en: '✅ Accept & Start Cooking', ms: 'Terima & Mula Masak' },
-    
-    // Messages
     error_updating: { en: '❌ Error updating order!', ms: 'Ralat kemaskini pesanan!' },
     no_orders_to_complete: { en: '📭 No orders to complete', ms: 'Tiada pesanan untuk diselesaikan' },
     orders_completed: { en: '✅ orders completed!', ms: 'pesanan selesai!' },
@@ -77,11 +66,8 @@ function KitchenApp() {
     new_order: { en: '🆕 New order!', ms: 'Pesanan baru!' },
     order_waiting: { en: 'orders waiting', ms: 'pesanan menunggu' },
     confirmed: { en: '✅ Confirmed', ms: 'Disahkan' },
-    promo: { en: '🔥 Promo', ms: 'Promosi' },
-    bundle: { en: '📦 Bundle', ms: 'Bundle' },
-    free: { en: '🎁 FREE', ms: 'PERCUMA' },
-    bogo: { en: '🎁 BOGO', ms: 'Beli 1 Percuma 1' },
-    item_details: { en: 'Item Details', ms: 'Butiran Item' },
+    items: { en: 'items', ms: 'item' },
+    ready_to_collect: { en: 'Ready - Please collect', ms: 'Sedia - Sila ambil' },
   }
 
   const t = (key) => {
@@ -116,8 +102,6 @@ function KitchenApp() {
   const textMuted = darkMode ? '#94a3b8' : '#64748b'
   const borderColor = darkMode ? 'rgba(71, 85, 105, 0.3)' : 'rgba(203, 213, 225, 0.5)'
   const priceColor = darkMode ? '#4ade80' : '#22c55e'
-  const promoColor = '#ef4444'
-  const bundleColor = '#8b5cf6'
   const secondaryBg = darkMode ? 'rgba(30, 30, 50, 0.6)' : 'rgba(248, 250, 252, 0.8)'
   
   const glassEffect = {
@@ -146,6 +130,38 @@ function KitchenApp() {
   function isDrinkCategory(category) {
     const drinkCategories = ['Minuman', 'Drink', 'Jus', 'Teh', 'Kopi', 'Air', 'Milo', 'Nescafe', 'Minuman Ringan', 'Teh Tarik', 'Kopi O']
     return drinkCategories.some(cat => category?.includes(cat))
+  }
+
+  // ============================================================
+  // 🔥 FORMAT ITEM UNTUK KITCHEN - RINGKAS SAHAJA
+  // ============================================================
+  const formatKitchenItem = (item) => {
+    let name = item.name || 'Unknown Item'
+    
+    // Tambah option (untuk minuman)
+    if (item.option_type) {
+      const optionLabel = item.option_type === 'Panas' ? '🔥 Panas' :
+                          item.option_type === 'Sejuk' ? '🧊 Sejuk' :
+                          item.option_type === 'Bungkus' ? '📦 Bungkus' : ''
+      name = `${name} (${optionLabel})`
+    }
+    
+    // Tambah option_name (untuk size)
+    if (item.option_name) {
+      name = `${name} [${item.option_name}]`
+    }
+    
+    // Tambah size
+    if (item.size) {
+      name = `${name} [${item.size}]`
+    }
+    
+    // Tambah addons
+    if (item.addons) {
+      name = `${name} ✨${item.addons}`
+    }
+    
+    return name
   }
 
   // ============================================================
@@ -323,7 +339,6 @@ function KitchenApp() {
   // UPDATE ORDER STATUS - BLOCK 'completed' DARI KITCHEN
   // ============================================================
   async function updateOrderStatus(orderId, status) {
-    // Kitchen TIDAK BOLEH set status ke 'completed'
     if (status === 'completed' || status === ORDER_STATUS.COMPLETED) {
       toast.warning('⚠️ Sila gunakan Staff App untuk proses pembayaran')
       return
@@ -486,7 +501,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // 🔥 RENDER ORDER CARD - WITH PROMO & BUNDLE DETAILS
+  // 🔥 RENDER ORDER CARD - RINGKAS UNTUK DAPUR
   // ============================================================
   const renderOrderCard = (order, showActionButtons = true) => {
     const waitingColor = getWaitingColor(order.created_at)
@@ -496,10 +511,7 @@ function KitchenApp() {
                         order.status === 'preparing' ? '#f59e0b' :
                         order.status === 'ready' ? '#22c55e' : '#6c757d'
     
-    // 🔥 Check if order has bundle or promo
-    const hasBundle = order.has_bundle === true
-    const bundlePromo = order.bundle_promo || null
-    const hasPromoItems = order.items?.some(item => item.isFree === true || item.is_promo_item === true || item.promoType !== null)
+    const kitchenItems = order.items || []
     
     return (
       <div 
@@ -577,36 +589,6 @@ function KitchenApp() {
           </div>
         </div>
         
-        {/* 🔥 BUNDLE PROMO BANNER */}
-        {bundlePromo && (
-          <div style={{
-            background: 'linear-gradient(135deg, rgba(139,92,246,0.15), rgba(139,92,246,0.05))',
-            border: `1px solid ${bundleColor}`,
-            borderRadius: '12px',
-            padding: isMobile ? '8px 12px' : '10px 16px',
-            marginBottom: '10px',
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            flexWrap: 'wrap',
-            gap: '4px'
-          }}>
-            <span style={{ color: bundleColor, fontWeight: 'bold', fontSize: isMobile ? '11px' : '13px' }}>
-              📦 {bundlePromo.name || 'Bundle Promo'}
-            </span>
-            <span style={{ 
-              color: '#22c55e', 
-              fontWeight: 'bold', 
-              fontSize: isMobile ? '10px' : '12px',
-              background: 'rgba(34,197,94,0.15)',
-              padding: '2px 10px',
-              borderRadius: '20px'
-            }}>
-              Jimat RM {bundlePromo.savings?.toFixed(2) || '0.00'}
-            </span>
-          </div>
-        )}
-        
         {/* CUSTOMER INFO */}
         <div style={{ marginBottom: isMobile ? '10px' : '12px' }}>
           <h4 style={{ 
@@ -654,16 +636,14 @@ function KitchenApp() {
           </div>
         )}
         
-        {/* 🔥 ITEMS LIST - WITH PROMO & BUNDLE LABELS */}
+        {/* 🔥 ITEMS LIST - RINGKAS UNTUK DAPUR (TANPA HARGA & PROMO) */}
         <div style={{ 
           margin: '12px 0', 
           borderTop: `1px solid ${borderColor}`, 
           paddingTop: '10px' 
         }}>
-          {order.items?.map((item, idx) => {
-            const isFree = item.isFree === true || item.is_free === true
-            const isBundleItem = item.isBundleItem === true || item.is_bundle_item === true
-            const isPromoItem = item.is_promo_item === true || item.promoType !== null || item.promoName !== null
+          {kitchenItems.map((item, idx) => {
+            const itemName = formatKitchenItem(item)
             
             return (
               <div key={idx} style={{ 
@@ -671,136 +651,33 @@ function KitchenApp() {
                 justifyContent: 'space-between', 
                 padding: '6px 0', 
                 color: textColor,
-                borderBottom: idx !== order.items.length - 1 ? `1px solid ${borderColor}` : 'none',
+                borderBottom: idx !== kitchenItems.length - 1 ? `1px solid ${borderColor}` : 'none',
                 alignItems: 'center',
                 flexWrap: 'wrap',
-                gap: '4px',
-                background: isFree ? 'rgba(34,197,94,0.05)' : 'transparent',
-                borderRadius: '4px'
+                gap: '4px'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
                   <span style={{ 
-                    fontSize: isMobile ? '12px' : '13px',
-                    fontWeight: isFree ? 'bold' : 'normal'
+                    fontSize: isMobile ? '13px' : '14px', 
+                    fontWeight: '500'
                   }}>
-                    {item.quantity}x {item.name}
+                    {item.quantity}x {itemName}
                   </span>
-                  
-                  {/* 🔥 FREE BADGE */}
-                  {isFree && (
-                    <span style={{ 
-                      fontSize: isMobile ? '9px' : '10px', 
-                      color: '#22c55e',
-                      background: 'rgba(34,197,94,0.15)',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontWeight: 'bold',
-                      border: '1px solid rgba(34,197,94,0.2)'
-                    }}>
-                      🎁 {t('free')}
-                    </span>
-                  )}
-                  
-                  {/* 🔥 BUNDLE BADGE */}
-                  {isBundleItem && (
-                    <span style={{ 
-                      fontSize: isMobile ? '9px' : '10px', 
-                      color: bundleColor,
-                      background: 'rgba(139,92,246,0.15)',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontWeight: 'bold',
-                      border: '1px solid rgba(139,92,246,0.2)'
-                    }}>
-                      📦 {t('bundle')}
-                    </span>
-                  )}
-                  
-                  {/* 🔥 PROMO BADGE */}
-                  {isPromoItem && !isFree && !isBundleItem && (
-                    <span style={{ 
-                      fontSize: isMobile ? '9px' : '10px', 
-                      color: promoColor,
-                      background: 'rgba(239,68,68,0.15)',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontWeight: 'bold',
-                      border: '1px solid rgba(239,68,68,0.2)'
-                    }}>
-                      🔥 {t('promo')}
-                    </span>
-                  )}
-                  
-                  {/* ADD-ONS */}
-                  {item.addons && (
-                    <span style={{ 
-                      fontSize: isMobile ? '9px' : '10px', 
-                      color: '#8b5cf6',
-                      background: 'rgba(139,92,246,0.15)',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontWeight: 'bold',
-                      border: '1px solid rgba(139,92,246,0.2)'
-                    }}>
-                      ✨ {item.addons}
-                    </span>
-                  )}
-                  
-                  {/* OPTION TYPE (Drink temp) */}
-                  {item.option_type && (
-                    <span style={{ 
-                      fontSize: isMobile ? '8px' : '9px', 
-                      color: textMuted,
-                      background: secondaryBg,
-                      padding: '1px 6px',
-                      borderRadius: '12px'
-                    }}>
-                      {item.option_type === 'Panas' ? '🔥' : 
-                       item.option_type === 'Sejuk' ? '🧊' : 
-                       item.option_type === 'Bungkus' ? '📦' : ''}
-                      {item.option_type}
-                    </span>
-                  )}
-                  
-                  {/* SIZE */}
-                  {item.size && (
-                    <span style={{ 
-                      fontSize: isMobile ? '8px' : '9px', 
-                      color: '#f59e0b',
-                      background: secondaryBg,
-                      padding: '1px 6px',
-                      borderRadius: '12px'
-                    }}>
-                      📏 {item.size}
-                    </span>
-                  )}
-                  
-                  {/* CATEGORY ICON */}
-                  {item.category && (
-                    <span style={{ 
-                      fontSize: isMobile ? '8px' : '9px', 
-                      color: isDrinkCategory(item.category) ? '#3b82f6' : '#f59e0b',
-                      background: secondaryBg,
-                      padding: '1px 6px',
-                      borderRadius: '12px'
-                    }}>
-                      {isDrinkCategory(item.category) ? '🥤' : '🍚'}
-                    </span>
-                  )}
                 </div>
+                
                 <span style={{ 
-                  color: isFree ? '#22c55e' : priceColor, 
-                  fontWeight: isFree ? 'bold' : 'bold', 
-                  fontSize: isMobile ? '12px' : '13px' 
+                  fontSize: isMobile ? '11px' : '12px', 
+                  color: textMuted,
+                  fontWeight: '500'
                 }}>
-                  {isFree ? 'RM 0.00' : `RM ${(item.price * item.quantity).toFixed(2)}`}
+                  ×{item.quantity}
                 </span>
               </div>
             )
           })}
         </div>
         
-        {/* TOTAL */}
+        {/* 🔥 TOTAL - TUNJUK BILANGAN ITEM, BUKAN HARGA */}
         <div style={{ 
           textAlign: 'right', 
           marginBottom: showActionButtons ? '12px' : '0',
@@ -812,41 +689,13 @@ function KitchenApp() {
             fontSize: isMobile ? '14px' : '16px', 
             color: textColor 
           }}>
-            {t('total')}: <span style={{ color: priceColor }}>RM {order.total?.toFixed(2) || '0.00'}</span>
+            🍽️ {kitchenItems.length} {t('items')}
           </span>
-          {hasBundle && (
-            <span style={{ 
-              marginLeft: '12px',
-              fontSize: isMobile ? '10px' : '12px',
-              color: bundleColor,
-              background: 'rgba(139,92,246,0.1)',
-              padding: '2px 10px',
-              borderRadius: '20px'
-            }}>
-              📦 {t('bundle')}
-            </span>
-          )}
-          {hasPromoItems && !hasBundle && (
-            <span style={{ 
-              marginLeft: '12px',
-              fontSize: isMobile ? '10px' : '12px',
-              color: promoColor,
-              background: 'rgba(239,68,68,0.1)',
-              padding: '2px 10px',
-              borderRadius: '20px'
-            }}>
-              🔥 {t('promo')}
-            </span>
-          )}
         </div>
         
-        {/* ============================================================
-            BUTTON ACTIONS
-            ============================================================ */}
+        {/* BUTTON ACTIONS */}
         {showActionButtons && (
           <div style={{ display: 'flex', gap: '10px', marginTop: '8px', flexWrap: 'wrap' }}>
-            
-            {/* 🔥 BARU: Untuk order yang baru masuk (status: 'pending') */}
             {order.status === 'pending' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'preparing')} 
@@ -869,7 +718,6 @@ function KitchenApp() {
               </button>
             )}
             
-            {/* Sedia ada: Untuk order yang dah diambil (status: 'confirmed') */}
             {order.status === 'confirmed' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'preparing')} 
@@ -926,11 +774,10 @@ function KitchenApp() {
                 fontWeight: 'bold',
                 fontSize: isMobile ? '12px' : '13px'
               }}>
-                ✅ Sedia untuk bayaran di Staff App
+                ✅ {t('ready_to_collect')}
               </div>
             )}
             
-            {/* Button Batal - SEMBUNYI untuk 'pending' dan 'ready' */}
             {order.status !== 'completed' && order.status !== 'ready' && order.status !== 'pending' && (
               <button 
                 onClick={() => updateOrderStatus(order.id, 'cancelled')} 
@@ -1048,7 +895,7 @@ function KitchenApp() {
   const tabs = [
     { id: 'food', label: t('food_orders'), icon: '🍚', count: foodOrders.length, color: '#f59e0b' },
     { id: 'drink', label: t('drink_orders'), icon: '🥤', count: drinkOrders.length, color: '#3b82f6' },
-    { id: 'confirmed', label: ' Disahkan', icon: '📋', count: confirmedOrders.length, color: '#8b5cf6' },
+    { id: 'confirmed', label: t('confirmed_orders'), icon: '📋', count: confirmedOrders.length, color: '#8b5cf6' },
     { id: 'preparing', label: t('preparing_orders'), icon: '🔪', count: preparingOrders.length, color: '#f97316' },
     { id: 'ready', label: t('ready_orders'), icon: '✅', count: readyOrders.length, color: '#22c55e' },
     { id: 'completed', label: t('completed_orders'), icon: '📦', count: completedOrders.length, color: '#6c757d' },
@@ -1401,7 +1248,7 @@ function KitchenApp() {
               }}>
                 <span style={{ fontSize: isMobile ? '48px' : '72px', opacity: 0.5 }}>📋</span>
                 <h3 style={{ color: textColor, marginTop: '12px', fontSize: isMobile ? '16px' : '18px' }}>
-                  Tiada pesanan disahkan
+                  {t('no_confirmed_orders')}
                 </h3>
               </div>
             ) : (
@@ -1538,17 +1385,13 @@ function KitchenApp() {
                         color: textMuted, 
                         marginTop: '2px' 
                       }}>
-                        {order.items?.map((i, idx) => `${i.quantity}x ${i.name}${i.isFree ? ' 🎁' : ''}`).join(', ')}
+                        {order.items?.map((i, idx) => {
+                          const itemName = formatKitchenItem(i)
+                          return `${i.quantity}x ${itemName}`
+                        }).join(', ')}
                       </div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
-                      <div style={{ 
-                        fontWeight: 'bold', 
-                        color: priceColor, 
-                        fontSize: isMobile ? '14px' : '16px' 
-                      }}>
-                        RM {order.total?.toFixed(2) || '0.00'}
-                      </div>
                       <div style={{ 
                         fontSize: isMobile ? '9px' : '10px', 
                         color: textMuted 

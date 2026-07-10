@@ -11,61 +11,61 @@ function KitchenApp() {
   const { language } = useLanguage()
   
   // ============================================================
-  // TRANSLATIONS - RINGKAS
+  // TRANSLATIONS - TANPA EMOJI (EMOJI DITAMBAH DI RENDER)
   // ============================================================
   const translations = {
-    kitchen_title: { en: '🍳 Digital Kitchen', ms: 'Dapur Digital' },
+    kitchen_title: { en: 'Digital Kitchen', ms: 'Dapur Digital' },
     kitchen_subtitle: { en: 'Manage food & drink orders', ms: 'Urus pesanan makanan & minuman' },
-    sound_on: { en: '🔊 Sound ON', ms: 'Bunyi ON' },
-    sound_off: { en: '🔇 Sound OFF', ms: 'Bunyi OFF' },
-    sound_test: { en: '🔊 Test Sound', ms: 'Uji Bunyi' },
-    refresh: { en: '🔄 Refresh', ms: 'Muat Semula' },
-    complete_all: { en: '✅ Complete All', ms: 'Selesaikan Semua' },
-    go_to_settings: { en: '⚙️ Settings', ms: 'Tetapan' },
-    search_orders: { en: '🔍 Search orders...', ms: 'Cari pesanan...' },
-    all_orders: { en: '📋 All', ms: 'Semua' },
-    dine_in: { en: '🍽️ Dine-in', ms: 'Makan di sini' },
-    take_away: { en: '🥡 Take Away', ms: 'Bungkus' },
-    confirmed_orders: { en: '✅ Confirmed', ms: 'Disahkan' },
-    preparing_orders: { en: '🔪 Cooking', ms: 'Memasak' },
-    ready_orders: { en: '✅ Ready', ms: 'Sedia' },
-    completed_orders: { en: '📦 Done', ms: 'Selesai' },
-    food_orders: { en: '🍚 Food', ms: 'Makanan' },
-    drink_orders: { en: '🥤 Drinks', ms: 'Minuman' },
-    no_food_orders: { en: '📭 No food orders', ms: 'Tiada pesanan makanan' },
-    no_drink_orders: { en: '📭 No drink orders', ms: 'Tiada pesanan minuman' },
-    no_confirmed_orders: { en: '📭 No confirmed orders', ms: 'Tiada pesanan disahkan' },
-    no_preparing_orders: { en: '📭 No orders cooking', ms: 'Tiada pesanan dimasak' },
-    no_ready_orders: { en: '📭 No ready orders', ms: 'Tiada pesanan sedia' },
-    no_completed_orders: { en: '📭 No completed orders', ms: 'Tiada pesanan selesai' },
-    start_cooking: { en: '🔪 Start Cooking', ms: 'Mula Masak' },
-    finish_cooking: { en: '✅ Finish Cooking', ms: 'Selesai Masak' },
-    complete: { en: '✅ Complete', ms: 'Selesai' },
-    cancelled: { en: '❌ Cancelled', ms: 'Dibatalkan' },
-    cancel: { en: '❌ Cancel', ms: 'Batal' },
-    accept_and_cook: { en: '✅ Accept & Start Cooking', ms: 'Terima & Mula Masak' },
-    error_updating: { en: '❌ Error updating order!', ms: 'Ralat kemaskini pesanan!' },
-    no_orders_to_complete: { en: '📭 No orders to complete', ms: 'Tiada pesanan untuk diselesaikan' },
-    orders_completed: { en: '✅ orders completed!', ms: 'pesanan selesai!' },
+    sound_on: { en: 'Sound ON', ms: 'Bunyi ON' },
+    sound_off: { en: 'Sound OFF', ms: 'Bunyi OFF' },
+    sound_test: { en: 'Test Sound', ms: 'Uji Bunyi' },
+    refresh: { en: 'Refresh', ms: 'Muat Semula' },
+    complete_all: { en: 'Complete All', ms: 'Selesaikan Semua' },
+    go_to_settings: { en: 'Settings', ms: 'Tetapan' },
+    search_orders: { en: 'Search orders...', ms: 'Cari pesanan...' },
+    all_orders: { en: 'All', ms: 'Semua' },
+    dine_in: { en: 'Dine-in', ms: 'Makan di sini' },
+    take_away: { en: 'Take Away', ms: 'Bungkus' },
+    confirmed_orders: { en: 'Confirmed', ms: 'Disahkan' },
+    preparing_orders: { en: 'Cooking', ms: 'Memasak' },
+    ready_orders: { en: 'Ready', ms: 'Sedia' },
+    completed_orders: { en: 'Done', ms: 'Selesai' },
+    food_orders: { en: 'Food', ms: 'Makanan' },
+    drink_orders: { en: 'Drinks', ms: 'Minuman' },
+    no_food_orders: { en: 'No food orders', ms: 'Tiada pesanan makanan' },
+    no_drink_orders: { en: 'No drink orders', ms: 'Tiada pesanan minuman' },
+    no_confirmed_orders: { en: 'No confirmed orders', ms: 'Tiada pesanan disahkan' },
+    no_preparing_orders: { en: 'No orders cooking', ms: 'Tiada pesanan dimasak' },
+    no_ready_orders: { en: 'No ready orders', ms: 'Tiada pesanan sedia' },
+    no_completed_orders: { en: 'No completed orders', ms: 'Tiada pesanan selesai' },
+    start_cooking: { en: 'Start Cooking', ms: 'Mula Masak' },
+    finish_cooking: { en: 'Finish Cooking', ms: 'Selesai Masak' },
+    complete: { en: 'Complete', ms: 'Selesai' },
+    cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
+    cancel: { en: 'Cancel', ms: 'Batal' },
+    accept_and_cook: { en: 'Accept & Start Cooking', ms: 'Terima & Mula Masak' },
+    error_updating: { en: 'Error updating order!', ms: 'Ralat kemaskini pesanan!' },
+    no_orders_to_complete: { en: 'No orders to complete', ms: 'Tiada pesanan untuk diselesaikan' },
+    orders_completed: { en: 'orders completed!', ms: 'pesanan selesai!' },
     confirm_complete_all: { en: 'Complete all orders?', ms: 'Selesaikan semua pesanan?' },
-    cooking_started: { en: '🔪 Cooking started!', ms: 'Mula memasak!' },
-    cooking_finished: { en: '✅ Cooking finished!', ms: 'Selesai memasak!' },
-    order_completed: { en: '✅ Order completed!', ms: 'Pesanan selesai!' },
-    order_cancelled: { en: '❌ Order cancelled!', ms: 'Pesanan dibatalkan!' },
-    waiting: { en: '⏱️ Waiting', ms: 'Menunggu' },
+    cooking_started: { en: 'Cooking started!', ms: 'Mula memasak!' },
+    cooking_finished: { en: 'Cooking finished!', ms: 'Selesai memasak!' },
+    order_completed: { en: 'Order completed!', ms: 'Pesanan selesai!' },
+    order_cancelled: { en: 'Order cancelled!', ms: 'Pesanan dibatalkan!' },
+    waiting: { en: 'Waiting', ms: 'Menunggu' },
     total: { en: 'Total', ms: 'Jumlah' },
-    note: { en: '📝 Note', ms: 'Nota' },
+    note: { en: 'Note', ms: 'Nota' },
     table: { en: 'Table', ms: 'Meja' },
     just_now: { en: 'Just now', ms: 'Baru sahaja' },
     guest: { en: 'Guest', ms: 'Tetamu' },
-    kitchen_disabled: { en: '🍳 Digital Kitchen Disabled', ms: 'Dapur Digital Dimatikan' },
+    kitchen_disabled: { en: 'Digital Kitchen Disabled', ms: 'Dapur Digital Dimatikan' },
     kitchen_disabled_desc: { en: 'Please enable digital kitchen in Settings', ms: 'Sila aktifkan dapur digital di Tetapan' },
     minutes_short: { en: 'm', ms: 'm' },
     hours_short: { en: 'h', ms: 'j' },
     customer_phone: { en: 'Phone', ms: 'Telefon' },
-    new_order: { en: '🆕 New order!', ms: 'Pesanan baru!' },
+    new_order: { en: 'New order!', ms: 'Pesanan baru!' },
     order_waiting: { en: 'orders waiting', ms: 'pesanan menunggu' },
-    confirmed: { en: '✅ Confirmed', ms: 'Disahkan' },
+    confirmed: { en: 'Confirmed', ms: 'Disahkan' },
     items: { en: 'items', ms: 'item' },
     ready_to_collect: { en: 'Ready - Please collect', ms: 'Sedia - Sila ambil' },
   }
@@ -133,12 +133,11 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // 🔥 FORMAT ITEM UNTUK KITCHEN - RINGKAS SAHAJA
+  // FORMAT ITEM UNTUK KITCHEN - RINGKAS SAHAJA
   // ============================================================
   const formatKitchenItem = (item) => {
     let name = item.name || 'Unknown Item'
     
-    // Tambah option (untuk minuman)
     if (item.option_type) {
       const optionLabel = item.option_type === 'Panas' ? '🔥 Panas' :
                           item.option_type === 'Sejuk' ? '🧊 Sejuk' :
@@ -146,17 +145,14 @@ function KitchenApp() {
       name = `${name} (${optionLabel})`
     }
     
-    // Tambah option_name (untuk size)
     if (item.option_name) {
       name = `${name} [${item.option_name}]`
     }
     
-    // Tambah size
     if (item.size) {
       name = `${name} [${item.size}]`
     }
     
-    // Tambah addons
     if (item.addons) {
       name = `${name} ✨${item.addons}`
     }
@@ -258,7 +254,7 @@ function KitchenApp() {
   }, [kitchenEnabled])
 
   // ============================================================
-  // LOAD ORDERS - Pisah Makanan & Minuman
+  // LOAD ORDERS
   // ============================================================
   async function loadOrders() {
     try {
@@ -336,7 +332,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // UPDATE ORDER STATUS - BLOCK 'completed' DARI KITCHEN
+  // UPDATE ORDER STATUS
   // ============================================================
   async function updateOrderStatus(orderId, status) {
     if (status === 'completed' || status === ORDER_STATUS.COMPLETED) {
@@ -501,7 +497,7 @@ function KitchenApp() {
   }
 
   // ============================================================
-  // 🔥 RENDER ORDER CARD - RINGKAS UNTUK DAPUR
+  // RENDER ORDER CARD - RINGKAS UNTUK DAPUR
   // ============================================================
   const renderOrderCard = (order, showActionButtons = true) => {
     const waitingColor = getWaitingColor(order.created_at)
@@ -538,7 +534,7 @@ function KitchenApp() {
             : '0 8px 32px rgba(0,0,0,0.06)'
         }}
       >
-        {/* HEADER */}
+        {/* HEADER - SATU EMOJI SAHAJA */}
         <div style={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
@@ -636,7 +632,7 @@ function KitchenApp() {
           </div>
         )}
         
-        {/* 🔥 ITEMS LIST - RINGKAS UNTUK DAPUR (TANPA HARGA & PROMO) */}
+        {/* ITEMS LIST - RINGKAS UNTUK DAPUR */}
         <div style={{ 
           margin: '12px 0', 
           borderTop: `1px solid ${borderColor}`, 
@@ -677,7 +673,7 @@ function KitchenApp() {
           })}
         </div>
         
-        {/* 🔥 TOTAL - TUNJUK BILANGAN ITEM, BUKAN HARGA */}
+        {/* TOTAL - TUNJUK BILANGAN ITEM, BUKAN HARGA */}
         <div style={{ 
           textAlign: 'right', 
           marginBottom: showActionButtons ? '12px' : '0',

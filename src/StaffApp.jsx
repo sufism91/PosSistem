@@ -16,22 +16,22 @@ function StaffApp() {
   const { language } = useLanguage()
   
   // ============================================================
-  // TRANSLATIONS
+  // TRANSLATIONS - TANPA EMOJI (EMOJI DITAMBAH DI RENDER)
   // ============================================================
   const t = (key) => {
     const translations = {
-      pos: { en: '🧾 POS', ms: 'Jualan' },
-      new_order: { en: '🆕 New Orders', ms: 'Pesanan Baru' },
-      unpaid: { en: '💰 Unpaid', ms: 'Belum Bayar' },
-      history: { en: '📜 History', ms: 'Sejarah' },
-      dine_in: { en: '🍽️ Dine In', ms: 'Makan di Sini' },
-      take_away: { en: '🥡 Take Away', ms: 'Bungkus' },
+      pos: { en: 'POS', ms: 'Jualan' },
+      new_order: { en: 'New Orders', ms: 'Pesanan Baru' },
+      unpaid: { en: 'Unpaid', ms: 'Belum Bayar' },
+      history: { en: 'History', ms: 'Sejarah' },
+      dine_in: { en: 'Dine In', ms: 'Makan di Sini' },
+      take_away: { en: 'Take Away', ms: 'Bungkus' },
       table: { en: 'Table', ms: 'Meja' },
       customer_name: { en: 'Customer', ms: 'Pelanggan' },
       customer_phone: { en: 'Phone', ms: 'Telefon' },
       table_number: { en: 'Table No.', ms: 'No. Meja' },
       add: { en: 'Add', ms: 'Tambah' },
-      cart: { en: '🛒 Cart', ms: 'Keranjang' },
+      cart: { en: 'Cart', ms: 'Keranjang' },
       empty_cart: { en: 'Cart is empty', ms: 'Keranjang kosong' },
       subtotal: { en: 'Subtotal', ms: 'Subtotal' },
       service_charge: { en: 'Service Charge', ms: 'Caj Perkhidmatan' },
@@ -48,11 +48,11 @@ function StaffApp() {
       save: { en: 'Save', ms: 'Simpan' },
       payment_received: { en: 'Payment received', ms: 'Bayaran diterima' },
       refresh: { en: 'Refresh', ms: 'Segar' },
-      sound_test: { en: '🔊 Test Sound', ms: 'Uji Bunyi' },
+      sound_test: { en: 'Test Sound', ms: 'Uji Bunyi' },
       no_data: { en: 'No data', ms: 'Tiada data' },
       guest: { en: 'Guest', ms: 'Tetamu' },
-      all_categories: { en: '📋 All', ms: 'Semua' },
-      order_added: { en: '✅ Added!', ms: 'Ditambah!' },
+      all_categories: { en: 'All', ms: 'Semua' },
+      order_added: { en: 'Added!', ms: 'Ditambah!' },
       cart_empty_msg: { en: 'Cart is empty', ms: 'Keranjang kosong' },
       confirm_clear_cart: { en: 'Clear cart?', ms: 'Kosongkan keranjang?' },
       order_cancelled: { en: 'Cancelled', ms: 'Dibatalkan' },
@@ -67,10 +67,10 @@ function StaffApp() {
       receipt_qty: { en: 'Qty', ms: 'Kuantiti' },
       receipt_price: { en: 'Price', ms: 'Harga' },
       receipt_total: { en: 'TOTAL', ms: 'JUMLAH' },
-      print_receipt: { en: '🖨️ Print', ms: 'Cetak' },
-      preview_receipt: { en: '🧾 Preview', ms: 'Preview' },
+      print_receipt: { en: 'Print', ms: 'Cetak' },
+      preview_receipt: { en: 'Preview', ms: 'Preview' },
       view_order: { en: 'View', ms: 'Lihat' },
-      mark_paid: { en: '💰 Mark Paid', ms: 'Tanda Bayar' },
+      mark_paid: { en: 'Mark Paid', ms: 'Tanda Bayar' },
       close: { en: 'Close', ms: 'Tutup' },
       back: { en: 'Back', ms: 'Kembali' },
       payment_method_label: { en: 'Payment', ms: 'Bayaran' },
@@ -84,24 +84,24 @@ function StaffApp() {
       last: { en: 'Last', ms: 'Terakhir' },
       items: { en: 'items', ms: 'item' },
       select_drink: { en: 'Select drink temp', ms: 'Pilih suhu minuman' },
-      clear_cart: { en: '🗑️ Clear', ms: 'Kosongkan' },
-      new_orders_title: { en: '🔔 New Orders', ms: 'Pesanan Baru' },
-      unpaid_orders_title: { en: '💰 Unpaid', ms: 'Belum Bayar' },
-      history_title: { en: '📜 History', ms: 'Sejarah' },
+      clear_cart: { en: 'Clear', ms: 'Kosongkan' },
+      new_orders_title: { en: 'New Orders', ms: 'Pesanan Baru' },
+      unpaid_orders_title: { en: 'Unpaid', ms: 'Belum Bayar' },
+      history_title: { en: 'History', ms: 'Sejarah' },
       pos_title: { en: 'Point of Sale', ms: 'Tempat Jualan' },
       pos_subtitle: { en: 'Take orders & manage payments', ms: 'Ambil pesanan & urus bayaran' },
-      search_menu: { en: '🔍 Search menu...', ms: 'Cari menu...' },
-      order_details: { en: '📋 Order Details', ms: 'Butiran Pesanan' },
+      search_menu: { en: 'Search menu...', ms: 'Cari menu...' },
+      order_details: { en: 'Order Details', ms: 'Butiran Pesanan' },
       select_drink_option: { en: 'Select Drink Option', ms: 'Pilih Pilihan Minuman' },
       select_size_option: { en: 'Select Size', ms: 'Pilih Saiz' },
       hot: { en: 'Hot', ms: 'Panas' },
       cold: { en: 'Cold', ms: 'Sejuk' },
       packed: { en: 'Packed', ms: 'Bungkus' },
       notes: { en: 'Notes', ms: 'Nota' },
-      promo: { en: '🔥 Promo', ms: 'Promosi' },
-      bogo: { en: '🎁 BOGO', ms: 'Beli 1 Percuma 1' },
-      bundle: { en: '📦 Bundle', ms: 'Bundle' },
-      set_menu: { en: '🍽️ Set Menu', ms: 'Set Menu' },
+      promo: { en: 'Promo', ms: 'Promosi' },
+      bogo: { en: 'BOGO', ms: 'Beli 1 Percuma 1' },
+      bundle: { en: 'Bundle', ms: 'Bundle' },
+      set_menu: { en: 'Set Menu', ms: 'Set Menu' },
       free: { en: 'FREE', ms: 'PERCUMA' },
       select_size: { en: 'Select Size', ms: 'Pilih Saiz' },
       special_request: { en: 'Special request...', ms: 'Permintaan khas...' },
@@ -116,7 +116,7 @@ function StaffApp() {
       ready: { en: 'Ready', ms: 'Siap' },
       preparing: { en: 'Preparing', ms: 'Sedang Siap' },
       stock_label: { en: 'Stock', ms: 'Stok' },
-      addons: { en: '✨ Add-Ons', ms: '✨ Tambahan' },
+      addons: { en: 'Add-Ons', ms: 'Tambahan' },
       addon_optional: { en: 'Add-On (optional)', ms: 'Tambahan (pilihan)' },
       addon_list: { en: 'Add-On List', ms: 'Senarai Tambahan' },
       no_addons: { en: 'No add-ons available', ms: 'Tiada tambahan' },
@@ -477,7 +477,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // 🔥 FIXED: LOAD PROMOTIONS WITH PARSING
+  // LOAD PROMOTIONS WITH PARSING
   // ============================================================
   async function loadPromotions() {
     try {
@@ -489,9 +489,7 @@ function StaffApp() {
         .or(`start_date.is.null,start_date.lte.${now}`)
         .or(`end_date.is.null,end_date.gte.${now}`)
       
-      // 🔥 PARSE DATA
       const parsed = (data || []).map(promo => {
-        // Parse bundle_items
         if (promo.bundle_items) {
           let items = []
           if (typeof promo.bundle_items === 'string') {
@@ -512,7 +510,6 @@ function StaffApp() {
           promo.bundle_items = []
         }
         
-        // Parse trigger_items
         if (promo.trigger_items) {
           let items = []
           if (typeof promo.trigger_items === 'string') {
@@ -533,7 +530,6 @@ function StaffApp() {
           promo.trigger_items = []
         }
         
-        // Parse free_items
         if (promo.free_items) {
           let items = []
           if (typeof promo.free_items === 'string') {
@@ -559,13 +555,6 @@ function StaffApp() {
       
       setPromotions(parsed)
       console.log('✅ Promotions loaded:', parsed.length, 'active promotions')
-      console.log('📋 Promotions:', parsed.map(p => ({
-        id: p.id,
-        name: p.name,
-        type: p.type,
-        bundle_items: p.bundle_items?.map(i => i.name).join(' + ') || 'none',
-        bundle_price: p.bundle_price
-      })))
     } catch (err) { 
       console.error('Error loading promotions:', err) 
     }
@@ -711,7 +700,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // 🔥 FIXED: GET ITEM PROMOTION WITH PROPER ID MATCHING
+  // GET ITEM PROMOTION WITH PROPER ID MATCHING
   // ============================================================
   function getItemPromotion(item) {
     if (!item) return null
@@ -763,7 +752,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // 🔥 FIXED: GET BUNDLE PROMO FOR CART
+  // GET BUNDLE PROMO FOR CART
   // ============================================================
   function getBundlePromoForCart(cartItems) {
     if (!cartItems || cartItems.length === 0) return null
@@ -811,7 +800,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== CLEAN CATEGORY NAME =====
+  // CLEAN CATEGORY NAME
   // ============================================================
   const cleanCategoryName = (name) => {
     if (!name) return name
@@ -819,14 +808,14 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== GET SORTED CATEGORIES =====
+  // GET SORTED CATEGORIES
   // ============================================================
   const getSortedCategories = () => {
     return [...categories].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
   }
 
   // ============================================================
-  // ===== GET FILTERED MENU =====
+  // GET FILTERED MENU
   // ============================================================
   const getFilteredMenu = () => {
     let filtered = [...menu]
@@ -859,7 +848,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== GROUP MENU BY CATEGORY =====
+  // GROUP MENU BY CATEGORY
   // ============================================================
   const getGroupedMenuByCategory = (menuItems) => {
     if (selectedCategory !== 'All') return null
@@ -1078,7 +1067,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // ===== SEND ORDER =====
+  // SEND ORDER
   // ============================================================
   const sendOrder = async () => {
     if (cart.length === 0) { toast.error(t('cart_empty_msg')); return }
@@ -1105,7 +1094,6 @@ function StaffApp() {
     const bundleInCart = getBundlePromoForCart(cart)
     const hasBundle = bundleInCart !== null
     
-    // 🔥 Include promo details
     const orderData = {
       order_number: orderNumber,
       items: cart.map(item => ({
@@ -1617,7 +1605,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // 🔥 RENDER MENU ITEM CARD - WITH PROMO DETAILS
+  // RENDER MENU ITEM CARD
   // ============================================================
   const renderMenuItemCard = (item) => {
     const hasDrinkOpts = getDrinkOptionsForItem(item).length > 0
@@ -1658,7 +1646,7 @@ function StaffApp() {
         displayOriginalPrice = item.price
         isPromoItem = true
         savings = bundleInCart.savings
-        promoLabel = '📦 BUNDLE'
+        promoLabel = '📦 Bundle'
         bundleItemsDisplay = bundleInCart.bundleItems.map(i => i.name).join(' + ')
       }
     }
@@ -1668,7 +1656,7 @@ function StaffApp() {
       displayOriginalPrice = item.price
       isPromoItem = true
       savings = item.price - promoPrice
-      promoLabel = promo?.type === 'bogo' ? '🎁 BOGO' : '🔥 PROMO'
+      promoLabel = promo?.type === 'bogo' ? '🎁 BOGO' : '🔥 Promo'
     }
     
     return (
@@ -1790,7 +1778,7 @@ function StaffApp() {
           {item.name}
         </div>
         
-        {/* 🔥 SHOW BUNDLE ITEMS */}
+        {/* SHOW BUNDLE ITEMS */}
         {bundleInCart && isInBundle && bundleItemsDisplay && (
           <div style={{
             marginTop: '4px',
@@ -2432,7 +2420,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // 🔥 ITEM MODAL - WITH PROMO DETAILS
+  // ITEM MODAL
   // ============================================================
   const renderItemModal = () => {
     if (!selectedItem) return null
@@ -2513,7 +2501,7 @@ function StaffApp() {
             {selectedItem.name}
           </h2>
           
-          {/* 🔥 PROMO DETAIL */}
+          {/* PROMO DETAIL */}
           {promoDetail && (
             <div style={{
               background: 'rgba(239,68,68,0.08)',
@@ -2842,7 +2830,7 @@ function StaffApp() {
   }
 
   // ============================================================
-  // 🔥 PAYMENT MODAL - WITH PROMO DETAILS
+  // PAYMENT MODAL
   // ============================================================
   const renderPaymentModal = () => {
     if (!showPaymentModal || !selectedOrder) return null
@@ -2852,7 +2840,6 @@ function StaffApp() {
     const tax = subtotal * (settings.tax / 100)
     const grandTotal = subtotal + serviceCharge + tax
     
-    const hasPromo = selectedOrder.has_bundle === true || selectedOrder.promo_applied === true
     const bundlePromo = selectedOrder.bundle_promo || null
     
     return (
@@ -2877,7 +2864,7 @@ function StaffApp() {
             <p style={{ color: textMuted, fontSize: '13px' }}>{selectedOrder.customer_name || t('guest')}</p>
           </div>
           
-          {/* 🔥 SHOW BUNDLE PROMO */}
+          {/* SHOW BUNDLE PROMO */}
           {bundlePromo && (
             <div style={{
               background: 'rgba(139,92,246,0.08)',
@@ -2898,7 +2885,7 @@ function StaffApp() {
             </div>
           )}
           
-          {/* 🔥 SHOW ITEMS WITH PROMO LABELS */}
+          {/* SHOW ITEMS WITH PROMO LABELS */}
           <div style={{ 
             background: secondaryBg, 
             padding: '12px 14px', 
@@ -3178,7 +3165,7 @@ function StaffApp() {
     <Sidebar>
       <div style={{ padding: isMobile ? '12px' : '20px', maxWidth: '1600px', margin: '0 auto', background: bgColor, minHeight: '100vh' }}>
         
-        {/* ===== HEADER ===== */}
+        {/* HEADER */}
         <div style={{ ...glassEffect, borderRadius: '20px', padding: isMobile ? '14px 18px' : '18px 24px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
           <div>
             <h1 style={{ margin: 0, color: textColor, fontSize: isMobile ? '18px' : '22px', fontWeight: 'bold' }}>{t('pos_title')}</h1>
@@ -3204,7 +3191,7 @@ function StaffApp() {
           </div>
         </div>
         
-        {/* ===== ORDER TYPE & DETAILS ===== */}
+        {/* ORDER TYPE & DETAILS */}
         <div style={{ ...glassEffect, borderRadius: '16px', padding: isMobile ? '12px 16px' : '16px 20px', marginBottom: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <button onClick={() => setOrderType('dine_in')} style={{ padding: '6px 14px', background: orderType === 'dine_in' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: orderType === 'dine_in' ? 'white' : textColor, border: orderType === 'dine_in' ? 'none' : `1px solid ${borderColor}`, borderRadius: '30px', cursor: 'pointer', fontSize: isMobile ? '10px' : '12px', fontWeight: 'bold' }}>🍽️ {t('dine_in')}</button>
@@ -3217,9 +3204,11 @@ function StaffApp() {
           <input type="tel" placeholder={t('customer_phone')} value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} style={{ padding: '8px 14px', borderRadius: '12px', border: `1px solid ${borderColor}`, background: inputBg, color: textColor, flex: 1, minWidth: '120px', outline: 'none', fontSize: '13px' }} />
         </div>
         
-        {/* ===== TOP TABS ===== */}
+        {/* TOP TABS - SATU EMOJI SAHAJA */}
         <div style={{ display: 'flex', gap: '4px', marginBottom: '16px', background: darkMode ? 'rgba(30,30,46,0.5)' : 'rgba(0,0,0,0.03)', borderRadius: '50px', padding: '4px', overflowX: 'auto', flexWrap: 'nowrap' }}>
-          <button onClick={() => setActiveTab('pos')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'pos' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'pos' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'pos' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap' }}>🧾 {t('pos')}</button>
+          <button onClick={() => setActiveTab('pos')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'pos' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'pos' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'pos' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap' }}>
+            🧾 {t('pos')}
+          </button>
           <button onClick={() => setActiveTab('orders')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'orders' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'orders' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'orders' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap', position: 'relative' }}>
             🔔 {t('new_order')}
             {newOrders.length > 0 && <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: 'white', borderRadius: '50%', padding: '1px 6px', fontSize: '9px', fontWeight: 'bold' }}>{newOrders.length}</span>}
@@ -3228,10 +3217,12 @@ function StaffApp() {
             💰 {t('unpaid')}
             {unpaidOrders.length > 0 && <span style={{ position: 'absolute', top: '-4px', right: '-4px', background: '#ef4444', color: 'white', borderRadius: '50%', padding: '1px 6px', fontSize: '9px', fontWeight: 'bold' }}>{unpaidOrders.length}</span>}
           </button>
-          <button onClick={() => setActiveTab('history')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'history' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'history' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'history' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap' }}>📜 {t('history')}</button>
+          <button onClick={() => setActiveTab('history')} style={{ flex: 1, padding: isMobile ? '8px 12px' : '10px 16px', background: activeTab === 'history' ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'transparent', color: activeTab === 'history' ? 'white' : textColor, border: 'none', borderRadius: '50px', cursor: 'pointer', fontWeight: activeTab === 'history' ? 'bold' : '500', fontSize: isMobile ? '11px' : '13px', whiteSpace: 'nowrap' }}>
+            📜 {t('history')}
+          </button>
         </div>
         
-        {/* ===== CONTENT ===== */}
+        {/* CONTENT */}
         {activeTab === 'pos' && (
           <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '16px' }}>
             <div style={{ flex: isMobile ? 1 : 2, minWidth: 0 }}>
@@ -3256,7 +3247,7 @@ function StaffApp() {
         {activeTab === 'unpaid' && renderUnpaidOrders()}
         {activeTab === 'history' && renderHistory()}
         
-        {/* ===== MODALS ===== */}
+        {/* MODALS */}
         {showItemModal && renderItemModal()}
         {renderPaymentModal()}
         {renderReceiptModal()}
